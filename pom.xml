@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>org.lamb.framework</groupId>
+	<artifactId>lamb-framework</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
+	<name>lamb-framework</name>
+	<description>lamb framework</description>
+	<url>https://github.com/MrWangGang</url>
+	<licenses>
+		<license>
+			<name>The Apache Software License, Version 2.0</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+		</license>
+	</licenses>
+	<developers>
+		<developer>
+			<name>wanggang</name>
+			<email>userbean@outlook.com</email>
+		</developer>
+	</developers>
+	<scm>
+		<connection>scm:git:git@github.com/MrWangGang/lamb-framework.git</connection>
+		<developerConnection>scm:git:git@github.com/MrWangGang/lamb-framework.git</developerConnection>
+		<url>git@github.com/MrWangGang/lamb-framework.git</url>
+	</scm>
+
+
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+        <version>2.7.5</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <java.version>17</java.version>
+	</properties>
+    <build>
+		<pluginManagement>
+			<plugins>
+			<plugin>
+			  	<groupId>org.springframework.boot</groupId>
+			  	<artifactId>spring-boot-maven-plugin</artifactId>
+				<version>2.7.5</version>
+			</plugin>
+		  </plugins>
+		</pluginManagement>
+	</build>
+    <dependencies>
+       <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+	</dependencies>
+
+
+    <modules>
+		<module>lamb-framework-common</module>
+		<module>lamb-framework-web-core</module>
+		<module>lamb-framework-web-security</module>
+		<module>lamb-framework-sub-guid</module>
+		<module>lamb-framework-redis</module>
+	</modules>
+</project>
