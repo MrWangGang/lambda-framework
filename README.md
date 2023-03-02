@@ -1,4 +1,8 @@
 # lamb-framework
+借此机会将框架开源,希望能有更多的从业者与我一起完善lamb-framework,让框架变得更加简单和易用。让程序员只关心业务代码，而不用去考虑每个组件的复杂配置。
+尽可能的将公共的功能抽象出来做成组件，
+***每个组件用lamb-framework-sub-xxxx命名形式***
+***每个properties 使用 lamb.xxx.xxx_xxx命名形式***
 ## lamb-framework-sub-redis
 在pom文件中引用下面代码块
 ```		
@@ -49,6 +53,22 @@ lambGUIDFactory.GUID();
    <version>0.0.1-SNAPSHOT</version>
 </dependency>
 ```
+###统一认证
+在请求的headers中添加Auth-Token：xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+可以使用如下的例子来设置token
+```
+@Resource
+private LambPrincipalUtil lambPrincipalUtil;
+
+@GetMapping("/login")
+public Mono login(){  //1
+    User user =  User.builder().age(30).name("王刚").school("兰州理工大学").build();
+    String userJson = JsonUtil.objToString(user);
+    String authToken = lambPrincipalUtil.setPrincipalToToken(userJson);
+    return returning(authToken);
+}
+```
+
 并配置auth和autz的redis-database信息
 ```
 lamb.security.redis.host=47.98.122.4
