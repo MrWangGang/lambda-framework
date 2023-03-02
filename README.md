@@ -112,6 +112,19 @@ principal代表当前用户信息
 
 ## lamb-framework-web-core
 web框架的核心 lamb框架采用了springboot2.7.5并使用了spring boot web-flux响应式web框架,详情见lamb-framework-demo
+因为采用的web-flux，请不要提前订阅你的mono or flux 框架会帮你自动处理 否则无法response给api调用者
+以下代码块是错误示范:
+```
+error code
+
+public class DemoApplication extends LambResponseHandler
+
+@GetMapping("/testSecurity1")
+public Mono testSecurity1(){  
+    userService.getUser().subscribe()
+    return returning();
+}    
+```
 在启动类中添加
 ```
 @SpringBootApplication(scanBasePackages = {"org.lamb.framework","your packages"} )
