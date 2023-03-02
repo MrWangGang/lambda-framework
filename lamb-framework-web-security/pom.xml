@@ -20,7 +20,7 @@
 		</dependency>
 		<dependency>
 			<groupId>org.lamb.framework</groupId>
-			<artifactId>lamb-framework-redis</artifactId>
+			<artifactId>lamb-framework-sub-redis</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
 		<dependency>

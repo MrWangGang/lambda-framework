@@ -2,9 +2,9 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<artifactId>lamb-framework-redis</artifactId>
-	<name>lamb-framework-redis</name>
-	<description>lamb-framework-redis</description>
+	<artifactId>lamb-framework-sub-redis</artifactId>
+	<name>lamb-framework-sub-redis</name>
+	<description>lamb-framework-sub-redis</description>
 
 	<parent>
 		<groupId>org.lamb.framework</groupId>

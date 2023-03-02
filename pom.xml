@@ -66,6 +66,6 @@
 		<module>lamb-framework-web-core</module>
 		<module>lamb-framework-web-security</module>
 		<module>lamb-framework-sub-guid</module>
-		<module>lamb-framework-redis</module>
+		<module>lamb-framework-sub-redis</module>
 	</modules>
 </project>
