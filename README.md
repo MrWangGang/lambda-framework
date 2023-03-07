@@ -1,117 +1,228 @@
-lambframework
+# lamb-framework
+借此机会将框架开源,希望能有更多的从业者与我一起完善lamb-framework,让框架变得更加简单和易用。让程序员只关心业务代码，而不用去考虑每个组件的复杂配置。
+尽可能的将公共的功能抽象出来做成组件，
+***每个组件用lamb-framework-sub-xxxx命名形式***
+***每个properties 使用 lamb.xxx.xxx_xxx命名形式***
+## lamb-framework-sub-redis
+在pom文件中引用下面代码块
+```		
+<dependency>
+	<groupId>org.lamb.framework</groupId>
+	<artifactId>lamb-framework-redis</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+</dependency>
+```
+可以针对多数据源配置,使用LambReactiveRedisOperation.build()方法来切换不同的数据源
+例如:
+```
+    @Resource(name = "lambAuthRedisTemplate")
+    private ReactiveRedisTemplate lambAuthRedisTemplate;
+    
+    LambReactiveRedisOperation.build(lambAuthRedisTemplate).hasKey(authToken);
+```
+## lamb-framework-sub-guid
+在pom文件中引用下面代码块
 
-org lamb devlopment framework
+```		
+<dependency>
+	<groupId>org.lamb.framework</groupId>
+	<artifactId>lamb-framework-guid</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+</dependency>
+```
+引用guid之后你必须配置
+```
+lamb.guid.datacenter_id=xxx
+lamb.guid.machine_id=xxx
+```
+并注入
+```
+@Resource
+private LambGUIDFactory lambGUIDFactory;
+```
+才可使用GUID()方法
+```
+lambGUIDFactory.GUID();
+```
+## lamb-framework-web-security
+在pom文件中引用下面代码块
+```
+<dependency>
+  <groupId>org.lamb.framework</groupId>
+  <artifactId>lamb-framework-web-security</artifactId>
+   <version>0.0.1-SNAPSHOT</version>
+</dependency>
+```
+###统一认证
+在请求的headers中添加Auth-Token：xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+可以使用如下的例子来设置token
+```
+@Resource
+private LambPrincipalUtil lambPrincipalUtil;
 
-自己写的框架代码,整合了spring boot2 webflux , spring security ，swagger,spring data redis 和 webflux 的handle级别全局异常拦截和规范 持久层框架使用了mybatis tk.mapper作为插件，减少开发成本
-
-框架核心配置
-
-在你的父pom中 依赖框架
-
-<parent>
-    <groupId>org.lamb.framework</groupId>
-    <artifactId>lamb-framework</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <relativePath/> <!-- lookup parent from repository -->
-</parent>.
-
-
-
-
-
-
-
-并加入依赖lamb的核心组件
-    <dependency>
-        <groupId>org.lamb.framework</groupId>
-        <artifactId>lamb-framework-core</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
-    </dependency>
-#框架配置 #自定义自定义异常 全局异常父类 org.lamb.framework.common.exception.basic.GlobalException 对于子项目来说 你的自定义异常应该继承这个父类，才会被拦截 public class ProcessException extends GlobalException {
-
-public ProcessException(ProcessExceptionEnum error) {
-    super(error.getCode(),error.getMessage());
+@GetMapping("/login")
+public Mono login(){  //1
+    User user =  User.builder().age(30).name("王刚").school("兰州理工大学").build();
+    String userJson = JsonUtil.objToString(user);
+    String authToken = lambPrincipalUtil.setPrincipalToToken(userJson);
+    return returning(authToken);
 }
-} 这是一个例子,重载父类的构造方法,已枚举的形式去抛出异常,会显得更加优雅 例如 throw new EventException(EA00000007)
+```
 
-#swagger配置 在spring boot 启动类上加入注解 @EnableLambSwagger来开启注解 如果需要自定义配置请先重载org.lamb.framework.core.config.LambSwaggerConfig父类
+并配置auth和autz的redis-database信息
+```
+lamb.security.redis.host=47.98.122.4
+lamb.security.redis.password=XXXXXXXXXXXX
+#default
+lamb.security.redis.port=6379
+lamb.security.redis.lettuce.pool.max_active=8
+lamb.security.redis.lettuce.pool.max_wait_seconds=50
+lamb.security.redis.lettuce.pool.max_idle=8
+lamb.security.redis.lettuce.pool.min_idle=0
+```
+lamb-security已经写好了统一身份认证,无论是多服务和单机应用程序都都可以使用auth-token的形式登陆
+在引用lamb-security后你需要在properties配置文件中配置你的auth认证的redis数据库和autz授权redis数据库
+lamb-security默认使用redis来存储用户的auth-token和request path权限信息。
+如果需要更改auth-token和request path权限信息的存储位置,可以重新配置bean
+例如：
+```
+    lambCustomAuthManager extends LambAuthManager
+    
+    lambCustomAutzManager extends LambAutzManager
+    
+```
+重写父类的方法覆盖掉逻辑并注入
 
-public  ApiInfo apiInfo(ApiInfoBuilder apiInfoBuilder){
-    return null;
-};
+```
+    
+    @Bean
+    public LambAutzManager lambCustomAutzManager(LambCustomAuthManager lambCustomAuthManager){
+        return new LambCustomAutzManager(lambCustomAuthManager) {
+            @Override
+            public boolean verify(String currentPathAutzTree, String principal) {
+	    	//your code 
+                return true;
+            }
+        };
+    }
 
-public  List<Parameter> unifiedParameter(ParameterBuilder parameterBuilder){
-    return null;
-};
-这2个方法
+    @Bean
+    public LambAuthManager lambCustomAuthManager(){
+        return new LambCustomAuthManager(){
+            @Override
+            public boolean verify(String principal) {
+	    	//your code 
+                return true;
+            }
+        };
+    }
+```
+如果你不希望更改身份认证校验逻辑，但是需要添加一些个性化的账号校验逻辑，你可以只重写方法来实现.
+```
+LambAuthManager.verify
+```
 
-第一个方法是swagger 首页信息 包括了 作者  开源免费声明  名称等等
-第二个方法是全局请求参数,如果需要,可以加入
-#接口返回统一参数 对于webflux来说接口既有路由的形式也有传统MVC的写法 不管是使用哪种 都先在接口层继承 org.lamb.framework.core.handler.LambHandler
+授权校验的逻辑需要自己去写逻辑,框架提供了verify接口
+```
+LambAutzManager.verify(String currentPathAutzTree,String principal)
+```
+currentPathAutzTree代表当前路径的权限树
+principal代表当前用户信息
+你可以在verify接口中去校验currentPathAutzTree中的角色和权限是否存在于principal
 
-protected Mono<ServerResponse> reactive(Object data){
-    LambResponseTemplete lambResponseTemplete = new LambResponseTemplete(data);
-    return ServerResponse.ok().contentType(APPLICATION_JSON).body(Mono.just(lambResponseTemplete),LambResponseTemplete.class);
+## lamb-framework-web-core
+web框架的核心 lamb框架采用了springboot2.7.5并使用了spring boot web-flux响应式web框架,详情见lamb-framework-demo
+因为采用的web-flux，请不要提前订阅你的mono or flux 框架会帮你自动处理 否则无法response给api调用者
+以下代码块是错误示范:
+```
+error code
+
+public class DemoApplication extends LambResponseHandler
+
+@GetMapping("/testSecurity1")
+public Mono testSecurity1(){  
+    userService.getUser().subscribe()
+    return returning();
+}    
+```
+在启动类中添加
+```
+@SpringBootApplication(scanBasePackages = {"org.lamb.framework","your packages"} )
+@EnableWebFlux
+@RestController
+
+```
+来开启lamb-framework-web-core功能
+框架中已经写好了统一异常，LambGlobalExceptionHandler
+使用这样的形式去抛出自己的异常，否则都为ES000000000
+```
+throw new LambEventException(ES00000099);
+```
+```
+{
+    "serviceCode": "E000000000",
+    "serviceMessage": "操作成功",
+    "data": "lamb.auth.token.c495e2e9e4a32c94d3791f5602d20a97"
 }
-
-protected Mono<ServerResponse> reactive(){
-    LambResponseTemplete lambResponseTemplete = new LambResponseTemplete();
-    return ServerResponse.ok().contentType(APPLICATION_JSON).body(Mono.just(lambResponseTemplete),LambResponseTemplete.class);
+```
+```
+{
+    "serviceCode": "EA00000003",
+    "serviceMessage": "无效令牌"
 }
+```
+你的controller类需要继承LambResponseHandler
+```
+public class DemoApplication extends LambResponseHandler
 
-protected Mono<LambResponseTemplete> returning(Object data){
-    return Mono.just(new LambResponseTemplete(data));
-}
+@GetMapping("/testSecurity1")
+public Mono testSecurity1(){  
+    return returning();
+}    
+```
 
-protected Mono<LambResponseTemplete> returning(){
-    return Mono.just(new LambResponseTemplete());
-}
+你可以使用下面的方法返回你的信息保持返回信息的格式一致性
 
-reactive 是针对路由形式的返回 
-returning是针对传统形式的返回 
+```
+protected Mono<ServerResponse> routing(Collection data)
 
-例如  传统形式 
+    protected Mono<ServerResponse> routing(Object data)
 
-@RequestMapping(value= ApiContract.I000000000,method = RequestMethod.POST,consumes= MediaType.APPLICATION_JSON_VALUE)
-public Mono<LambResponseTemplete> validate(@RequestBody @Valid @NotNull OrderStateMachineParamDTO param){
-    LambPrincipalFactoryContainer.getPrincipal(PrincipalModelEnum.class);
-    return returning(orderService.execute(param));
-}
+    protected Mono<ServerResponse> routing(Mono data) 
 
-这是我写的一个父类的controller 的例子
+    protected Mono<ServerResponse> routing(Flux data)
 
-public abstract class FoundationController extends LambHandler {
-public <T>Mono<LambResponseTemplete> returning(Class clazz,T data){
-    if(data != null){
-        try {
-            return returning(clazz.newInstance());
-        }catch (IllegalAccessException e) {
-            throw new EventException(ES00000002);
-        } catch (InstantiationException e) {
-            throw new EventException(ES00000002);
+    protected Mono<ServerResponse> routing() 
+
+    protected Mono<LambResponseTemplete> returning(Collection data) {
+        return this.handlerFlux(Flux.just(data));
+    }
+
+    protected Mono<LambResponseTemplete> returning(Object data)
+
+    protected Mono<LambResponseTemplete> returning(Mono data)
+
+    protected Mono<LambResponseTemplete> returning(Flux data)
+
+    protected Mono<LambResponseTemplete> returning()
+```
+routing是针对路由形式的返回
+returning是针对标准形式的返回
+下面是路由形式的写法
+```
+   @Bean
+    RouterFunction<ServerResponse> userRouterFunction(UserHandler userHandler) {
+        return RouterFunctions.nest(RequestPredicates.path("/test")
+                ,RouterFunctions.route(RequestPredicates.GET("/testSecurity2"), userHandler::testSecurity2)
+        );
+    }
+
+    //路由写法
+    @Component
+    class UserHandler{
+        public Mono<ServerResponse> testSecurity2(ServerRequest serverRequest) {
+            return routing();
         }
-    };
-    return returning(BeanPlasticityUtill.copy(clazz,data));
-}
-}
+    }
+```
 
-对框架中的方法再度封装 对于service 或者Biz层返回给 前端的参数 应该从DTO转VO 这一步应该自动化处理 所有的接口层返回值 应该使用 Mono 就会统一返回参数
-
-#service的参数校验 在service层放上引入@LambVaild
-@Override 
-@LambValid 
-public DisbOrderCreateResultDTO create(@Valid @NotNull OrderStateMachineTransitionParamDTO param) 
-在方法参数上 加入 @Valid @NotNull 这种 java.vaild标准的参数校验注解
-
-
-#微服务统一授权  基于spring secrut 5 的授权 可用于单点登录 微服务认证授权 简单的配置 即可多个服务使用单TOKEN 授权
-已完成,文档还未写
-#GUID GUID的生成 用于订单号流水号等等，支持分布式集群
-已完成,文档还未写
-
-#状态机 基于状态模式,用于做所有关于状态流转的操作(将状态抽象成一颗树,使用委托和观察者模式设计，优雅的状态树图谱配置和execute绑定)
-已完成,文档还未写
-
-#工作队列
-完成80% 还未写 消费线程和队列进行绑定注册的逻辑
-压测完在补充文档
