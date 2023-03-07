@@ -27,40 +27,49 @@
 		<developerConnection>scm:git:git@github.com/MrWangGang/lamb-framework.git</developerConnection>
 		<url>git@github.com/MrWangGang/lamb-framework.git</url>
 	</scm>
-
-
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
         <version>2.7.5</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>17</java.version>
+		<spring-cloud.version>2021.0.5</spring-cloud.version>
 	</properties>
     <build>
 		<pluginManagement>
 			<plugins>
-			<plugin>
-			  	<groupId>org.springframework.boot</groupId>
-			  	<artifactId>spring-boot-maven-plugin</artifactId>
-				<version>2.7.5</version>
-			</plugin>
-		  </plugins>
+			    <plugin>
+			      	<groupId>org.springframework.boot</groupId>
+			      	<artifactId>spring-boot-maven-plugin</artifactId>
+			    	<configuration>
+			    		<skip>true</skip>
+			    	</configuration>
+			    </plugin>
+			</plugins>
 		</pluginManagement>
 	</build>
-    <dependencies>
-       <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>org.springframework.cloud</groupId>
+				<artifactId>spring-cloud-dependencies</artifactId>
+				<version>${spring-cloud.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+	<dependencies>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
 	</dependencies>
-
-
     <modules>
 		<module>lamb-framework-common</module>
 		<module>lamb-framework-web-core</module>
