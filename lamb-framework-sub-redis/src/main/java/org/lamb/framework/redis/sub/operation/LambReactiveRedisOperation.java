@@ -26,6 +26,10 @@ public class LambReactiveRedisOperation<KEY,T> {
          reactiveRedisTemplate.opsForValue().set(key,t, Duration.ofSeconds(timeout)).subscribe();
     }
 
+    public void set(KEY key, T t){
+        reactiveRedisTemplate.opsForValue().set(key,t).subscribe();
+    }
+
     public void delete(KEY key){
          reactiveRedisTemplate.delete(key).subscribe();
     }
