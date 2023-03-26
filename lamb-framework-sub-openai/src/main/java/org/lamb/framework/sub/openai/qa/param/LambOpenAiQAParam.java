@@ -1,13 +1,13 @@
-package org.lamb.framework.sub.openai.chat.param;
+package org.lamb.framework.sub.openai.qa.param;
 
-import lombok.*;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 import org.lamb.framework.sub.openai.LambOpenAiParam;
 
 @Getter
 @Setter
-public class LambOpenAiChatParam extends LambOpenAiParam {
-
-
+public class LambOpenAiQAParam extends LambOpenAiParam {
     //AI人设
     private String persona;
 
@@ -44,7 +44,7 @@ public class LambOpenAiChatParam extends LambOpenAiParam {
 
 
     @Builder
-    public LambOpenAiChatParam(String persona, String prompt, Double temperature, Double topP, Integer n, Boolean stream, Integer maxTokens, Double presencePenalty, Double frequencyPenalty,Long timeOut, String openAiApiKey, String chatId, String userId) {
+    public LambOpenAiQAParam(String persona, String prompt, Double temperature, Double topP, Integer n, Boolean stream, Integer maxTokens, Double presencePenalty, Double frequencyPenalty, Long timeOut, String openAiApiKey, String chatId, String userId) {
         super(timeOut,openAiApiKey,chatId,userId);
         this.persona = persona;
         this.prompt = prompt;
