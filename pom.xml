@@ -63,5 +63,6 @@
 		<module>lamb-framework-web-security</module>
 		<module>lamb-framework-sub-guid</module>
 		<module>lamb-framework-sub-redis</module>
+		<module>lamb-framework-sub-openai</module>
 	</modules>
 </project>

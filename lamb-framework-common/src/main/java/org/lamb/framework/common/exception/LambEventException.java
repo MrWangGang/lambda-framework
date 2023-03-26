@@ -13,4 +13,8 @@ public class LambEventException extends LambGlobalException {
     public LambEventException(LambExceptionEnum error) {
         super(error.getCode(),error.getMessage());
     }
+
+    public LambEventException(LambExceptionEnum error,String message) {
+        super(error.getCode(),message);
+    }
 }

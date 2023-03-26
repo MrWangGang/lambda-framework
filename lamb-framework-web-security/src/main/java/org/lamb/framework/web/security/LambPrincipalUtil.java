@@ -5,7 +5,7 @@ import org.lamb.framework.common.exception.LambEventException;
 import org.lamb.framework.common.exception.basic.LambGlobalException;
 import org.lamb.framework.common.util.sample.JsonUtil;
 import org.lamb.framework.common.util.sample.MD5Util;
-import org.lamb.framework.redis.sub.operation.LambReactiveRedisOperation;
+import org.lamb.framework.redis.operation.LambReactiveRedisOperation;
 import org.lamb.framework.web.security.container.LambAuthToken;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,7 +15,7 @@ import reactor.core.publisher.Mono;
 import javax.annotation.Resource;
 
 import static org.lamb.framework.common.enums.LambExceptionEnum.*;
-import static org.lamb.framework.web.security.contract.Contract.*;
+import static org.lamb.framework.web.security.contract.LambSecurityContract.*;
 
 /**
  * @description: 获取spring secutiy中的principal
@@ -36,8 +36,8 @@ public class LambPrincipalUtil {
         if(StringUtils.isBlank(principal)){
             throw new LambEventException(EA00000002);
         }
-        String key = LAMB_TOKEN_KEY+ MD5Util.hash(principal+"."+LAMB_AUTH_TOKEN_SALT);
-        LambReactiveRedisOperation.build(lambAuthRedisTemplate).set(key,principal,LAMB_TOKEN_TIME_SECOND.longValue());
+        String key = LAMB_SECURITY_AUTH_TOKEN_KEY+ MD5Util.hash(principal+"."+LAMB_SECURITY_AUTH_TOKEN_SALT);
+        LambReactiveRedisOperation.build(lambAuthRedisTemplate).set(key,principal,LAMB_SECURITY_TOKEN_TIME_SECOND.longValue());
         return key;
     }
 

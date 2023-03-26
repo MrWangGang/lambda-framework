@@ -20,7 +20,7 @@ import java.time.Duration;
 
 import static org.lamb.framework.common.enums.LambExceptionEnum.ES00000080;
 
-public abstract class LambAZRedisSupportConfig {
+public abstract class LambSecurityRedisConfig {
     //##Redis服务器地址
     protected String host;
 

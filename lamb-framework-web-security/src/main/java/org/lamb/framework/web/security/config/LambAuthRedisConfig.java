@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 
 @Configuration
-public class LambAuthRedisConfig extends LambAZRedisSupportConfig {
+public class LambAuthRedisConfig extends LambSecurityRedisConfig {
     //##数据库序号
     private Integer database;
     @Value("${lamb.security.redis.auth.database:0}")

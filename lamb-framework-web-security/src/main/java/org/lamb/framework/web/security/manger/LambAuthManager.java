@@ -3,7 +3,7 @@ package org.lamb.framework.web.security.manger;
 
 import org.apache.commons.lang3.StringUtils;
 import org.lamb.framework.common.exception.LambEventException;
-import org.lamb.framework.redis.sub.operation.LambReactiveRedisOperation;
+import org.lamb.framework.redis.operation.LambReactiveRedisOperation;
 import org.lamb.framework.web.security.container.LambAuthToken;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.security.core.Authentication;
@@ -16,8 +16,8 @@ import java.util.regex.Pattern;
 
 import static org.lamb.framework.common.enums.LambExceptionEnum.*;
 import static org.lamb.framework.common.enums.LambSecurityNamingEnum.AUTH_TOKEN_NAMING;
-import static org.lamb.framework.web.security.contract.Contract.LAMB_AUTH_TOKEN_REGX;
-import static org.lamb.framework.web.security.contract.Contract.LAMB_TOKEN_TIME_SECOND;
+import static org.lamb.framework.web.security.contract.LambSecurityContract.LAMB_SECURITY_AUTH_TOKEN_REGX;
+import static org.lamb.framework.web.security.contract.LambSecurityContract.LAMB_SECURITY_TOKEN_TIME_SECOND;
 
 
 /**
@@ -35,7 +35,7 @@ public abstract class LambAuthManager implements LambSecurityAuthVerify {
         ServerWebExchange exchange = authorizationContext.getExchange();
         String authToken = exchange.getRequest().getHeaders().getFirst(AUTH_TOKEN_NAMING);
         if(StringUtils.isBlank(authToken))throw new LambEventException(EA00000003);
-        if(!(Pattern.compile(LAMB_AUTH_TOKEN_REGX).matcher(authToken).matches()))throw new LambEventException(EA00000007);
+        if(!(Pattern.compile(LAMB_SECURITY_AUTH_TOKEN_REGX).matcher(authToken).matches()))throw new LambEventException(EA00000007);
         //authentication
         //令牌与库中不匹配
         return LambReactiveRedisOperation.build(lambAuthRedisTemplate).hasKey(authToken).onErrorResume(e1->Mono.error(new LambEventException(EA00000003))).flatMap(e -> {
@@ -50,7 +50,7 @@ public abstract class LambAuthManager implements LambSecurityAuthVerify {
             //刷新TOKEN存活时间 保持登陆
             //更新SecurityContext中的Authentication信息
             if(!verify(principal.toString())) return Mono.error(new LambEventException(EA00000000));
-            LambReactiveRedisOperation.build(lambAuthRedisTemplate).expire(authToken, LAMB_TOKEN_TIME_SECOND);
+            LambReactiveRedisOperation.build(lambAuthRedisTemplate).expire(authToken, LAMB_SECURITY_TOKEN_TIME_SECOND);
             return Mono.just(LambAuthToken.builder().principal(principal.toString()).credentials(authToken).authenticated(true).build());
        });
     }

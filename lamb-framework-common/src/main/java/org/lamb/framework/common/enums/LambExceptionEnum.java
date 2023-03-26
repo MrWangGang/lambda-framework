@@ -65,6 +65,7 @@ public enum LambExceptionEnum {
     ES00000062("ES00000062","执行任务->消费者类型错误"),
 
     ES00000080("ES00000080","lamb.security.redis数据库host缺失"),
+    ES00000081("ES00000081","lamb.openai.redis数据库host缺失"),
     ES00000099("ES00000099","方法缺少必入参数"),
 
     //系统异常-spring security 异常 - 權限類異常
@@ -85,7 +86,21 @@ public enum LambExceptionEnum {
 
 
 
-    EI00000000("EI00000000","接口缺少必入参数");
+    EI00000000("EI00000000","接口缺少必入参数"),
+
+    //AI组件相关
+    EAI0000001("EI00000001","不能发送空消息"),
+    EAI0000002("EI00000002","chatId不能为空"),
+    EAI0000003("EI00000003","缺少模型参数"),
+
+    EAI0000004("EI00000004","openAiApiKey不能为空"),
+    EAI0000005("EI00000005","userId不能为空"),
+
+    EAI00000006("EAI00000000","Ai-Api错误"),
+
+    EAI00000007("EAI00000001","加载聊天历史错误"),
+    EAI00000008("EAI00000008","当前会话与chatId不匹配");
+
 
     // 成员变量
     private String code;

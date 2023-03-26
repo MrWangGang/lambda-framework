@@ -1,4 +1,4 @@
-package org.lamb.framework.redis.sub.operation;
+package org.lamb.framework.redis.operation;
 
 
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
