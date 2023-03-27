@@ -99,7 +99,10 @@ public enum LambExceptionEnum {
     EAI00000006("EAI00000000","Ai-Api错误"),
 
     EAI00000007("EAI00000001","加载聊天历史错误"),
-    EAI00000008("EAI00000008","当前会话与uniqueId不匹配");
+    EAI00000008("EAI00000008","当前会话与uniqueId不匹配"),
+
+    EAI0000010("EAI0000009","必须设置responseFormat");
+
 
 
     // 成员变量

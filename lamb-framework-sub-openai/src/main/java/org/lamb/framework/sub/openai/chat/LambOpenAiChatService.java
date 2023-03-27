@@ -37,7 +37,7 @@ public class LambOpenAiChatService implements LambOpenAiChatFunction {
 
 
     @Override
-    public Mono<String> execute(LambOpenAiChatParam param) {
+    public Mono<LambOpenAiMessage> execute(LambOpenAiChatParam param) {
         if(param == null)throw new LambEventException(EAI0000003);
         if(StringUtils.isBlank(param.getPrompt()))throw new LambEventException(EAI0000001);
         if(param.getLambOpenAiUniqueParam() == null)throw new LambEventException(EAI0000002);
@@ -98,7 +98,7 @@ public class LambOpenAiChatService implements LambOpenAiChatFunction {
                         ChatMessage chatMessage = service.createChatCompletion(request).getChoices().get(0).getMessage();
                         lambOpenAiMessages.add(new LambOpenAiMessage(chatMessage.getRole(),chatMessage.getContent(),LambOpenAiContract.currentTime()));
                         LambReactiveRedisOperation.build(lambOpenAiChatRedisTemplate).set(uniqueId,lambOpenAiMessages);
-                        return Mono.just(chatMessage.getContent());
+                        return Mono.just(lambOpenAiMessages.get(lambOpenAiMessages.size()-1));
                     }catch (Throwable throwable){
                         return Mono.error(new LambEventException(EAI00000006,throwable.getMessage()));
                     }

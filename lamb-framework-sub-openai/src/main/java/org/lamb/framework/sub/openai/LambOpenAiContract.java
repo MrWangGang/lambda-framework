@@ -7,6 +7,9 @@ import java.util.Date;
 
 public class LambOpenAiContract {
     public static final Long clientTimeOut = 60L;
+
+    public static final String responseFormat = "url";
+
     public static  String currentTime(){
         long currentTime = System.currentTimeMillis();
         Date date = new Date(currentTime);

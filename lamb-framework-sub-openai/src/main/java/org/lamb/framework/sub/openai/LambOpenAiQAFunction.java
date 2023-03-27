@@ -5,6 +5,6 @@ import org.lamb.framework.sub.openai.qa.param.LambOpenAiQAParam;
 import reactor.core.publisher.Mono;
 
 public interface LambOpenAiQAFunction extends LambOpenAiFunction {
-    public Mono<String> execute(LambOpenAiQAParam param);
+    public Mono<LambOpenAiMessage> execute(LambOpenAiQAParam param);
 
 }
