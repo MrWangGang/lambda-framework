@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import org.lamb.framework.sub.openai.LambOpenAiParam;
+import org.lamb.framework.sub.openai.LambOpenAiUniqueParam;
 
 @Getter
 @Setter
@@ -44,8 +45,8 @@ public class LambOpenAiQAParam extends LambOpenAiParam {
 
 
     @Builder
-    public LambOpenAiQAParam(String persona, String prompt, Double temperature, Double topP, Integer n, Boolean stream, Integer maxTokens, Double presencePenalty, Double frequencyPenalty, Long timeOut, String openAiApiKey, String chatId, String userId) {
-        super(timeOut,openAiApiKey,chatId,userId);
+    public LambOpenAiQAParam(String persona, String prompt, Double temperature, Double topP, Integer n, Boolean stream, Integer maxTokens, Double presencePenalty, Double frequencyPenalty,Long timeOut, String openAiApiKey, String userId, LambOpenAiUniqueParam lambOpenAiUniqueParam) {
+        super(timeOut,openAiApiKey,userId, lambOpenAiUniqueParam);
         this.persona = persona;
         this.prompt = prompt;
         this.temperature = temperature;

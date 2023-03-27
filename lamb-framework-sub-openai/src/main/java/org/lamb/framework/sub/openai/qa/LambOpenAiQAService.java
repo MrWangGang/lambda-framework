@@ -1,5 +1,7 @@
 package org.lamb.framework.sub.openai.qa;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.theokanning.openai.completion.chat.ChatCompletionRequest;
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.completion.chat.ChatMessageRole;
@@ -7,10 +9,9 @@ import com.theokanning.openai.service.OpenAiService;
 import org.apache.commons.lang3.StringUtils;
 import org.lamb.framework.common.exception.LambEventException;
 import org.lamb.framework.redis.operation.LambReactiveRedisOperation;
-import org.lamb.framework.sub.openai.LambOpenAiChatFunction;
 import org.lamb.framework.sub.openai.LambOpenAiContract;
+import org.lamb.framework.sub.openai.LambOpenAiMessage;
 import org.lamb.framework.sub.openai.LambOpenAiQAFunction;
-import org.lamb.framework.sub.openai.chat.param.LambOpenAiChatParam;
 import org.lamb.framework.sub.openai.qa.param.LambOpenAiQAParam;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -35,34 +36,40 @@ public class LambOpenAiQAService implements LambOpenAiQAFunction {
     public Mono<String> execute(LambOpenAiQAParam param) {
         if(param == null)throw new LambEventException(EAI0000003);
         if(StringUtils.isBlank(param.getPrompt()))throw new LambEventException(EAI0000001);
-        if(StringUtils.isBlank(param.getChatId()))throw new LambEventException(EAI0000002);
+        if(param.getLambOpenAiUniqueParam() == null)throw new LambEventException(EAI0000002);
+        if(StringUtils.isBlank(param.getLambOpenAiUniqueParam().getUniqueId()))throw new LambEventException(EAI0000002);
+        if(StringUtils.isBlank(param.getLambOpenAiUniqueParam().getUniqueTime()))throw new LambEventException(EAI0000009);
         if(StringUtils.isBlank(param.getOpenAiApiKey()))throw new LambEventException(EAI0000004);
         if(StringUtils.isBlank(param.getUserId()))throw new LambEventException(EAI0000005);
-        if(!LambOpenAiContract.verify(param.getUserId(),param.getChatId()))throw new LambEventException(EAI00000008);
+        if(!LambOpenAiContract.verify(param.getUserId(),param.getLambOpenAiUniqueParam()))throw new LambEventException(EAI00000008);
 
-        return LambReactiveRedisOperation.build(lambOpenAiQARedisTemplate).get(param.getChatId())
+        String uniqueId = LambOpenAiContract.lambOpenAiUniqueId(param.getUserId(),param.getLambOpenAiUniqueParam().getUniqueTime());
+
+        return LambReactiveRedisOperation.build(lambOpenAiQARedisTemplate).get(uniqueId)
                 .onErrorResume(e->Mono.error(new LambEventException(EAI00000007)))
                 .defaultIfEmpty(Mono.empty())
                 .flatMap(e->{
                     List<ChatMessage> chatMessages = null;
-                    List<ChatMessage> QAMessages = null;
+                    List<LambOpenAiMessage> lambOpenAiMessages = null;
                     try {
                         if(e.equals(Mono.empty())){
                             //没有历史聊天记录,第一次对话,装载AI人设
                             chatMessages = new LinkedList<>();
+                            lambOpenAiMessages = new LinkedList<>();
+                            if(StringUtils.isNotBlank(param.getPersona())){
+                                chatMessages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(),param.getPersona()));
+                                lambOpenAiMessages.add(new LambOpenAiMessage(ChatMessageRole.SYSTEM.value(),param.getPersona(),LambOpenAiContract.currentTime()));
+                            }
+                        }else {
+                            //QA 每次都是新的对话
+                            chatMessages = new LinkedList<>();
                             if(StringUtils.isNotBlank(param.getPersona())){
                                 chatMessages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(),param.getPersona()));
                             }
-                        }else {
-                            chatMessages = (List<ChatMessage>) e;
+                            lambOpenAiMessages = new ObjectMapper().convertValue(e, new TypeReference<List<LambOpenAiMessage>>(){});
                         }
-
-                        QAMessages = new LinkedList<>();
-                        if(StringUtils.isNotBlank(param.getPersona())){
-                            QAMessages.add(new ChatMessage(ChatMessageRole.SYSTEM.value(),param.getPersona()));
-                        }
+                        lambOpenAiMessages.add(new LambOpenAiMessage(ChatMessageRole.USER.value(), param.getPrompt(),LambOpenAiContract.currentTime()));
                         chatMessages.add(new ChatMessage(ChatMessageRole.USER.value(), param.getPrompt()));
-                        QAMessages.add(new ChatMessage(ChatMessageRole.USER.value(), param.getPrompt()));
                     }catch (Throwable throwable){
                         return Mono.error(new LambEventException(EAI00000006,throwable.getMessage()));
                     }
@@ -76,7 +83,7 @@ public class LambOpenAiQAService implements LambOpenAiQAFunction {
                         OpenAiService service = new OpenAiService(param.getOpenAiApiKey(),Duration.ofSeconds(timeOut));
                         ChatCompletionRequest request = ChatCompletionRequest.builder()
                                 .model(TURBO.getModel())
-                                .messages(QAMessages)
+                                .messages(chatMessages)
                                 .temperature(param.getTemperature())
                                 .topP(param.getTopP())
                                 .n(param.getN())
@@ -86,8 +93,8 @@ public class LambOpenAiQAService implements LambOpenAiQAFunction {
                                 .frequencyPenalty(param.getFrequencyPenalty())
                                 .build();
                         ChatMessage chatMessage = service.createChatCompletion(request).getChoices().get(0).getMessage();
-                        chatMessages.add(chatMessage);
-                        LambReactiveRedisOperation.build(lambOpenAiQARedisTemplate).set(param.getChatId(),chatMessages);
+                        lambOpenAiMessages.add(new LambOpenAiMessage(chatMessage.getRole(),chatMessage.getContent(),LambOpenAiContract.currentTime()));
+                        LambReactiveRedisOperation.build(lambOpenAiQARedisTemplate).set(uniqueId,lambOpenAiMessages);
                         return Mono.just(chatMessage.getContent());
                     }catch (Throwable throwable){
                         return Mono.error(new LambEventException(EAI00000006,throwable.getMessage()));
