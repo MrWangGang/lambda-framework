@@ -28,5 +28,10 @@
 			<artifactId>lamb-framework-sub-redis</artifactId>
 			<version>0.0.1-SNAPSHOT</version>
 		</dependency>
+		<dependency>
+			<groupId>com.knuddels</groupId>
+			<artifactId>jtokkit</artifactId>
+			<version>0.1.0</version>
+		</dependency>
 	</dependencies>
 </project>

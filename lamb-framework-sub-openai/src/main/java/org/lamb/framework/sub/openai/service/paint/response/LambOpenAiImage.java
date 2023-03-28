@@ -1,4 +1,4 @@
-package org.lamb.framework.sub.openai;
+package org.lamb.framework.sub.openai.service.paint.response;
 
 import com.theokanning.openai.completion.chat.ChatMessage;
 import com.theokanning.openai.image.Image;

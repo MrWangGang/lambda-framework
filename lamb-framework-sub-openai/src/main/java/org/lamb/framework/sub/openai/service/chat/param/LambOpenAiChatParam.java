@@ -1,14 +1,14 @@
-package org.lamb.framework.sub.openai.qa.param;
+package org.lamb.framework.sub.openai.service.chat.param;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.lamb.framework.sub.openai.LambOpenAiParam;
 import org.lamb.framework.sub.openai.LambOpenAiUniqueParam;
 
 @Getter
 @Setter
-public class LambOpenAiQAParam extends LambOpenAiParam {
+public class LambOpenAiChatParam extends LambOpenAiParam {
+
+
     //AI人设
     private String persona;
 
@@ -33,7 +33,6 @@ public class LambOpenAiQAParam extends LambOpenAiParam {
     private Boolean stream;
 
     //要在聊天完成中生成的最大令牌数。 输入令牌和生成的令牌的总长度受模型上下文长度的限制。
-    private Integer maxTokens;
 
     //介于 -2.0 和 2.0 之间的数字。正值会根据新标记到目前为止是否出现在文本中来惩罚它们，
     // 从而增加模型讨论新主题的可能性。 查看有关频率和状态处罚的更多信息
@@ -43,17 +42,15 @@ public class LambOpenAiQAParam extends LambOpenAiParam {
     // 正值会根据新标记到目前为止在文本中的现有频率来惩罚新标记，从而降低模型逐字重复同一行的可能性。
     private Double frequencyPenalty;
 
-
     @Builder
-    public LambOpenAiQAParam(String persona, String prompt, Double temperature, Double topP, Integer n, Boolean stream, Integer maxTokens, Double presencePenalty, Double frequencyPenalty,Long timeOut, String openAiApiKey, String userId, LambOpenAiUniqueParam lambOpenAiUniqueParam) {
-        super(timeOut,openAiApiKey,userId, lambOpenAiUniqueParam);
+    public LambOpenAiChatParam(Long quota, Integer maxTokens, Long timeOut, String openAiApiKey, String userId, LambOpenAiUniqueParam lambOpenAiUniqueParam, String persona, String prompt, Double temperature, Double topP, Integer n, Boolean stream, Double presencePenalty, Double frequencyPenalty) {
+        super(quota, maxTokens, timeOut, openAiApiKey, userId, lambOpenAiUniqueParam);
         this.persona = persona;
         this.prompt = prompt;
         this.temperature = temperature;
         this.topP = topP;
         this.n = n;
         this.stream = stream;
-        this.maxTokens = maxTokens;
         this.presencePenalty = presencePenalty;
         this.frequencyPenalty = frequencyPenalty;
     }

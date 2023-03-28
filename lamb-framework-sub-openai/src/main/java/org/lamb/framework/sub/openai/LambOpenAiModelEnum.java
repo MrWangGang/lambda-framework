@@ -4,7 +4,6 @@ public enum LambOpenAiModelEnum {
 
     TURBO("gpt-3.5-turbo");
 
-
     public String getModel() {
         return model;
     }
