@@ -1,5 +1,9 @@
-# lamb-framework
-希望能有更多的从业者与我一起完善lamb-framework,让框架变得更加简单和易用。让程序员只关心业务代码，而不用去考虑每个组件的复杂配置。
+# 🚀 lamb-framework
+
+[![License: MIT](https://img.shields.io/github/license/knuddelsgmbh/jtokkit)](https://opensource.org/license/mit/)
+## 📖 Introduction
+Welcome to lamb-framework,I hope more practitioners can join me in improving the lamb-framework, making the framework simpler and more user-friendly. This will allow programmers to focus on their business code, without having to worry about the complex configuration of each component.
+欢迎,我希望更多的从业者能加入我，共同完善lamb-framework，使框架变得更加简单和易用。这将使程序员能够专注于业务代码，而无需担心每个组件的复杂数
 ***每个组件用lamb-framework-sub-xxxx命名形式***
 ***每个properties 使用 lamb.xxx.xxx_xxx命名形式***
 | 组件名称               | 说明         |
