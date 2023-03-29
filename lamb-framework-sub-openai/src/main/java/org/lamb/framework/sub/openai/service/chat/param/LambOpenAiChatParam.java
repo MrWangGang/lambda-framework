@@ -1,6 +1,8 @@
 package org.lamb.framework.sub.openai.service.chat.param;
 
-import lombok.*;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.Setter;
 import org.lamb.framework.sub.openai.LambOpenAiParam;
 import org.lamb.framework.sub.openai.LambOpenAiUniqueParam;
 
@@ -8,12 +10,9 @@ import org.lamb.framework.sub.openai.LambOpenAiUniqueParam;
 @Setter
 public class LambOpenAiChatParam extends LambOpenAiParam {
 
-
     //AI人设
     private String persona;
 
-    //用户提示
-    private String prompt;
     //使用什么采样温度，介于 0 和 2 之间。较高的值（如 0.8）将使输出更加随机，
     // 而较低的值（如 0.2）将使其更加集中和确定。
     // 我们通常建议更改此或top_p但不能同时更改两者。
@@ -23,9 +22,6 @@ public class LambOpenAiChatParam extends LambOpenAiParam {
     // 其中模型考虑具有top_p概率质量的令牌的结果。因此，0.1 意味着只考虑包含前 10% 概率质量的代币。
     // 我们通常建议改变这个或温度，但不要两者兼而有之。
     private Double topP;
-
-    //要为每个输入消息生成的聊天完成选项数。
-    private Integer n;
 
     //如果设置，将发送部分消息增量，就像在 ChatGPT 中一样。
     // 令牌将在可用时作为纯数据服务器发送的事件发送，流由 data： [DONE] 消息终止。
@@ -43,13 +39,11 @@ public class LambOpenAiChatParam extends LambOpenAiParam {
     private Double frequencyPenalty;
 
     @Builder
-    public LambOpenAiChatParam(Long quota, Integer maxTokens, Long timeOut, String openAiApiKey, String userId, LambOpenAiUniqueParam lambOpenAiUniqueParam, String persona, String prompt, Double temperature, Double topP, Integer n, Boolean stream, Double presencePenalty, Double frequencyPenalty) {
-        super(quota, maxTokens, timeOut, openAiApiKey, userId, lambOpenAiUniqueParam);
+    public LambOpenAiChatParam(Integer n, String prompt, Long quota, Integer maxTokens, Long timeOut, String openAiApiKey, String userId, LambOpenAiUniqueParam lambOpenAiUniqueParam, String persona, Double temperature, Double topP, Boolean stream, Double presencePenalty, Double frequencyPenalty) {
+        super(n, prompt, quota, maxTokens, timeOut, openAiApiKey, userId, lambOpenAiUniqueParam);
         this.persona = persona;
-        this.prompt = prompt;
         this.temperature = temperature;
         this.topP = topP;
-        this.n = n;
         this.stream = stream;
         this.presencePenalty = presencePenalty;
         this.frequencyPenalty = frequencyPenalty;

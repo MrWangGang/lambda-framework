@@ -37,19 +37,8 @@ public class LambOpenAiChatService implements LambOpenAiChatFunction {
 
     @Override
     public Mono<LambOpenAiCurrentConversation<LambOpenAiChatMessage>> execute(LambOpenAiChatParam param) {
-
-        if(param == null)throw new LambEventException(EAI0000003);
-        if(param.getTimeOut() == null)throw new LambEventException(EAI0000016);
-        if(StringUtils.isBlank(param.getPrompt()))throw new LambEventException(EAI0000001);
-        if(param.getLambOpenAiUniqueParam() == null)throw new LambEventException(EAI0000002);
-        if(StringUtils.isBlank(param.getLambOpenAiUniqueParam().getUniqueId()))throw new LambEventException(EAI0000002);
-        if(StringUtils.isBlank(param.getLambOpenAiUniqueParam().getUniqueTime()))throw new LambEventException(EAI0000009);
-        if(StringUtils.isBlank(param.getOpenAiApiKey()))throw new LambEventException(EAI0000004);
-        if(StringUtils.isBlank(param.getUserId()))throw new LambEventException(EAI0000005);
-        if(!LambOpenAiContract.verify(param.getUserId(),param.getLambOpenAiUniqueParam()))throw new LambEventException(EAI00000008);
-        //配额校验
-        if(param.getMaxTokens() == null)throw new LambEventException(EAI0000013);
-        if(param.getQuota() == null)throw new LambEventException(EAI00000015);
+        //参数校验
+        param.verify();
 
         String uniqueId = LambOpenAiContract.lambOpenAiUniqueId(param.getUserId(),param.getLambOpenAiUniqueParam().getUniqueTime());
 

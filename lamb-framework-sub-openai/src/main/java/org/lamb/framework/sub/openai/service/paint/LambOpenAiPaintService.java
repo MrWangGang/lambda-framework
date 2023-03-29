@@ -43,30 +43,11 @@ public class LambOpenAiPaintService implements LambOpenAiPaintFunction {
     private ReactiveRedisTemplate lambOpenAiPaintRedisTemplate;
     @Override
     public Mono<LambOpenAiCurrentConversation<LambOpenAiImage>> execute(LambOpenAiPaintParam param) {
-        if(param == null)throw new LambEventException(EAI0000003);
-        if(param.getTimeOut() == null)throw new LambEventException(EAI0000016);
-        if(StringUtils.isBlank(param.getPrompt()))throw new LambEventException(EAI0000001);
-        if(param.getLambOpenAiUniqueParam() == null)throw new LambEventException(EAI0000002);
-        if(StringUtils.isBlank(param.getLambOpenAiUniqueParam().getUniqueId()))throw new LambEventException(EAI0000002);
-        if(StringUtils.isBlank(param.getLambOpenAiUniqueParam().getUniqueTime()))throw new LambEventException(EAI0000009);
-        if(StringUtils.isBlank(param.getOpenAiApiKey()))throw new LambEventException(EAI0000004);
-        if(StringUtils.isBlank(param.getUserId()))throw new LambEventException(EAI0000005);
-        if(StringUtils.isBlank(param.getResponseFormat()))throw new LambEventException(EAI0000010);
-        if(StringUtils.isBlank(param.getSize()))throw new LambEventException(EAI0000012);
+        //参数校验
+        param.verify();
         //对于图片模型的maxToken的计算返回的图片数量*设置size + prompt
         Integer promptTokens = encoding(param.getPrompt());
-        param.setMaxTokens(imageTokens(param.getSize(),param.getN()) + promptTokens);
-        if(param.getMaxTokens() == null)throw new LambEventException(EAI0000013);
-        if(param.getQuota() == null)throw new LambEventException(EAI00000015);
-        if(!limitVerify(param.getQuota(),param.getMaxTokens(),promptTokens))throw new LambEventException(EAI00000100);
-
-
-        switch (param.getSize()){
-            case image_size_256:break;
-            case image_size_512:break;
-            case image_size_1024:break;
-            default:throw new LambEventException(EAI0000011);
-        }
+        if(!limitVerify(param.getQuota(),param.getMaxTokens(),encoding(param.getPrompt())))throw new LambEventException(EAI00000100);
 
         if(!LambOpenAiContract.verify(param.getUserId(),param.getLambOpenAiUniqueParam()))throw new LambEventException(EAI00000008);
 

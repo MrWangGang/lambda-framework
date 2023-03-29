@@ -105,6 +105,7 @@ public enum LambExceptionEnum {
     EAI0000011("EAI0000011","image size不在 256x256 512x512 1024x1024 的选项内"),
     EAI0000012("EAI0000012","必须设置image size"),
     EAI0000013("EAI0000012","必须设置maxTokens"),
+    EAI00000014("EAI00000014","必须设置返回的响应数量"),
     EAI00000015("EAI00000015","无效配额"),
     EAI0000016("EAI0000016","必须设置接口调用超时时间"),
 
