@@ -6,7 +6,9 @@
 Welcome to lamb-framework,I hope more practitioners can join me in improving the lamb-framework, making the framework simpler and more user-friendly. This will allow programmers to focus on their business code, without having to worry about the complex configuration of each component.
 
 欢迎,我希望更多的从业者能加入我，共同完善lamb-framework，使框架变得更加简单和易用。这将使程序员能够专注于业务代码，而无需担心每个组件的复杂数
+
 ***每个组件用lamb-framework-sub-xxxx命名形式***
+
 ***每个properties 使用 lamb.xxx.xxx_xxx命名形式***
 | 组件名称               | 说明         |
 | ----------        	| ----------- |
