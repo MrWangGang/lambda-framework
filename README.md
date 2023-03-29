@@ -1,8 +1,49 @@
 # lamb-framework
-借此机会将框架开源,希望能有更多的从业者与我一起完善lamb-framework,让框架变得更加简单和易用。让程序员只关心业务代码，而不用去考虑每个组件的复杂配置。
-尽可能的将公共的功能抽象出来做成组件，
+希望能有更多的从业者与我一起完善lamb-framework,让框架变得更加简单和易用。让程序员只关心业务代码，而不用去考虑每个组件的复杂配置。
 ***每个组件用lamb-framework-sub-xxxx命名形式***
 ***每个properties 使用 lamb.xxx.xxx_xxx命名形式***
+| 组件名称               | 说明         |
+| ----------        	| ----------- |
+| lamb-framework-common      		| 公共方法模块       |
+| lamb-framework-sub-guid   		| 唯一序列号GUID生成组件        |
+| lamb-framework-sub-openai   		| openAi调用组件        |
+| lamb-framework-sub-redis   		| 抽象redis组件        |
+| lamb-framework-web-core   		| reactor web核心 基于reactive webflux        |
+| lamb-framework-web-security   	| 权限框架        |
+
+
+
+## lamb-framework-sub-openai
+在pom文件中引用下面代码块
+```		
+  <dependency>
+    <groupId>org.lamb.framework</groupId>
+    <artifactId>lamb-framework-sub-openai</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+  </dependency>
+```
+使用下面的示例来调用
+```
+ LambOpenAiUniqueParam lambOpenAiUniqueParam = LambOpenAiUniqueParam.builder().uniqueId(req.getUniqueId()).uniqueTime(req.getUniqueTime()).build();
+        LambOpenAiPaintParam param =  LambOpenAiPaintParam.builder()
+                .prompt(req.getPrompt())
+                .lambOpenAiUniqueParam(lambOpenAiUniqueParam)
+                .userId(userId)
+                .openAiApiKey(openAiApiKey)
+                .n(4)
+                .size(LambOpenAiContract.image_size_512)
+                .responseFormat(LambOpenAiContract.responseFormat)
+                .timeOut(LambOpenAiContract.clientTimeOut)
+                .quota(quato)
+                .maxTokens(imageTokens(LambOpenAiContract.image_size_512,4) + encoding(req.getPrompt()))
+                .build();
+        return returning(lambOpenAiPaintService.execute(param).flatMap(e->{
+            //模拟扣减配额
+            quato = quato-e.getCurrentTotalTokens();
+            return Mono.just(e);
+        }));
+```
+
 ## lamb-framework-sub-redis
 在pom文件中引用下面代码块
 ```		
@@ -225,4 +266,3 @@ returning是针对标准形式的返回
         }
     }
 ```
-
