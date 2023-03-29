@@ -1,6 +1,6 @@
 # 🚀 lamb-framework
 
-[![License: MIT](https://img.shields.io/github/license/knuddelsgmbh/jtokkit)](https://opensource.org/license/mit/)
+[![License: apache2.0](https://img.shields.io/github/license/tensorflow/tensorflow.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ## 📖 Introduction
 Welcome to lamb-framework,I hope more practitioners can join me in improving the lamb-framework, making the framework simpler and more user-friendly. This will allow programmers to focus on their business code, without having to worry about the complex configuration of each component.
 欢迎,我希望更多的从业者能加入我，共同完善lamb-framework，使框架变得更加简单和易用。这将使程序员能够专注于业务代码，而无需担心每个组件的复杂数
