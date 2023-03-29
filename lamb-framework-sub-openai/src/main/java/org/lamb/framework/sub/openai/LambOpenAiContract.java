@@ -4,6 +4,7 @@ import com.knuddels.jtokkit.Encodings;
 import com.knuddels.jtokkit.api.Encoding;
 import com.knuddels.jtokkit.api.EncodingRegistry;
 import com.knuddels.jtokkit.api.EncodingType;
+import com.knuddels.jtokkit.api.ModelType;
 import org.lamb.framework.common.exception.LambEventException;
 import org.lamb.framework.common.util.sample.MD5Util;
 
@@ -34,7 +35,7 @@ public class LambOpenAiContract {
 
     public static Integer encoding(String propmt){
         EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
-        Encoding enc = registry.getEncoding(EncodingType.P50K_BASE);
+        Encoding enc = registry.getEncodingForModel(ModelType.GPT_3_5_TURBO);
         return enc.encode(propmt).size();
     }
 
