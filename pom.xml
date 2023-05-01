@@ -2,13 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-
-	<groupId>org.lamb.framework</groupId>
-	<artifactId>lamb-framework</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<groupId>org.lambda.framework</groupId>
+	<artifactId>lambda-framework</artifactId>
+	<version>1.0.0</version>
 	<packaging>pom</packaging>
-	<name>lamb-framework</name>
-	<description>lamb framework</description>
+	<name>lambda-framework</name>
+	<description>lambda framework</description>
 	<url>https://github.com/MrWangGang</url>
 	<licenses>
 		<license>
@@ -18,26 +17,43 @@
 	</licenses>
 	<developers>
 		<developer>
-			<name>wanggang</name>
+			<name>王刚</name>
 			<email>userbean@outlook.com</email>
 		</developer>
 	</developers>
 	<scm>
-		<connection>scm:git:git@github.com/MrWangGang/lamb-framework.git</connection>
-		<developerConnection>scm:git:git@github.com/MrWangGang/lamb-framework.git</developerConnection>
-		<url>git@github.com/MrWangGang/lamb-framework.git</url>
+		<connection>scm:git:git@github.com/MrWangGang/lambda-framework.git</connection>
+		<developerConnection>scm:git:git@github.com/MrWangGang/lambda-framework.git</developerConnection>
+		<url>git@github.com/MrWangGang/lambda-framework.git</url>
 	</scm>
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.7.5</version>
+        <version>3.0.6</version>
 		<relativePath/> <!-- lookup parent from repository -->
+		<!--
+			Alpha：内测版，BUG多，开发人员开发过程中使用，希腊字母α，第一，指最初版
+			Beta：早期版本，有缺陷，没有严重BUG，可能加入新功能，进一步开发完善
+			Gamma: 经Beta 版，完善修改，成为正式发布的候选版本（Release Candidate）
+			RC：(Release Candidate)：候选版本，几乎就是正式版了
+			GA：（Ggeneral Availability）：发行稳定版，官方推荐使用此版本
+			R，RELEASE：正式版，等价于GA
+		-->
 	</parent>
 	<properties>
+		<lambda-framework.version>1.0.0</lambda-framework.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>17</java.version>
-		<spring-cloud.version>2021.0.5</spring-cloud.version>
+		<spring-cloud.version>2022.0.2</spring-cloud.version>
+		<openai-gpt3-java.version>0.12.0</openai-gpt3-java.version>
+		<google-guava.version>31.1-jre</google-guava.version>
+		<knuddels.version>0.4.0</knuddels.version>
+		<javax-el.version>3.0.1-b06</javax-el.version>
+		<glassfish-web.version>2.2.6</glassfish-web.version>
+		<javax-validation.version>2.0.1.Final</javax-validation.version>
+		<apache-commons.version>3.12.0</apache-commons.version>
+		<commons-beanutils.version>1.9.4</commons-beanutils.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -48,6 +64,76 @@
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
+			<dependency>
+				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-common</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-sub-guid</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-sub-openai</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-sub-redis</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-web-core</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-web-security</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.theokanning.openai-gpt3-java</groupId>
+				<artifactId>service</artifactId>
+				<version>${openai-gpt3-java.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.knuddels</groupId>
+				<artifactId>jtokkit</artifactId>
+				<version>${knuddels.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>javax.el</groupId>
+				<artifactId>javax.el-api</artifactId>
+				<version>${javax-el.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.glassfish.web</groupId>
+				<artifactId>javax.el</artifactId>
+				<version>${glassfish-web.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>javax.validation</groupId>
+				<artifactId>validation-api</artifactId>
+				<version>${javax-validation.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-lang3</artifactId>
+				<version>${apache-commons.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>commons-beanutils</groupId>
+				<artifactId>commons-beanutils</artifactId>
+				<version>${commons-beanutils.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.google.guava</groupId>
+				<artifactId>guava</artifactId>
+				<version>${google-guava.version}</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 	<dependencies>
@@ -57,12 +143,13 @@
 			<optional>true</optional>
 		</dependency>
 	</dependencies>
+
     <modules>
-		<module>lamb-framework-common</module>
-		<module>lamb-framework-web-core</module>
-		<module>lamb-framework-web-security</module>
-		<module>lamb-framework-sub-guid</module>
-		<module>lamb-framework-sub-redis</module>
-		<module>lamb-framework-sub-openai</module>
+		<module>lambda-framework-common</module>
+		<module>lambda-framework-web-core</module>
+		<module>lambda-framework-web-security</module>
+		<module>lambda-framework-sub-guid</module>
+		<module>lambda-framework-sub-redis</module>
+		<module>lambda-framework-sub-openai</module>
 	</modules>
 </project>

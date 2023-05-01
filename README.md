@@ -32,10 +32,10 @@ Welcome to lamb-framework,I hope more practitioners can join me in improving the
 ```
 使用下面的示例来调用
 ```
- LambOpenAiUniqueParam lambOpenAiUniqueParam = LambOpenAiUniqueParam.builder().uniqueId(req.getUniqueId()).uniqueTime(req.getUniqueTime()).build();
+ LambOpenAiUniqueParam uniqueParam = LambOpenAiUniqueParam.builder().uniqueId(req.getUniqueId()).uniqueTime(req.getUniqueTime()).build();
         LambOpenAiPaintParam param =  LambOpenAiPaintParam.builder()
                 .prompt(req.getPrompt())
-                .lambOpenAiUniqueParam(lambOpenAiUniqueParam)
+                .uniqueParam(uniqueParam)
                 .userId(userId)
                 .openAiApiKey(openAiApiKey)
                 .n(4)
