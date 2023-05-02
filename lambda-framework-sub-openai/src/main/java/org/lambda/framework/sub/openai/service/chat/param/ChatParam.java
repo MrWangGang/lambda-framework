@@ -3,12 +3,12 @@ package org.lambda.framework.sub.openai.service.chat.param;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
-import org.lambda.framework.sub.openai.Param;
+import org.lambda.framework.sub.openai.AbstractParam;
 import org.lambda.framework.sub.openai.UniqueParam;
 
 @Getter
 @Setter
-public class ChatParam extends Param {
+public class ChatParam extends AbstractParam {
 
     //AI人设
     private String persona;

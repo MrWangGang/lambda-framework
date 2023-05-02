@@ -4,13 +4,14 @@ import com.knuddels.jtokkit.Encodings;
 import com.knuddels.jtokkit.api.Encoding;
 import com.knuddels.jtokkit.api.EncodingRegistry;
 import com.knuddels.jtokkit.api.ModelType;
-import org.lamb.framework.common.exception.LambEventException;
-import org.lamb.framework.common.util.sample.MD5Util;
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.common.util.sample.MD5Util;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import static org.lamb.framework.common.enums.LambExceptionEnum.EAI0000011;
+import static org.lambda.framework.common.enums.ExceptionEnum.EAI0000011;
+
 
 public class Contract {
     public static final Long clientTimeOut = 60L;
@@ -27,7 +28,7 @@ public class Contract {
             case image_size_256:i = 8000;break;
             case image_size_512:i= 9000;break;
             case image_size_1024:i = 100000;break;
-            default:throw new LambEventException(EAI0000011);
+            default:throw new EventException(EAI0000011);
         }
         return i * n;
     }
@@ -44,29 +45,28 @@ public class Contract {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         return dateFormat.format(date);
     }
-    public static org.lamb.framework.sub.openai.LambOpenAiUniqueParam lambOpenAiUniqueId(String userId){
+    public static UniqueParam uniqueId(String userId){
         long currentTime = System.currentTimeMillis();
         Date date = new Date(currentTime);
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd&HH:mm:ss");
-        String uniquetime = dateFormat.format(date);
-        org.lamb.framework.sub.openai.LambOpenAiUniqueParam lambOpenAiUniqueParam = org.lamb.framework.sub.openai.LambOpenAiUniqueParam.builder()
-                .uniqueTime(uniquetime)
-                .uniqueId(lambOpenAiMD5UniqueId(userId,uniquetime))
+        String uniqueTime = dateFormat.format(date);
+        return UniqueParam.builder()
+                .uniqueTime(uniqueTime)
+                .uniqueId(mD5UniqueId(userId,uniqueTime))
                 .build();
-        return lambOpenAiUniqueParam;
     }
 
-    public static String lambOpenAiUniqueId(String userId,String uniquetime){
+    public static String uniqueId(String userId,String uniqueTime){
 
-        return "&"+userId+"&"+ MD5Util.hash(userId+"@"+uniquetime) + "&"+uniquetime;
+        return "&"+userId+"&"+ MD5Util.hash(userId+"@"+uniqueTime) + "&"+uniqueTime;
     }
 
-    public static String lambOpenAiMD5UniqueId(String userId,String uniquetime){
-        return MD5Util.hash(lambOpenAiUniqueId(userId,uniquetime));
+    public static String mD5UniqueId(String userId,String uniqueTime){
+        return MD5Util.hash(uniqueId(userId,uniqueTime));
     }
 
-    public static boolean verify(String userId, org.lamb.framework.sub.openai.LambOpenAiUniqueParam lambOpenAiUniqueParam){
-        if(!lambOpenAiMD5UniqueId(userId, lambOpenAiUniqueParam.getUniqueTime()).equals(lambOpenAiUniqueParam.getUniqueId()))return false;
+    public static boolean verify(String userId, UniqueParam uniqueParam){
+        if(!uniqueId(userId, uniqueParam.getUniqueTime()).equals(uniqueParam.getUniqueId()))return false;
         return true;
     }
 

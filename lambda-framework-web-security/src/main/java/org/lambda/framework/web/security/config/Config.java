@@ -32,7 +32,7 @@ import static org.lambda.framework.common.enums.ExceptionEnum.EA00000001;
  **/
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
-public class SecurityConfig {
+public class Config {
 
     @Value("#{'${lambda.security.permit_urls:}'.empty ?new String[]{''} :'${lambda.security.permit_urls:}'.split(',')}")
     private String[] permitUrls;
@@ -94,7 +94,7 @@ public class SecurityConfig {
 
     @Bean
     @ConditionalOnMissingBean
-    public AutzManager lambAutzManager(AuthManager authManager){
+    public AutzManager securityAutzManager(AuthManager authManager){
         return new AutzManager(authManager) {
             @Override
             public boolean verify(String currentPathAutzTree, String principal) {
@@ -105,7 +105,7 @@ public class SecurityConfig {
 
     @Bean
     @ConditionalOnMissingBean
-    public AuthManager lambAuthManager(){
+    public AuthManager securityAuthManager(){
         return new AuthManager(){
             @Override
             public boolean verify(String principal) {

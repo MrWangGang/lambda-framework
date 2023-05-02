@@ -3,7 +3,7 @@ package org.lambda.framework.sub.openai;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.apache.logging.log4j.util.Strings;
-import org.lamb.framework.common.exception.LambEventException;
+import org.lambda.framework.common.exception.EventException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisPassword;
@@ -18,7 +18,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 
-import static org.lamb.framework.common.enums.LambExceptionEnum.ES00000081;
+import static org.lambda.framework.common.enums.ExceptionEnum.ES00000081;
 
 public abstract class RedisConfig {
     //##Redis服务器地址
@@ -40,33 +40,33 @@ public abstract class RedisConfig {
     //# 连接池中的最小空闲连接
     protected Integer minIdle;
 
-    @Value("${lamb.openai.redis.host:0}")
+    @Value("${lambda.openai.redis.host:0}")
     public void setHost(String host) {
-        if(host.equals("0"))throw new LambEventException(ES00000081);
+        if(host.equals("0"))throw new EventException(ES00000081);
         this.host = host;
     }
-    @Value("${lamb.openai.redis.port:6379}")
+    @Value("${lambda.openai.redis.port:6379}")
     public void setPort(Integer port) {
         this.port = port;
     }
-    @Value("${lamb.openai.redis.password:}")
+    @Value("${lambda.openai.redis.password:}")
     public void setPassword(String password) {
         this.password = password;
     }
-    @Value("${lamb.openai.redis.lettuce.pool.max_active:8}")
+    @Value("${lambda.openai.redis.lettuce.pool.max_active:8}")
     public void setMaxActive(Integer maxActive) {
         this.maxActive = maxActive;
     }
 
-    @Value("${lamb.openai.redis.lettuce.pool.max_wait_seconds:50}")
+    @Value("${lambda.openai.redis.lettuce.pool.max_wait_seconds:50}")
     public void setMaxWaitSeconds(Integer maxWaitSeconds) {
         this.maxWaitSeconds = maxWaitSeconds;
     }
-    @Value("${lamb.openai.redis.lettuce.pool.max_idle:8}")
+    @Value("${lambda.openai.redis.lettuce.pool.max_idle:8}")
     public void setMaxIdle(Integer maxIdle) {
         this.maxIdle = maxIdle;
     }
-    @Value("${lamb.openai.redis.lettuce.pool.min_idle:0}")
+    @Value("${lambda.openai.redis.lettuce.pool.min_idle:0}")
     public void setMinIdle(Integer minIdle) {
         this.minIdle = minIdle;
     }
@@ -85,11 +85,11 @@ public abstract class RedisConfig {
         builder.hashValue(valueSerializer);
         builder.string(stringSerializationPair);
         RedisSerializationContext build = builder.build();
-        ReactiveRedisTemplate reactiveRedisTemplate = new ReactiveRedisTemplate(lambSecurityRedisConnectionFactory(), build);
+        ReactiveRedisTemplate reactiveRedisTemplate = new ReactiveRedisTemplate(redisConnectionFactory(), build);
         return reactiveRedisTemplate;
     }
 
-    private ReactiveRedisConnectionFactory lambSecurityRedisConnectionFactory(){
+    private ReactiveRedisConnectionFactory redisConnectionFactory(){
         RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration();
         redisStandaloneConfiguration.setDatabase(database);
         redisStandaloneConfiguration.setHostName(host);

@@ -1,23 +1,23 @@
-package org.lambda.framework.sub.openai.service.paint.redis;
+package org.lambda.framework.sub.openai.service.chat.redis;
 
-import org.lamb.framework.sub.openai.LambOpenAiRedisConfig;
+import org.lambda.framework.sub.openai.RedisConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 
 @Configuration
-public class PaintRedisConfig extends LambOpenAiRedisConfig {
+public class FAQRedisConfig extends RedisConfig {
     //##数据库序号
     private Integer database;
-    @Value("${lamb.openai.paint.redis.database:2}")
+    @Value("${lambda.openai.faq.redis.database:1}")
     public void setDatabase(Integer database) {
         super.database = database;
     }
 
-    @Bean("lambOpenAiPaintRedisTemplate")
-    public ReactiveRedisTemplate LambOpenAiPaintRedisTemplate(){
-        return super.lambOpenAiRedisTemplate();
+    @Bean("openAiFAQRedisTemplate")
+    public ReactiveRedisTemplate openAiFAQRedisTemplate(){
+        return super.redisTemplate();
     }
 
 }

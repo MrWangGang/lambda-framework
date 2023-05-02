@@ -20,7 +20,7 @@ import java.time.Duration;
 
 import static org.lambda.framework.common.enums.ExceptionEnum.ES00000080;
 
-public abstract class SecurityRedisConfig {
+public abstract class RedisConfig {
     //##Redis服务器地址
     protected String host;
 
@@ -74,7 +74,7 @@ public abstract class SecurityRedisConfig {
     protected Integer database;
     public abstract void setDatabase(Integer database);
 
-    public ReactiveRedisTemplate securityRedisTemplate() {
+    public ReactiveRedisTemplate redisTemplate() {
         RedisSerializationContext.SerializationPair<String> stringSerializationPair = RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer.UTF_8);
         Jackson2JsonRedisSerializer<Object> valueSerializer = new Jackson2JsonRedisSerializer<>(new ObjectMapper(),Object.class);
 
@@ -86,11 +86,11 @@ public abstract class SecurityRedisConfig {
         builder.hashValue(valueSerializer);
         builder.string(stringSerializationPair);
         RedisSerializationContext build = builder.build();
-        ReactiveRedisTemplate reactiveRedisTemplate = new ReactiveRedisTemplate(lambSecurityRedisConnectionFactory(), build);
+        ReactiveRedisTemplate reactiveRedisTemplate = new ReactiveRedisTemplate(redisConnectionFactory(), build);
         return reactiveRedisTemplate;
     }
 
-    private ReactiveRedisConnectionFactory lambSecurityRedisConnectionFactory(){
+    private ReactiveRedisConnectionFactory redisConnectionFactory(){
         RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration();
         redisStandaloneConfiguration.setDatabase(database);
         redisStandaloneConfiguration.setHostName(host);

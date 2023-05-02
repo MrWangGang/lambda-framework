@@ -14,7 +14,7 @@ import static org.lambda.framework.common.enums.ExceptionEnum.*;
  * @create: 2018-11-19 下午 1:09
  **/
 @Component
-public class LambGUIDFactory {
+public class GuidFactory {
     // 起始的时间戳
     private final static long START_STMP = 1480166465631L;
     // 每一部分占用的位数，就三个

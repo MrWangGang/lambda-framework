@@ -49,10 +49,6 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
         logger.error("GlobalExceptionHandle",e);
         if(e instanceof GlobalException){
             return result(((GlobalException)e).getCode(),e.getMessage());
-        }  else if(e instanceof WebExchangeBindException || e instanceof MethodArgumentNotValidException){
-            return result(ExceptionEnum.EI00000000.getCode(), ExceptionEnum.EI00000000.getMessage());
-        }else if(e instanceof NoSuchElementException){
-            return result(ExceptionEnum.ES00000027.getCode(), ExceptionEnum.ES00000027.getMessage());
         }
         return result(ES00000000.getCode(),ES00000000.getMessage());
     }

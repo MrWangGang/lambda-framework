@@ -16,8 +16,8 @@ public class ChatRedisConfig extends RedisConfig {
         super.database = database;
     }
 
-    @Bean("chatRedisTemplate")
-    public ReactiveRedisTemplate chatRedisTemplate(){
+    @Bean("openAiChatRedisTemplate")
+    public ReactiveRedisTemplate openAiChatRedisTemplate(){
         return super.redisTemplate();
     }
 

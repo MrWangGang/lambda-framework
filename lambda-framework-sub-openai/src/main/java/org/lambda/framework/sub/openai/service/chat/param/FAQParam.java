@@ -3,12 +3,12 @@ package org.lambda.framework.sub.openai.service.chat.param;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
-import org.lambda.framework.sub.openai.Param;
+import org.lambda.framework.sub.openai.AbstractParam;
 import org.lambda.framework.sub.openai.UniqueParam;
 
 @Getter
 @Setter
-public class QAParam extends Param {
+public class FAQParam extends AbstractParam {
     //AI人设
     private String persona;
 
@@ -35,7 +35,7 @@ public class QAParam extends Param {
     private Double frequencyPenalty;
 
     @Builder
-    public QAParam(Integer n, String prompt, Long quota, Integer maxTokens, Long timeOut, String openAiApiKey, String userId, UniqueParam uniqueParam, String persona, Double temperature, Double topP, Boolean stream, Double presencePenalty, Double frequencyPenalty) {
+    public FAQParam(Integer n, String prompt, Long quota, Integer maxTokens, Long timeOut, String openAiApiKey, String userId, UniqueParam uniqueParam, String persona, Double temperature, Double topP, Boolean stream, Double presencePenalty, Double frequencyPenalty) {
         super(n, prompt, quota, maxTokens, timeOut, openAiApiKey, userId, uniqueParam);
         this.persona = persona;
         this.temperature = temperature;

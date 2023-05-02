@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 
 @Configuration
-public class AuthRedisConfig extends SecurityRedisConfig {
+public class AuthRedisConfig extends RedisConfig {
     //##数据库序号
     private Integer database;
     @Value("${lambda.security.redis.auth.database:0}")
@@ -14,9 +14,9 @@ public class AuthRedisConfig extends SecurityRedisConfig {
         super.database = database;
     }
 
-    @Bean("authRedisTemplate")
-    public ReactiveRedisTemplate authRedisTemplate(){
-        return securityRedisTemplate();
+    @Bean("securityAuthRedisTemplate")
+    public ReactiveRedisTemplate securityAuthRedisTemplate(){
+        return redisTemplate();
     }
 
 }

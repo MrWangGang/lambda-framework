@@ -1,5 +1,6 @@
-package org.lambda.framework.sub.openai.service.paint.response;
+package org.lambda.framework.sub.openai.service.image.response;
 
+import com.theokanning.openai.image.Image;
 import lombok.*;
 
 import java.util.List;
@@ -8,15 +9,15 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Image {
+public class ImageReplied {
     private String time;
 
     private String prompt;
 
-    private List<com.theokanning.openai.image.Image> images;
+    private List<Image> images;
 
     @Builder
-    public Image(List<com.theokanning.openai.image.Image> images, String prompt, String time) {
+    public ImageReplied(List<Image> images, String prompt, String time) {
         this.time = time;
         this.prompt = prompt;
         this.images = images;

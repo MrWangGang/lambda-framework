@@ -8,11 +8,11 @@ import lombok.*;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class ChatMessageResponse extends ChatMessage {
+public class ChatReplied extends ChatMessage {
 
     private String time;
 
-    public ChatMessageResponse(String role, String content, String time) {
+    public ChatReplied(String role, String content, String time) {
        super.setRole(role);
        super.setContent(content);
        this.time = time;

@@ -5,7 +5,7 @@ package org.lambda.framework.web.security.contract;
  * @author: Mr.WangGang
  * @create: 2018-11-16 下午 3:56
  **/
-public class SecurityContract {
+public class Contract {
     public static final String LAMBDA_SECURITY_AUTH_TOKEN_SALT  = "lambda.salt";
     public static final String LAMBDA_SECURITY_AUTH_TOKEN_KEY = "lambda.auth.token.";
     public static final Long LAMBDA_SECURITY_TOKEN_TIME_SECOND = Long.valueOf(600);

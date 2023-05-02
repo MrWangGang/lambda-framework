@@ -6,6 +6,7 @@ import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.common.util.sample.MD5Util;
+import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.web.security.container.AuthToken;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -14,7 +15,7 @@ import reactor.core.publisher.Mono;
 
 
 import static org.lambda.framework.common.enums.ExceptionEnum.*;
-import static org.lambda.framework.web.security.contract.SecurityContract.*;
+import static org.lambda.framework.web.security.contract.Contract.*;
 
 /**
  * @description: 获取spring secutiy中的principal
@@ -24,11 +25,11 @@ import static org.lambda.framework.web.security.contract.SecurityContract.*;
 @Component
 public class PrincipalUtil {
 
-    @Resource(name = "authRedisTemplate")
-    private ReactiveRedisTemplate authRedisTemplate;
+    @Resource(name = "securityAuthRedisTemplate")
+    private ReactiveRedisTemplate securityAuthRedisTemplate;
 
     public Mono<String> getPrincipalByToken(String key){
-        return org.lamb.framework.redis.operation.ReactiveRedisOperation.<String,String>build(authRedisTemplate).get(key);
+        return ReactiveRedisOperation.<String,String>build(securityAuthRedisTemplate).get(key);
     }
 
     public String setPrincipalToToken(String principal){
@@ -36,7 +37,7 @@ public class PrincipalUtil {
             throw new EventException(EA00000002);
         }
         String key = LAMBDA_SECURITY_AUTH_TOKEN_KEY+ MD5Util.hash(principal+"."+LAMBDA_SECURITY_AUTH_TOKEN_SALT);
-        org.lamb.framework.redis.operation.ReactiveRedisOperation.build(authRedisTemplate).set(key,principal,LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue());
+        ReactiveRedisOperation.build(securityAuthRedisTemplate).set(key,principal,LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue());
         return key;
     }
 

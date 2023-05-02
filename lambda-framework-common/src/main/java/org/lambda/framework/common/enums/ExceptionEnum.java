@@ -64,8 +64,8 @@ public enum ExceptionEnum {
     ES00000061("ES00000061","执行任务->无此taskKey所对应队列的消费者实例"),
     ES00000062("ES00000062","执行任务->消费者类型错误"),
 
-    ES00000080("ES00000080","lamb.security.redis数据库host缺失"),
-    ES00000081("ES00000081","lamb.openai.redis数据库host缺失"),
+    ES00000080("ES00000080","lambda.security.redis数据库host缺失"),
+    ES00000081("ES00000081","lambda.openai.redis数据库host缺失"),
     ES00000099("ES00000099","方法缺少必入参数"),
 
     //系统异常-spring security 异常 - 權限類異常
@@ -81,7 +81,7 @@ public enum ExceptionEnum {
     EA00000008("EA00000008","无法获取spring security全局上下文变量"),
     EA00000009("EA00000009","用户信息CAST失败"),
 
-    EA00000010("EA00000010","未知的lamb.security.permit_all_url"),
+    EA00000010("EA00000010","未知的lambda.security.permit_all_url"),
     EA00000011("EA00000011","LambAutzManager未配置"),
 
 
