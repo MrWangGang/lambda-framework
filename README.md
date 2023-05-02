@@ -31,10 +31,10 @@ Welcome to lambda-framework,I hope more practitioners can join me in improving t
 ```
 使用下面的示例来调用
 ```
-UniqueParam uniqueParam = UniqueParam.builder().uniqueId(req.getUniqueId()).uniqueTime(req.getUniqueTime()).build();
+UniqueParam openAiUniqueParam = UniqueParam.builder().uniqueId(req.getUniqueId()).uniqueTime(req.getUniqueTime()).build();
         ImageParam param =  ImageParam.builder()
                 .prompt(req.getPrompt())
-                .uniqueParam(uniqueParam)
+                .openAiUniqueParam(openAiUniqueParam)
                 .userId(userId)
                 .openAiApiKey(openAiApiKey)
                 .n(4)
@@ -105,7 +105,7 @@ guidFactory.GUID();
 可以使用如下的例子来设置token
 ```
 @Resource
-private PrincipalUtil principalUtil;
+private SecurityPrincipalUtil securityPprincipalUtil;
 
 @GetMapping("/login")
 public Mono login(){  //1
