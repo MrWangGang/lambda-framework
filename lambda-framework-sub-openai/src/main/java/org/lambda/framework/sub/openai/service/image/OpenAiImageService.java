@@ -49,7 +49,6 @@ public class OpenAiImageService implements OpenAiImageFunction {
                     List<OpenAiImageReplied> openAiImageReplied = null;
                     List<OpenAiConversation<OpenAiImageReplied>> openAiConversation = null;
                     OpenAiConversations<OpenAiImageReplied> openAiConversations = null;
-                    try {
                         if(e.equals(Mono.empty())){
                             //历史记录为空
                             openAiImageReplied = new LinkedList<>();
@@ -72,6 +71,7 @@ public class OpenAiImageService implements OpenAiImageFunction {
                             openAiConversation.add(_openAiConversation);
                         }
 
+                    try {
                         OpenAiService service = new OpenAiService(param.getApiKey(),Duration.ofSeconds(param.getTimeOut()));
                         CreateImageRequest request = CreateImageRequest.builder()
                                 .prompt(param.getPrompt())
@@ -79,6 +79,7 @@ public class OpenAiImageService implements OpenAiImageFunction {
                                 .n(param.getN())
                                 .responseFormat(param.getResponseFormat())
                                 .build();
+
                         ImageResult imageResult  = service.createImage(request);
                         openAiImageReplied.get(openAiImageReplied.size()-1).setImages(imageResult.getData());
                         OpenAiConversation<OpenAiImageReplied> _openAiConversation = openAiConversations.getOpenAiConversations().get(openAiConversations.getOpenAiConversations().size()-1);

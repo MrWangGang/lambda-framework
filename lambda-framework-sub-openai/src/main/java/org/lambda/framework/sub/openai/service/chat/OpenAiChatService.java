@@ -50,51 +50,47 @@ public class OpenAiChatService implements OpenAiChatFunction {
                     List<OpenAiChatReplied> openAiChatReplied = null;
                     List<OpenAiConversation<OpenAiChatReplied>> openAiConversation = null;
                     OpenAiConversations<OpenAiChatReplied> openAiConversations = null;
-                    try {
-                        Integer tokens = 0;
-                        if(e.equals(Mono.empty())){
-                            //没有历史聊天记录,第一次对话,装载AI人设
-                            chatMessage = new LinkedList<>();
-                            openAiChatReplied = new LinkedList<>();
-                            if(StringUtils.isNotBlank(param.getPersona())){
-                                chatMessage.add(new ChatMessage(ChatMessageRole.SYSTEM.value(),param.getPersona()));
-                                openAiChatReplied.add(new OpenAiChatReplied(ChatMessageRole.SYSTEM.value(),param.getPersona(),currentTime()));
-                                tokens = tokens + encoding(param.getPersona());
-                            }
-                            chatMessage.add(new ChatMessage(ChatMessageRole.USER.value(),param.getPrompt()));
-                            openAiChatReplied.add(new OpenAiChatReplied(ChatMessageRole.USER.value(),param.getPrompt(),currentTime()));
-                            tokens = tokens + encoding(param.getPrompt());
-                            openAiConversation = new LinkedList<>();
-                            OpenAiConversation<OpenAiChatReplied> _openAiConversation = new OpenAiConversation<OpenAiChatReplied>();
-                            _openAiConversation.setConversation(openAiChatReplied);
-                            openAiConversation.add(_openAiConversation);
-                            openAiConversations = new OpenAiConversations<OpenAiChatReplied>();
-                            openAiConversations.setOpenAiConversations(openAiConversation);
 
-                            if(!limitVerify(param.getQuota(),param.getMaxTokens(),tokens))return Mono.error(new EventException(EAI00000100));
-                        }else {
-                            List<ChatMessage> _chatMessage = new LinkedList<>();
-                            openAiConversations = new ObjectMapper().convertValue(e, new TypeReference<>(){});
-                            openAiConversations.getOpenAiConversations().forEach(_conversations->{
-                                _conversations.getConversation().forEach(message->{
-                                    _chatMessage.add(new ChatMessage(message.getRole(),message.getContent()));
-                                });
-                            });
-                            chatMessage = _chatMessage;
-                            chatMessage.add(new ChatMessage(ChatMessageRole.USER.value(),param.getPrompt()));
-                            openAiChatReplied = new LinkedList<>();
-                            openAiChatReplied.add(new OpenAiChatReplied(ChatMessageRole.USER.value(),param.getPrompt(),currentTime()));
-                            tokens = tokens + encoding(param.getPrompt());
-                            OpenAiConversation<OpenAiChatReplied> _openAiConversation = new OpenAiConversation<>();
-                            _openAiConversation.setConversation(openAiChatReplied);
-                            openAiConversations.getOpenAiConversations().add(_openAiConversation);
-                            //多轮对话要计算所有的tokens
-                            tokens = Math.toIntExact(tokens + openAiConversations.getTotalTokens());
-                            if(!limitVerify(param.getQuota(),param.getMaxTokens(),tokens))return Mono.error(new EventException(EAI00000100));
+                    Integer tokens = 0;
+                    if(e.equals(Mono.empty())){
+                        //没有历史聊天记录,第一次对话,装载AI人设
+                        chatMessage = new LinkedList<>();
+                        openAiChatReplied = new LinkedList<>();
+                        if(StringUtils.isNotBlank(param.getPersona())){
+                            chatMessage.add(new ChatMessage(ChatMessageRole.SYSTEM.value(),param.getPersona()));
+                            openAiChatReplied.add(new OpenAiChatReplied(ChatMessageRole.SYSTEM.value(),param.getPersona(),currentTime()));
+                            tokens = tokens + encoding(param.getPersona());
                         }
-                    }catch (Throwable throwable){
-                        return Mono.error(new EventException(EAI00000006,throwable.getMessage()));
+                        chatMessage.add(new ChatMessage(ChatMessageRole.USER.value(),param.getPrompt()));
+                        openAiChatReplied.add(new OpenAiChatReplied(ChatMessageRole.USER.value(),param.getPrompt(),currentTime()));
+                        tokens = tokens + encoding(param.getPrompt());
+                        openAiConversation = new LinkedList<>();
+                        OpenAiConversation<OpenAiChatReplied> _openAiConversation = new OpenAiConversation<OpenAiChatReplied>();
+                        _openAiConversation.setConversation(openAiChatReplied);
+                        openAiConversation.add(_openAiConversation);
+                        openAiConversations = new OpenAiConversations<OpenAiChatReplied>();
+                        openAiConversations.setOpenAiConversations(openAiConversation);
+                    }else {
+                        List<ChatMessage> _chatMessage = new LinkedList<>();
+                        openAiConversations = new ObjectMapper().convertValue(e, new TypeReference<>(){});
+                        openAiConversations.getOpenAiConversations().forEach(_conversations->{
+                            _conversations.getConversation().forEach(message->{
+                                _chatMessage.add(new ChatMessage(message.getRole(),message.getContent()));
+                            });
+                        });
+                        chatMessage = _chatMessage;
+                        chatMessage.add(new ChatMessage(ChatMessageRole.USER.value(),param.getPrompt()));
+                        openAiChatReplied = new LinkedList<>();
+                        openAiChatReplied.add(new OpenAiChatReplied(ChatMessageRole.USER.value(),param.getPrompt(),currentTime()));
+                        tokens = tokens + encoding(param.getPrompt());
+                        OpenAiConversation<OpenAiChatReplied> _openAiConversation = new OpenAiConversation<>();
+                        _openAiConversation.setConversation(openAiChatReplied);
+                        openAiConversations.getOpenAiConversations().add(_openAiConversation);
+                        //多轮对话要计算所有的tokens
+                        tokens = Math.toIntExact(tokens + openAiConversations.getTotalTokens());
                     }
+                    limitVerify(param.getQuota(),param.getMaxTokens(),tokens);
+                    limitVerifyByModel(TURBO,param.getQuota(),param.getMaxTokens(),tokens);
 
                     try {
                         OpenAiService service = new OpenAiService(param.getApiKey(),Duration.ofSeconds(param.getTimeOut()));
