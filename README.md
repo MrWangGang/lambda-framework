@@ -18,9 +18,15 @@ Welcome to lambda-framework,I hope more practitioners can join me in improving t
 | lambda-framework-sub-redis   		| 抽象redis组件        |
 | lambda-framework-web-core   		| reactor web核心 基于reactive webflux        |
 | lambda-framework-web-security   	| 权限框架        |
-
-
-
+```	
+核心:引入parent
+    <parent>
+        <groupId>org.lambda.framework</groupId>
+        <artifactId>lambda-framework</artifactId>
+        <version>1.0.0</version>
+        <!--<relativePath/>--> <!-- lookup parent from repository -->
+    </parent>
+```
 ## lambda-framework-sub-openai
 在pom文件中引用下面代码块
 ```		
@@ -34,9 +40,9 @@ Welcome to lambda-framework,I hope more practitioners can join me in improving t
 UniqueParam openAiUniqueParam = UniqueParam.builder().uniqueId(req.getUniqueId()).uniqueTime(req.getUniqueTime()).build();
         ImageParam param =  ImageParam.builder()
                 .prompt(req.getPrompt())
-                .openAiUniqueParam(openAiUniqueParam)
+                .uniqueParam(uniqueParam)
                 .userId(userId)
-                .openAiApiKey(openAiApiKey)
+                .apiKey(apiKey)
                 .n(4)
                 .size(Contract.image_size_512)
                 .responseFormat(Contract.responseFormat)
@@ -44,9 +50,9 @@ UniqueParam openAiUniqueParam = UniqueParam.builder().uniqueId(req.getUniqueId()
                 .quota(quato)
                 .maxTokens(imageTokens(Contract.image_size_512,4) + encoding(req.getPrompt()))
                 .build();
-        return returning(ImageService.execute(param).flatMap(e->{
+        return returning(openAiImageService.execute(param).flatMap(e->{
             //模拟扣减配额
-            quato = quato-e.getCurrentTotalTokens();
+            quato = quato-e.getTotalTokens();
             return Mono.just(e);
         }));
 ```
@@ -57,16 +63,15 @@ UniqueParam openAiUniqueParam = UniqueParam.builder().uniqueId(req.getUniqueId()
 <dependency>
 	<groupId>org.lambda.framework</groupId>
 	<artifactId>lambda-framework-redis</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
 </dependency>
 ```
-可以针对多数据源配置,使用LambReactiveRedisOperation.build()方法来切换不同的数据源
+可以针对多数据源配置,使用ReactiveRedisOperation.build()方法来切换不同的数据源
 例如:
 ```
     @Resource(name = "securityAuthRedisTemplate")
     private ReactiveRedisTemplate securityAuthRedisTemplate;
     
-    LambReactiveRedisOperation.build(securityAuthRedisTemplate).hasKey(authToken);
+    ReactiveRedisOperation.build(securityAuthRedisTemplate).hasKey(authToken);
 ```
 ## lambda-framework-sub-guid
 在pom文件中引用下面代码块
@@ -133,9 +138,9 @@ lambda-security默认使用redis来存储用户的auth-token和request path权�
 如果需要更改auth-token和request path权限信息的存储位置,可以重新配置bean
 例如：
 ```
-    CustomAuthManager extends AuthManager
+    CustomAuthManager extends SecurityAuthManager
     
-    CustomAutzManager extends AutzManager
+    CustomAutzManager extends SecurityAutzManager
     
 ```
 重写父类的方法覆盖掉逻辑并注入
@@ -143,7 +148,7 @@ lambda-security默认使用redis来存储用户的auth-token和request path权�
 ```
     
     @Bean
-    public AutzManager customAutzManager(CustomAuthManager customAuthManager){
+    public SecurityAutzManager customAutzManager(CustomAuthManager customAuthManager){
         return new CustomAutzManager(customAuthManager) {
             @Override
             public boolean verify(String currentPathAutzTree, String principal) {
@@ -154,7 +159,7 @@ lambda-security默认使用redis来存储用户的auth-token和request path权�
     }
 
     @Bean
-    public AuthManager customAuthManager(){
+    public SecurityAuthManager customAuthManager(){
         return new CustomAuthManager(){
             @Override
             public boolean verify(String principal) {
@@ -166,12 +171,12 @@ lambda-security默认使用redis来存储用户的auth-token和request path权�
 ```
 如果你不希望更改身份认证校验逻辑，但是需要添加一些个性化的账号校验逻辑，你可以只重写方法来实现.
 ```
-AuthManager.verify
+SecurityAuthManager.verify
 ```
 
 授权校验的逻辑需要自己去写逻辑,框架提供了verify接口
 ```
-AutzManager.verify(String currentPathAutzTree,String principal)
+SecurityAutzManager.verify(String currentPathAutzTree,String principal)
 ```
 currentPathAutzTree代表当前路径的权限树
 principal代表当前用户信息
@@ -184,7 +189,7 @@ web框架的核心 lambda框架采用了springboot3.x并使用了spring boot web
 ```
 error code
 
-public class DemoApplication extends ResponseHandler
+public class DemoApplication extends WebResponseHandler
 
 @GetMapping("/testSecurity1")
 public Mono testSecurity1(){  
@@ -200,7 +205,7 @@ public Mono testSecurity1(){
 
 ```
 来开启lambda-framework-web-core功能
-框架中已经写好了统一异常，GlobalExceptionHandler
+框架中已经写好了统一异常，WebGlobalExceptionHandler
 使用这样的形式去抛出自己的异常，否则都为ES000000000
 ```
 throw new EventException(ES00000099);
@@ -218,9 +223,9 @@ throw new EventException(ES00000099);
     "serviceMessage": "无效令牌"
 }
 ```
-你的controller类需要继承ResponseHandler
+你的controller类需要继承WebResponseHandler
 ```
-public class DemoApplication extends ResponseHandler
+public class DemoApplication extends WebResponseHandler
 
 @GetMapping("/testSecurity1")
 public Mono testSecurity1(){  
