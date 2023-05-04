@@ -92,9 +92,9 @@ public class OpenAiChatService implements OpenAiChatFunction {
                     limitVerify(param.getQuota(),param.getMaxTokens(),tokens);
                     limitVerifyByModel(TURBO,param.getQuota(),param.getMaxTokens(),tokens);
 
-                    try {
-                        OpenAiService service = new OpenAiService(param.getApiKey(),Duration.ofSeconds(param.getTimeOut()));
-                        ChatCompletionRequest request = ChatCompletionRequest.builder()
+
+                    OpenAiService service = new OpenAiService(param.getApiKey(),Duration.ofSeconds(param.getTimeOut()));
+                    ChatCompletionRequest request = ChatCompletionRequest.builder()
                                 .model(TURBO.getModel())
                                 .messages(chatMessage)
                                 .temperature(param.getTemperature())
@@ -105,31 +105,31 @@ public class OpenAiChatService implements OpenAiChatFunction {
                                 .presencePenalty(param.getPresencePenalty())
                                 .frequencyPenalty(param.getFrequencyPenalty())
                                 .build();
-                        ChatCompletionResult chatCompletionResult = service.createChatCompletion(request);
-                        ChatMessage _chatMessage = chatCompletionResult.getChoices().get(0).getMessage();
-                        OpenAiConversation<OpenAiChatReplied> _openAiConversation = openAiConversations.getOpenAiConversations().get(openAiConversations.getOpenAiConversations().size()-1);
-                        _openAiConversation.setPromptTokens(chatCompletionResult.getUsage().getPromptTokens());
-                        _openAiConversation.setCompletionTokens(chatCompletionResult.getUsage().getCompletionTokens());
-                        _openAiConversation.setTotalTokens(chatCompletionResult.getUsage().getTotalTokens());
-                        _openAiConversation.getConversation().add(new OpenAiChatReplied(_chatMessage.getRole(),_chatMessage.getContent(), OpenAiContract.currentTime()));
 
-                        openAiConversations.setTotalTokens(openAiConversations.getTotalTokens() + chatCompletionResult.getUsage().getTotalTokens());
-                        openAiConversations.setTotalPromptTokens(openAiConversations.getTotalPromptTokens() + chatCompletionResult.getUsage().getPromptTokens());
-                        openAiConversations.setTotalCompletionTokens(openAiConversations.getTotalCompletionTokens() + chatCompletionResult.getUsage().getCompletionTokens());
-
-                        ReactiveRedisOperation.build(openAiChatRedisTemplate).set(uniqueId, openAiConversations);
-
-                        return Mono.just(_openAiConversation).flatMap(current->{
-                            OpenAiReplying<OpenAiChatReplied> openAiReplying =  new OpenAiReplying<OpenAiChatReplied>();
-                            openAiReplying.setReplying(current.getConversation().get(current.getConversation().size()-1));
-                            openAiReplying.setPromptTokens(current.getPromptTokens());
-                            openAiReplying.setCompletionTokens(current.getCompletionTokens());
-                            openAiReplying.setTotalTokens(current.getTotalTokens());
-                            return Mono.just(openAiReplying);
-                        });
-                    }catch (Throwable throwable){
-                        return Mono.error(new EventException(EAI00000006,throwable.getMessage()));
-                    }
+                    OpenAiConversations<OpenAiChatReplied> finalOpenAiConversations = openAiConversations;
+                    return Mono.fromCallable(() -> service.createChatCompletion(request))
+                            .onErrorMap(throwable -> new EventException(EAI00000006, throwable.getMessage()))
+                            .flatMap(chatCompletionResult -> {
+                                ChatMessage _chatMessage = chatCompletionResult.getChoices().get(0).getMessage();
+                                OpenAiConversation<OpenAiChatReplied> _openAiConversation = finalOpenAiConversations.getOpenAiConversations().get(finalOpenAiConversations.getOpenAiConversations().size()-1);
+                                _openAiConversation.setPromptTokens(chatCompletionResult.getUsage().getPromptTokens());
+                                _openAiConversation.setCompletionTokens(chatCompletionResult.getUsage().getCompletionTokens());
+                                _openAiConversation.setTotalTokens(chatCompletionResult.getUsage().getTotalTokens());
+                                _openAiConversation.getConversation().add(new OpenAiChatReplied(_chatMessage.getRole(),_chatMessage.getContent(), OpenAiContract.currentTime()));
+                                finalOpenAiConversations.setTotalTokens(finalOpenAiConversations.getTotalTokens() + chatCompletionResult.getUsage().getTotalTokens());
+                                finalOpenAiConversations.setTotalPromptTokens(finalOpenAiConversations.getTotalPromptTokens() + chatCompletionResult.getUsage().getPromptTokens());
+                                finalOpenAiConversations.setTotalCompletionTokens(finalOpenAiConversations.getTotalCompletionTokens() + chatCompletionResult.getUsage().getCompletionTokens());
+                                ReactiveRedisOperation.build(openAiChatRedisTemplate).set(uniqueId, finalOpenAiConversations);
+                                return Mono.just(_openAiConversation);
+                            })
+                            .flatMap(current->{
+                                OpenAiReplying<OpenAiChatReplied> openAiReplying =  new OpenAiReplying<OpenAiChatReplied>();
+                                openAiReplying.setReplying(current.getConversation().get(current.getConversation().size()-1));
+                                openAiReplying.setPromptTokens(current.getPromptTokens());
+                                openAiReplying.setCompletionTokens(current.getCompletionTokens());
+                                openAiReplying.setTotalTokens(current.getTotalTokens());
+                                return Mono.just(openAiReplying);
+                            });
                 });
     }
 

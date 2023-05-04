@@ -12,6 +12,7 @@ import org.lambda.framework.sub.openai.OpenAiContract;
 import org.lambda.framework.sub.openai.OpenAiConversation;
 import org.lambda.framework.sub.openai.OpenAiConversations;
 import org.lambda.framework.sub.openai.OpenAiReplying;
+import org.lambda.framework.sub.openai.service.chat.response.OpenAiChatReplied;
 import org.lambda.framework.sub.openai.service.image.param.OpenAiImageParam;
 import org.lambda.framework.sub.openai.service.image.response.OpenAiImageReplied;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
@@ -71,7 +72,7 @@ public class OpenAiImageService implements OpenAiImageFunction {
                             openAiConversation.add(_openAiConversation);
                         }
 
-                    try {
+
                         OpenAiService service = new OpenAiService(param.getApiKey(),Duration.ofSeconds(param.getTimeOut()));
                         CreateImageRequest request = CreateImageRequest.builder()
                                 .prompt(param.getPrompt())
@@ -79,33 +80,31 @@ public class OpenAiImageService implements OpenAiImageFunction {
                                 .n(param.getN())
                                 .responseFormat(param.getResponseFormat())
                                 .build();
-
-                        ImageResult imageResult  = service.createImage(request);
-                        openAiImageReplied.get(openAiImageReplied.size()-1).setImages(imageResult.getData());
-                        OpenAiConversation<OpenAiImageReplied> _openAiConversation = openAiConversations.getOpenAiConversations().get(openAiConversations.getOpenAiConversations().size()-1);
-
-                        Integer completionTokens = imageTokens(param.getSize(),param.getN());
-                        Integer totalTokens =promptTokens + completionTokens;
-                        _openAiConversation.setPromptTokens(promptTokens);
-                        _openAiConversation.setCompletionTokens(completionTokens);
-                        _openAiConversation.setTotalTokens(totalTokens);
-                        openAiConversations.setTotalTokens(openAiConversations.getTotalTokens() + totalTokens);
-                        openAiConversations.setTotalPromptTokens(openAiConversations.getTotalPromptTokens() + promptTokens);
-                        openAiConversations.setTotalCompletionTokens(openAiConversations.getTotalCompletionTokens() + completionTokens);
-                        ReactiveRedisOperation.build(openAiImageRedisTemplate).set(uniqueId, openAiConversations);
-                        return Mono.just(_openAiConversation).flatMap(current->{
-                            OpenAiReplying<OpenAiImageReplied> openAiReplying =  new OpenAiReplying<OpenAiImageReplied>();
-                            openAiReplying.setReplying(current.getConversation().get(current.getConversation().size()-1));
-                            openAiReplying.setPromptTokens(current.getPromptTokens());
-                            openAiReplying.setCompletionTokens(current.getCompletionTokens());
-                            openAiReplying.setTotalTokens(current.getTotalTokens());
-                            return Mono.just(openAiReplying);
-                        });
-
-
-                    }catch (Throwable throwable){
-                        return Mono.error(new EventException(EAI00000006,throwable.getMessage()));
-                    }
+                    OpenAiConversations<OpenAiImageReplied> finalOpenAiConversations = openAiConversations;
+                    List<OpenAiImageReplied> finalOpenAiImageReplied = openAiImageReplied;
+                    return Mono.fromCallable(() -> service.createImage(request))
+                            .onErrorMap(throwable -> new EventException(EAI00000006, throwable.getMessage()))
+                            .flatMap(imageResult -> {
+                                finalOpenAiImageReplied.get(finalOpenAiImageReplied.size()-1).setImages(imageResult.getData());
+                                OpenAiConversation<OpenAiImageReplied> _openAiConversation = finalOpenAiConversations.getOpenAiConversations().get(finalOpenAiConversations.getOpenAiConversations().size()-1);
+                                Integer completionTokens = imageTokens(param.getSize(),param.getN());
+                                Integer totalTokens =promptTokens + completionTokens;
+                                _openAiConversation.setPromptTokens(promptTokens);
+                                _openAiConversation.setCompletionTokens(completionTokens);
+                                _openAiConversation.setTotalTokens(totalTokens);
+                                finalOpenAiConversations.setTotalTokens(finalOpenAiConversations.getTotalTokens() + totalTokens);
+                                finalOpenAiConversations.setTotalPromptTokens(finalOpenAiConversations.getTotalPromptTokens() + promptTokens);
+                                finalOpenAiConversations.setTotalCompletionTokens(finalOpenAiConversations.getTotalCompletionTokens() + completionTokens);
+                                ReactiveRedisOperation.build(openAiImageRedisTemplate).set(uniqueId, finalOpenAiConversations);
+                                return Mono.just(_openAiConversation);
+                            }).flatMap(current->{
+                                OpenAiReplying<OpenAiImageReplied> openAiReplying =  new OpenAiReplying<OpenAiImageReplied>();
+                                openAiReplying.setReplying(current.getConversation().get(current.getConversation().size()-1));
+                                openAiReplying.setPromptTokens(current.getPromptTokens());
+                                openAiReplying.setCompletionTokens(current.getCompletionTokens());
+                                openAiReplying.setTotalTokens(current.getTotalTokens());
+                                return Mono.just(openAiReplying);
+                            });
                 });
     }
 }
