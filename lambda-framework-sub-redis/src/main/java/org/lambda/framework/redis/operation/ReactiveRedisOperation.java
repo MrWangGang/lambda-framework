@@ -44,4 +44,5 @@ public class ReactiveRedisOperation<KEY,T> {
 
     public Mono<Boolean> hasKey(KEY key){
         return reactiveRedisTemplate.hasKey(key);
-    }}
+    }
+}
