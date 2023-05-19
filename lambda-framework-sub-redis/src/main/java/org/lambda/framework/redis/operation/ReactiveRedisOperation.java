@@ -12,21 +12,21 @@ import java.time.Duration;
  * @author: Mr.WangGang
  * @create: 2018-10-15 下午 12:08
  **/
-public class ReactiveRedisOperation<KEY,T> {
+public class ReactiveRedisOperation<KEY,V> {
 
-    private ReactiveRedisTemplate<KEY,T> reactiveRedisTemplate;
-    private  <KEY,T> ReactiveRedisOperation(ReactiveRedisTemplate reactiveRedisTemplate){
+    private ReactiveRedisTemplate<KEY,V> reactiveRedisTemplate;
+    private  <KEY,V> ReactiveRedisOperation(ReactiveRedisTemplate reactiveRedisTemplate){
         this.reactiveRedisTemplate = reactiveRedisTemplate;
     }
 
-    public static <KEY,T> ReactiveRedisOperation<KEY,T> build(ReactiveRedisTemplate reactiveRedisTemplate){
+    public static <KEY,V> ReactiveRedisOperation<KEY,V> build(ReactiveRedisTemplate reactiveRedisTemplate){
         return new ReactiveRedisOperation(reactiveRedisTemplate);
     }
-    public void set(KEY key, T t, Long timeout){
+    public void set(KEY key, V t, Long timeout){
          reactiveRedisTemplate.opsForValue().set(key,t, Duration.ofSeconds(timeout)).subscribe();
     }
 
-    public void set(KEY key, T t){
+    public void set(KEY key, V t){
         reactiveRedisTemplate.opsForValue().set(key,t).subscribe();
     }
 
@@ -38,7 +38,7 @@ public class ReactiveRedisOperation<KEY,T> {
          reactiveRedisTemplate.expire(key,Duration.ofSeconds(timeout)).subscribe();
     }
 
-    public Mono<T> get(KEY key){
+    public Mono<V> get(KEY key){
         return reactiveRedisTemplate.opsForValue().get(key);
     }
 
