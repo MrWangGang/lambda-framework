@@ -22,22 +22,23 @@ lambda-framework，使框架变得更加简单和易用。这将使程序员能�
 ***微服务建议:***
 ***每个微服务得有独特的异常命名，命名规范为 微服务名+ExceptionEnums***
 ***异常枚举必须实现ExceptionEnumFunction接口***
-pom准备
+
+新建一个工程的pom准备
 ```
-	<parent>
-		<groupId>org.lambda.framework</groupId>
-		<artifactId>lambda-framework</artifactId>
-		<version>1.0.0</version>
-		<!--<relativePath/>--> <!-- lookup parent from repository -->
-	</parent>
+<parent>
+    <groupId>org.lambda.framework</groupId>
+    <artifactId>lambda-framework</artifactId>
+    <version>1.0.0</version>
+    <!--<relativePath/>--> <!-- lookup parent from repository -->
+</parent>
 ```
 
 使用你想用的组件，不需要填写版本号，版本号与parent version同步
 ```
-	<dependency>
-	    <groupId>org.lambda.framework</groupId>
-		<artifactId>lambda-framework-security</artifactId>
-	</dependency>
+<dependency>
+	<groupId>org.lambda.framework</groupId>
+	<artifactId>lambda-framework-security</artifactId>
+</dependency>
 ```
 例:
 ```
