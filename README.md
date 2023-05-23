@@ -33,7 +33,7 @@ lambda-framework，使框架变得更加简单和易用。这将使程序员能�
 </parent>
 ```
 
-使用你想用的组件，不需要填写版本号，版本号与parent version同步
+使用你想用的组件，不需要填写版本号，版本号与parent version同步 例如:
 ```
 <dependency>
 	<groupId>org.lambda.framework</groupId>
@@ -72,15 +72,6 @@ return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004));
 当然那也可以直接
 ```
 throw new EventException(SecurityExceptionEnum.ES_SECURITY_004);
-```
-```
-核心:引入parent
-    <parent>
-        <groupId>org.lambda.framework</groupId>
-        <artifactId>lambda-framework</artifactId>
-        <version>1.0.0</version>
-        <!--<relativePath/>--> <!-- lookup parent from repository -->
-    </parent>
 ```
 ## lambda-framework-openai
 在pom文件中引用下面代码块
