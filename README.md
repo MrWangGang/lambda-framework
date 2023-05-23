@@ -40,7 +40,7 @@ lambda-framework，使框架变得更加简单和易用。这将使程序员能�
 	<artifactId>lambda-framework-security</artifactId>
 </dependency>
 ```
-例:
+创建异常枚举类->例:
 ```
 public enum SecurityExceptionEnum implements ExceptionEnumFunction {
 
