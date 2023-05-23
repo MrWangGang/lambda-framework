@@ -1,24 +1,78 @@
 # 🚀 lamb-framework
 
 [![License: apache2.0](https://img.shields.io/github/license/tensorflow/tensorflow.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-## 📖 Introduction
+## 📖 简介
 
 Welcome to lambda-framework,I hope more practitioners can join me in improving the lambda-framework, making the framework simpler and more user-friendly. This will allow programmers to focus on their business code, without having to worry about the complex configuration of each component.
 
-欢迎,我希望更多的从业者能加入我，共同完善lambda-framework，使框架变得更加简单和易用。这将使程序员能够专注于业务代码，而无需担心每个组件的复杂数
+lambda-framework，使框架变得更加简单和易用。这将使程序员能够专注于业务代码，而无需担心每个组件的复杂配置
 
-***每个组件用lambda-framework-sub-xxxx命名形式***
-***每个properties 使用 lambda.xxx.xxx_xxx命名形式***
+***每个组件用lambda-framework-xxxx命名形式***
+***每个properties 使用 lambda.组件name.xxx  or  xxx_xxx命名形式***
 ***对外暴露bean 使用 模块名+功能命名形式 类似securityAuthRedisConfig***
 | 组件名称               | 说明         |
 | ----------        	| ----------- |
-| lambda-framework-common      		| 公共方法模块       |
-| lambda-framework-sub-guid   		| 唯一序列号GUID生成组件        |
-| lambda-framework-sub-openai   		| openAi调用组件        |
-| lambda-framework-sub-redis   		| 抽象redis组件        |
-| lambda-framework-web-core   		| reactor web核心 基于reactive webflux        |
-| lambda-framework-web-security   	| 权限框架        |
-```	
+| lambda-framework-common      	| 公共方法模块       |
+| lambda-framework-guid   		| 唯一序列号GUID生成组件        |
+| lambda-framework-openai   	| openAi调用组件        |
+| lambda-framework-redis   		| 抽象redis组件        |
+| lambda-framework-web   		| reactor web核心 基于reactive webflux        |
+| lambda-framework-security   	| 权限框架        |
+
+***微服务建议:***
+***每个微服务得有独特的异常命名，命名规范为 微服务名+ExceptionEnums***
+***异常枚举必须实现ExceptionEnumFunction接口***
+pom准备
+```
+	<parent>
+		<groupId>org.lambda.framework</groupId>
+		<artifactId>lambda-framework</artifactId>
+		<version>1.0.0</version>
+		<!--<relativePath/>--> <!-- lookup parent from repository -->
+	</parent>
+```
+
+使用你想用的组件，不需要填写版本号，版本号与parent version同步
+```
+	<dependency>
+	    <groupId>org.lambda.framework</groupId>
+		<artifactId>lambda-framework-security</artifactId>
+	</dependency>
+```
+例:
+```
+public enum SecurityExceptionEnum implements ExceptionEnumFunction {
+
+    //系统异常-spring security 异常 - 200-299
+    ES_SECURITY_000("ES_SECURITY_000","身份认证失败"), //AuthenticationException
+    ES_SECURITY_001("ES_SECURITY_001","拒绝访问"), //AccessDeniedException
+    
+    @Getter
+    @Setter
+    private String code;
+    
+    @Getter
+    @Setter
+    private String message;
+    // 构造方法
+    private WebExceptionEnum(String code, String message) {
+        this.code = code;
+        this.message = message;
+
+    }
+    
+}	
+```
+
+如果在flatmap中使用，可以使用
+```
+return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004));
+```
+当然那也可以直接
+```
+throw new EventException(SecurityExceptionEnum.ES_SECURITY_004);
+```
+```
 核心:引入parent
     <parent>
         <groupId>org.lambda.framework</groupId>
@@ -27,12 +81,12 @@ Welcome to lambda-framework,I hope more practitioners can join me in improving t
         <!--<relativePath/>--> <!-- lookup parent from repository -->
     </parent>
 ```
-## lambda-framework-sub-openai
+## lambda-framework-openai
 在pom文件中引用下面代码块
-```		
+```
   <dependency>
     <groupId>org.lambda.framework</groupId>
-    <artifactId>lambda-framework-sub-openai</artifactId>
+    <artifactId>lambda-framework-openai</artifactId>
   </dependency>
 ```
 使用下面的示例来调用
@@ -57,7 +111,7 @@ UniqueParam openAiUniqueParam = UniqueParam.builder().uniqueId(req.getUniqueId()
         }));
 ```
 
-## lambda-framework-sub-redis
+## lambda-framework-redis
 在pom文件中引用下面代码块
 ```		
 <dependency>
@@ -65,15 +119,91 @@ UniqueParam openAiUniqueParam = UniqueParam.builder().uniqueId(req.getUniqueId()
 	<artifactId>lambda-framework-redis</artifactId>
 </dependency>
 ```
-可以针对多数据源配置,使用ReactiveRedisOperation.build()方法来切换不同的数据源
-例如:
+可以针对多数据源配置,针对不同的模块，你可以这样去配置
+如果要使用相同的host地址不同的database可以先定义一个抽象超类，
 ```
-    @Resource(name = "securityAuthRedisTemplate")
-    private ReactiveRedisTemplate securityAuthRedisTemplate;
-    
-    ReactiveRedisOperation.build(securityAuthRedisTemplate).hasKey(authToken);
+    public abstract class AbstractSecurityRedisConfig extends AbstractReactiveRedisConfig {
+    //##Redis服务器地址
+    @Value("${lambda.security.redis.host:0}")
+    protected String host;
+    //## Redis服务器连接端口
+    @Value("${lambda.security.redis.port:6379}")
+    protected Integer port;
+    //连接池密码
+    @Value("${lambda.security.redis.password:}")
+    protected String password;
+    //# 连接池最大连接数
+    @Value("${lambda.security.redis.lettuce.pool.max_active:8}")
+    protected Integer maxActive;
+    //# 连接池最大阻塞等待时间（使用负值表示没有限制）
+    @Value("${lambda.security.redis.lettuce.pool.max_wait_seconds:50}")
+    protected Integer maxWaitSeconds;
+
+    //# 连接池中的最大空闲连接
+    @Value("${lambda.security.redis.lettuce.pool.max_idle:8}")
+    protected Integer maxIdle;
+
+    //# 连接池中的最小空闲连接
+    @Value("${lambda.security.redis.lettuce.pool.min_idle:0}")
+    protected Integer minIdle;
+
+
+    @Override
+    protected String host() {
+        return this.host;
+    }
+
+    @Override
+    protected Integer port() {
+        return this.port;
+    }
+
+    @Override
+    protected String password() {
+        return this.password;
+    }
+
+    @Override
+    protected Integer maxActive() {
+        return this.maxActive;
+    }
+
+    @Override
+    protected Integer maxWaitSeconds() {
+        return this.maxWaitSeconds;
+    }
+
+    @Override
+    protected Integer maxIdle() {
+        return this.maxIdle;
+    }
+
+    @Override
+    protected Integer minIdle() {
+        return this.minIdle;
+    }
+}
 ```
-## lambda-framework-sub-guid
+通过实现超类，将database自定义配置暴露出去
+```
+@Configuration
+public class SecurityAuthRedisConfig extends AbstractSecurityRedisConfig {
+    //##数据库序号
+    @Value("${lambda.security.redis.auth.database:0}")
+    private Integer database;
+    @Bean("securityAuthRedisTemplate")
+    public ReactiveRedisTemplate securityAuthRedisTemplate(){
+        return redisTemplate();
+    }
+
+    @Override
+    protected Integer database() {
+        return this.database;
+    }
+}
+```
+
+## lambda-framework-guid
 在pom文件中引用下面代码块
 
 ```		
@@ -97,12 +227,12 @@ private GuidFactory guidFactory;
 ```
 guidFactory.GUID();
 ```
-## lambda-framework-web-security
+## lambda-framework-security
 在pom文件中引用下面代码块
 ```
 <dependency>
   <groupId>org.lambda.framework</groupId>
-  <artifactId>lambda-framework-web-security</artifactId>
+  <artifactId>lambda-framework-security</artifactId>
 </dependency>
 ```
 ###统一认证
@@ -182,7 +312,7 @@ currentPathAutzTree代表当前路径的权限树
 principal代表当前用户信息
 你可以在verify接口中去校验currentPathAutzTree中的角色和权限是否存在于principal
 
-## lambda-framework-web-core
+## lambda-framework-web
 web框架的核心 lambda框架采用了springboot3.x并使用了spring boot web-flux响应式web框架,详情见lambda-framework-demo
 因为采用的web-flux，请不要提前订阅你的mono or flux 框架会帮你自动处理 否则无法response给api调用者
 以下代码块是错误示范:
@@ -204,7 +334,7 @@ public Mono testSecurity1(){
 @RestController
 
 ```
-来开启lambda-framework-web-core功能
+来开启lambda-framework-web功能
 框架中已经写好了统一异常，WebGlobalExceptionHandler
 使用这样的形式去抛出自己的异常，否则都为ES_WEB_0000
 ```
@@ -212,7 +342,7 @@ throw new EventException(ES00000099);
 ```
 ```
 {
-    "serviceCode": "E000000000",
+    "serviceCode": "E00000000",
     "serviceMessage": "操作成功",
     "data": "lambda.auth.token.c495e2e9e4a32c94d3791f5602d20a97"
 }
@@ -277,3 +407,5 @@ returning是针对标准形式的返回
         }
     }
 ```
+
+
