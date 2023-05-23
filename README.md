@@ -336,9 +336,9 @@ public Mono testSecurity1(){
 ```
 来开启lambda-framework-web功能
 框架中已经写好了统一异常，WebGlobalExceptionHandler
-使用这样的形式去抛出自己的异常，否则都为ES_WEB_0000
+使用这样的形式去抛出自己的异常，否则都为ES_WEB_000
 ```
-throw new EventException(ES00000099);
+throw new EventException(ES_WEB_000);
 ```
 ```
 {
