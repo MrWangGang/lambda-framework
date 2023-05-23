@@ -71,27 +71,27 @@
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
-				<artifactId>lambda-framework-sub-guid</artifactId>
+				<artifactId>lambda-framework-guid</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
-				<artifactId>lambda-framework-sub-openai</artifactId>
+				<artifactId>lambda-framework-openai</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
-				<artifactId>lambda-framework-sub-redis</artifactId>
+				<artifactId>lambda-framework-redis</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
-				<artifactId>lambda-framework-web-core</artifactId>
+				<artifactId>lambda-framework-web</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
-				<artifactId>lambda-framework-web-security</artifactId>
+				<artifactId>lambda-framework-security</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
@@ -146,10 +146,10 @@
 
     <modules>
 		<module>lambda-framework-common</module>
-		<module>lambda-framework-web-core</module>
-		<module>lambda-framework-web-security</module>
-		<module>lambda-framework-sub-guid</module>
-		<module>lambda-framework-sub-redis</module>
-		<module>lambda-framework-sub-openai</module>
+		<module>lambda-framework-web</module>
+		<module>lambda-framework-security</module>
+		<module>lambda-framework-guid</module>
+		<module>lambda-framework-redis</module>
+		<module>lambda-framework-openai</module>
 	</modules>
 </project>

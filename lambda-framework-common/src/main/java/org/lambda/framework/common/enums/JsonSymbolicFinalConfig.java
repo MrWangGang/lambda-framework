@@ -1,8 +1,4 @@
 package org.lambda.framework.common.enums;
-
-
-import static org.lambda.framework.common.enums.ExceptionEnum.E000000000;
-
 /**
  * Created by WangGang on 2017/7/5 0005.
  * E-mail userbean@outlook.com
@@ -11,8 +7,8 @@ import static org.lambda.framework.common.enums.ExceptionEnum.E000000000;
 public class JsonSymbolicFinalConfig {
 
 
-    public  static final String   DEFAULT_SUCCESS_SERVICE_CODE = E000000000.getCode();
+    public  static final String   DEFAULT_SUCCESS_SERVICE_CODE = "E00000000";
 
-    public  static final String   DEFAULT_SUCCESS_SERVICE_MESSAGE = E000000000.getMessage();
+    public  static final String   DEFAULT_SUCCESS_SERVICE_MESSAGE = "操作成功";
 
 }

@@ -5,7 +5,7 @@ import org.lambda.framework.common.exception.EventException;
 
 import java.security.MessageDigest;
 
-import static org.lambda.framework.common.enums.ExceptionEnum.ES00000035;
+import static org.lambda.framework.common.enums.ExceptionEnum.ESYS000026;
 
 
 /**
@@ -24,7 +24,7 @@ public class MD5Util {
             byte[] messageDigest = algorithm.digest();
             return messageDigest;
         } catch (Exception e) {
-            throw new EventException(ES00000035);
+            throw new EventException(ESYS000026);
         }
     }
 
@@ -48,7 +48,7 @@ public class MD5Util {
         try {
             return new String(toHex(md5(s)).getBytes("UTF-8"), "UTF-8");
         } catch (Exception e) {
-            throw new EventException(ES00000035);
+            throw new EventException(ESYS000026);
         }
     }
 }

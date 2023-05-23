@@ -20,11 +20,11 @@ public class BeanPlasticityUtil {
             org.apache.commons.beanutils.BeanUtils.copyProperties(result, orig);
             return result;
         } catch (IllegalAccessException e) {
-            throw new EventException(ES00000022);
+            throw new EventException(ESYS000022);
         } catch (InstantiationException e) {
-            throw new EventException(ES00000022);
+            throw new EventException(ESYS000022);
         } catch (InvocationTargetException e) {
-            throw new EventException(ES00000022);
+            throw new EventException(ESYS000022);
         }
     }
 
@@ -36,17 +36,17 @@ public class BeanPlasticityUtil {
                     return null;
                 }
                 if (!(value instanceof String)) {
-                    throw new EventException(ES00000023);
+                    throw new EventException(ESYS000023);
                 }
                 if (StringUtils.isBlank((String) value)) {
-                    throw new EventException(ES00000024);
+                    throw new EventException(ESYS000024);
                 }
 
                 SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
                 try {
                     return df.parse((String) value);
                 } catch (ParseException e) {
-                    throw new EventException(ES00000025);
+                    throw new EventException(ESYS000025);
                 }
             }
         }, java.util.Date.class);

@@ -1,6 +1,5 @@
 package org.lambda.framework.common.exception;
 
-import org.lambda.framework.common.enums.ExceptionEnum;
 import org.lambda.framework.common.exception.basic.GlobalException;
 
 /**
@@ -10,11 +9,11 @@ import org.lambda.framework.common.exception.basic.GlobalException;
  */
 public class EventException extends GlobalException {
 
-    public EventException(ExceptionEnum error) {
+    public EventException(ExceptionEnumFunction error) {
         super(error.getCode(),error.getMessage());
     }
 
-    public EventException(ExceptionEnum error, String message) {
+    public EventException(ExceptionEnumFunction error, String message) {
         super(error.getCode(),message);
     }
 }

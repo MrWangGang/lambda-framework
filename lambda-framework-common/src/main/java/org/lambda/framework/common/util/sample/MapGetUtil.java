@@ -16,24 +16,24 @@ import static org.lambda.framework.common.enums.ExceptionEnum.*;
 public class MapGetUtil {
     public static <T>T get(Map map, String value){
         if(StringUtil.isBlank(value)){
-            throw new EventException(ES00000002);
+            throw new EventException(ESYS000002);
         }
 
         if(map == null){
-            throw new EventException(ES00000001);
+            throw new EventException(ESYS000001);
         }
 
         if(map.isEmpty()){
-            throw new EventException(ES00000001);
+            throw new EventException(ESYS000001);
         }
 
         Object obj = map.get(value);
         if(obj == null){
-            throw new EventException(ES00000003);
+            throw new EventException(ESYS000003);
         }
         T t = (T)obj ;
         if(t == null){
-            throw new EventException(ES00000003);
+            throw new EventException(ESYS000003);
         }
 
         return t;

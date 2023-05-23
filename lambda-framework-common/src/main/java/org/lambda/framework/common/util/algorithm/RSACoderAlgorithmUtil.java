@@ -47,7 +47,7 @@ public class RSACoderAlgorithmUtil {
 
             return Base64AlgorithmUtil.byteArrayToBase64(encryptedResult);
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ES00000005);
+            throw new EventException(ESYS000005);
         }
     }
 
@@ -66,7 +66,7 @@ public class RSACoderAlgorithmUtil {
             String signParams = RSACoderAlgorithmUtil.sign(dataInBytes, privateKey,signType);//用应用的私钥加签.
             return signParams;
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ES00000005);
+            throw new EventException(ESYS000005);
         }
     }
 
@@ -84,7 +84,7 @@ public class RSACoderAlgorithmUtil {
             byte[] encryptedBytes = decryptByPrivateKey(byte64, key, null);
             return new String(encryptedBytes, charset);
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ES00000005);
+            throw new EventException(ESYS000005);
         }
 
     }
@@ -104,7 +104,7 @@ public class RSACoderAlgorithmUtil {
             byte[] encryptedBytes = decryptByPrivateKey(byte64, key, encryptionType);
             return new String(encryptedBytes, charset);
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ES00000005);
+            throw new EventException(ESYS000005);
         }
     }
 
@@ -155,19 +155,19 @@ public class RSACoderAlgorithmUtil {
 
             return decryptedData;
         } catch (IOException e) {
-            throw new EventException(ES00000008);
+            throw new EventException(ESYS000008);
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ES00000006);
+            throw new EventException(ESYS000006);
         } catch (InvalidKeyException e) {
-            throw new EventException(ES00000009);
+            throw new EventException(ESYS000009);
         } catch (NoSuchPaddingException e) {
-            throw new EventException(ES00000007);
+            throw new EventException(ESYS000007);
         } catch (BadPaddingException e) {
-            throw new EventException(ES00000010);
+            throw new EventException(ESYS000010);
         }  catch (IllegalBlockSizeException e) {
-            throw new EventException(ES00000011);
+            throw new EventException(ESYS000011);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES00000012);
+            throw new EventException(ESYS000012);
         }
 
     }
@@ -220,19 +220,19 @@ public class RSACoderAlgorithmUtil {
             }
             return encryptedData;
         } catch (IOException e) {
-            throw new EventException(ES00000013);
+            throw new EventException(ESYS000013);
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ES00000006);
+            throw new EventException(ESYS000006);
         } catch (InvalidKeyException e) {
-            throw new EventException(ES00000014);
+            throw new EventException(ESYS000014);
         } catch (NoSuchPaddingException e) {
-            throw new EventException(ES00000007);
+            throw new EventException(ESYS000007);
         } catch (BadPaddingException e) {
-            throw new EventException(ES00000015);
+            throw new EventException(ESYS000015);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES00000016);
+            throw new EventException(ESYS000016);
         } catch (IllegalBlockSizeException e) {
-            throw new EventException(ES00000017);
+            throw new EventException(ESYS000017);
         }
 
     }
@@ -262,13 +262,13 @@ public class RSACoderAlgorithmUtil {
 
             return encryptBASE64(signature.sign());
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ES00000006);
+            throw new EventException(ESYS000006);
         } catch (SignatureException e) {
-            throw new EventException(ES00000018);
+            throw new EventException(ESYS000018);
         } catch (InvalidKeyException e) {
-            throw new EventException(ES00000009);
+            throw new EventException(ESYS000009);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES00000012);
+            throw new EventException(ESYS000012);
         }
 
     }
@@ -299,13 +299,13 @@ public class RSACoderAlgorithmUtil {
             //验证签名是否正常
             return signature.verify(decryptBASE64(sign));
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ES00000006);
+            throw new EventException(ESYS000006);
         } catch (SignatureException e) {
-            throw new EventException(ES00000018);
+            throw new EventException(ESYS000018);
         } catch (InvalidKeyException e) {
-            throw new EventException(ES00000014);
+            throw new EventException(ESYS000014);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES00000016);
+            throw new EventException(ESYS000016);
         }
     }
 
@@ -325,7 +325,7 @@ public class RSACoderAlgorithmUtil {
             maxLength = keyLength / 8 - 11;
             return maxLength;
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES00000016);
+            throw new EventException(ESYS000016);
         }
 
     }
@@ -362,7 +362,7 @@ public class RSACoderAlgorithmUtil {
             maxLength = keyLength / 8;
             return maxLength;
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES00000016);
+            throw new EventException(ESYS000016);
         }
     }
 

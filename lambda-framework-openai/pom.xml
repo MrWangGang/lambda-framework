@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<artifactId>lambda-framework-openai</artifactId>
+	<name>lambda-framework-openai</name>
+	<description>lambda-framework-openai</description>
+
+	<parent>
+		<groupId>org.lambda.framework</groupId>
+		<artifactId>lambda-framework</artifactId>
+		<version>1.0.0</version>
+		<!--<relativePath/>--> <!-- lookup parent from repository -->
+	</parent>
+	<dependencies>
+		<dependency>
+			<groupId>org.lambda.framework</groupId>
+			<artifactId>lambda-framework-common</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.lambda.framework</groupId>
+			<artifactId>lambda-framework-redis</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.theokanning.openai-gpt3-java</groupId>
+			<artifactId>service</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.knuddels</groupId>
+			<artifactId>jtokkit</artifactId>
+		</dependency>
+	</dependencies>
+</project>

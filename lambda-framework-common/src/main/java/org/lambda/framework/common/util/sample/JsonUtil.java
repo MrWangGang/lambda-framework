@@ -20,7 +20,7 @@ public class JsonUtil {
         try {
             return (new ObjectMapper()).writeValueAsString(data);
         } catch (JsonProcessingException e) {
-            throw new EventException(ES00000020);
+            throw new EventException(ESYS000020);
         }
     }
 
@@ -28,9 +28,9 @@ public class JsonUtil {
         try {
             return Optional.ofNullable((new ObjectMapper()).readValue(data,clazz));
         } catch (JsonProcessingException e) {
-            throw new EventException(ES00000019);
+            throw new EventException(ESYS000019);
         } catch (IOException e) {
-            throw new EventException(ES00000003);
+            throw new EventException(ESYS000003);
         }
     }
 }
