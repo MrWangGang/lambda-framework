@@ -6,7 +6,7 @@ import com.knuddels.jtokkit.api.EncodingRegistry;
 import com.knuddels.jtokkit.api.ModelType;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.util.sample.MD5Util;
-import org.lambda.framework.openai.enums.OpaiExceptionEnum;
+import org.lambda.framework.openai.enums.OpenaiExceptionEnum;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -27,7 +27,7 @@ public class OpenAiContract {
             case image_size_256:i = 8000;break;
             case image_size_512:i= 9000;break;
             case image_size_1024:i = 100000;break;
-            default:throw new EventException(OpaiExceptionEnum.ES_OPAI_010);
+            default:throw new EventException(OpenaiExceptionEnum.ES_OPENAI_010);
         }
         return i * n;
     }

@@ -9,15 +9,15 @@ import com.theokanning.openai.service.OpenAiService;
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.openai.OpenAiContract;
 import org.lambda.framework.openai.OpenAiConversation;
 import org.lambda.framework.openai.OpenAiConversations;
 import org.lambda.framework.openai.OpenAiReplying;
-import org.lambda.framework.openai.enums.OpaiExceptionEnum;
 import org.lambda.framework.openai.enums.OpenAiModelEnum;
+import org.lambda.framework.openai.enums.OpenaiExceptionEnum;
 import org.lambda.framework.openai.service.chat.param.OpenAiFAQParam;
-import org.lambda.framework.redis.operation.ReactiveRedisOperation;
-import org.lambda.framework.openai.OpenAiContract;
 import org.lambda.framework.openai.service.chat.response.OpenAiChatReplied;
+import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -42,7 +42,7 @@ public class OpenAiFAQService implements OpenAiFAQFunction {
         String uniqueId = OpenAiContract.uniqueId(param.getUserId(),param.getUniqueParam().getUniqueTime());
 
         return ReactiveRedisOperation.build(openAiFAQRedisTemplate).get(uniqueId)
-                .onErrorResume(e->Mono.error(new EventException(OpaiExceptionEnum.ES_OPAI_007)))
+                .onErrorResume(e->Mono.error(new EventException(OpenaiExceptionEnum.ES_OPENAI_007)))
                 .defaultIfEmpty(Mono.empty())
                 .flatMap(e->{
                     List<ChatMessage> chatMessage = null;
@@ -106,7 +106,7 @@ public class OpenAiFAQService implements OpenAiFAQFunction {
 
                     OpenAiConversations<OpenAiChatReplied> finalOpenAiConversations = openAiConversations;
                     return Mono.fromCallable(() -> service.createChatCompletion(request))
-                                .onErrorMap(throwable -> new EventException(OpaiExceptionEnum.ES_OPAI_006, throwable.getMessage()))
+                                .onErrorMap(throwable -> new EventException(OpenaiExceptionEnum.ES_OPENAI_006, throwable.getMessage()))
                                 .flatMap(chatCompletionResult -> {
                                     ChatMessage _chatMessage = chatCompletionResult.getChoices().get(0).getMessage();
                                     OpenAiConversation<OpenAiChatReplied> _openAiConversation = finalOpenAiConversations.getOpenAiConversations().get(finalOpenAiConversations.getOpenAiConversations().size()-1);

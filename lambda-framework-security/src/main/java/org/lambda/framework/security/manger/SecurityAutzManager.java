@@ -6,7 +6,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.contract.SecurityContract;
-import org.lambda.framework.security.enums.SectExceptionEnum;
+import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.security.authorization.AuthorizationDecision;
@@ -25,7 +25,7 @@ public abstract class SecurityAutzManager implements ReactiveAuthorizationManage
 
     private SecurityAuthManager securityAuthManager;
     public SecurityAutzManager(SecurityAuthManager securityAuthManager){
-        if(securityAuthManager == null)throw new EventException(SectExceptionEnum.ES_SECURITY_000);
+        if(securityAuthManager == null)throw new EventException(SecurityExceptionEnum.ES_SECURITY_000);
         this.securityAuthManager = securityAuthManager;
     }
 
@@ -39,7 +39,7 @@ public abstract class SecurityAutzManager implements ReactiveAuthorizationManage
         if(SecurityContract.LAMBDA_SECURITY_URL_AUTZ_ALL.equals(urlAutz) || SecurityContract.LAMBDA_SECURITY_URL_AUTZ_MAPPING.equals(urlAutz)) {
             this.urlAutz = urlAutz;
         }else {
-            throw new EventException(SectExceptionEnum.ES_SECURITY_010);
+            throw new EventException(SecurityExceptionEnum.ES_SECURITY_010);
         }
     }
 
@@ -47,7 +47,7 @@ public abstract class SecurityAutzManager implements ReactiveAuthorizationManage
     public Mono<AuthorizationDecision> check(Mono<Authentication> authentication, AuthorizationContext authorizationContext) {
 
          return securityAuthManager.authenticate(authorizationContext).flatMap(auth->{
-            if(!auth.isAuthenticated()) return Mono.error(new EventException(SectExceptionEnum.ES_SECURITY_000));
+            if(!auth.isAuthenticated()) return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_000));
             String currentPath = authorizationContext.getExchange().getRequest().getURI().getPath();
             // redis可能获取信息发生错误，导致直接抛出异常。所以默认空值，用于判断permit_all_url逻辑;
             return ReactiveRedisOperation.build(securityAutzRedisTemplate).get(currentPath)
@@ -58,17 +58,17 @@ public abstract class SecurityAutzManager implements ReactiveAuthorizationManage
                                 //如果路径权限树为空
                                 if(SecurityContract.LAMBDA_SECURITY_URL_AUTZ_ALL.equals(urlAutz)){
                                     //配置了所有的经过认证都需要授权
-                                    return Mono.error(new EventException(SectExceptionEnum.ES_SECURITY_001));
+                                    return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_001));
                                 }
                                 if(SecurityContract.LAMBDA_SECURITY_URL_AUTZ_MAPPING.equals(urlAutz)){
                                     //配置了只有映射的URL经过认证才需要授权
                                     return Mono.just(currentPathAutzTree.toString());
                                 }
-                                return Mono.error(new EventException(SectExceptionEnum.ES_SECURITY_010));
+                                return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_010));
                             }
                             return Mono.just(currentPathAutzTree.toString());
                         }).flatMap(currentPathAutzTree->{
-                            if(!verify(currentPathAutzTree,auth.getPrincipal().toString()))return Mono.error(new EventException(SectExceptionEnum.ES_SECURITY_001));
+                            if(!verify(currentPathAutzTree,auth.getPrincipal().toString()))return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_001));
                             return Mono.just(new AuthorizationDecision(true));
                     });
          });

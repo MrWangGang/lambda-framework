@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import static org.lambda.framework.web.enums.WbcrExceptionEnum.ES_WEB_000;
+import static org.lambda.framework.web.enums.WebExceptionEnum.ES_WEB_000;
 
 
 /**

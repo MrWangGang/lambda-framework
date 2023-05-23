@@ -5,9 +5,9 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.openai.OpenAiUniqueParam;
-import org.lambda.framework.openai.enums.OpaiExceptionEnum;
 import org.lambda.framework.openai.OpenAiAbstractParam;
+import org.lambda.framework.openai.OpenAiUniqueParam;
+import org.lambda.framework.openai.enums.OpenaiExceptionEnum;
 
 import static org.lambda.framework.openai.OpenAiContract.*;
 
@@ -18,13 +18,13 @@ public class OpenAiImageParam extends OpenAiAbstractParam {
 
     public void verify(){
         super.verify();
-        if(StringUtils.isBlank(responseFormat))throw new EventException(OpaiExceptionEnum.ES_OPAI_009);
-        if(StringUtils.isBlank(size))throw new EventException(OpaiExceptionEnum.ES_OPAI_011);
+        if(StringUtils.isBlank(responseFormat))throw new EventException(OpenaiExceptionEnum.ES_OPENAI_009);
+        if(StringUtils.isBlank(size))throw new EventException(OpenaiExceptionEnum.ES_OPENAI_011);
         switch (size){
             case image_size_256:break;
             case image_size_512:break;
             case image_size_1024:break;
-            default:throw new EventException(OpaiExceptionEnum.ES_OPAI_010);
+            default:throw new EventException(OpenaiExceptionEnum.ES_OPENAI_010);
         }
     }
 

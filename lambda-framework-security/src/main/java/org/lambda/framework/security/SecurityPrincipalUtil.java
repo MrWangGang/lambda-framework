@@ -9,7 +9,7 @@ import org.lambda.framework.common.util.sample.MD5Util;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.container.SecurityAuthToken;
 import org.lambda.framework.security.contract.SecurityContract;
-import org.lambda.framework.security.enums.SectExceptionEnum;
+import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -32,7 +32,7 @@ public class SecurityPrincipalUtil {
 
     public String setPrincipalToToken(String principal){
         if(StringUtils.isBlank(principal)){
-            throw new EventException(SectExceptionEnum.ES_SECURITY_002);
+            throw new EventException(SecurityExceptionEnum.ES_SECURITY_002);
         }
         String key = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY+ MD5Util.hash(principal+"."+ SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT);
         ReactiveRedisOperation.build(securityAuthRedisTemplate).set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue());
@@ -42,38 +42,38 @@ public class SecurityPrincipalUtil {
     public static String getCredentials(){
         SecurityAuthToken authentication = getAuthentication();
         String credentials = authentication.getCredentials();
-        if(StringUtils.isBlank(credentials))throw new EventException(SectExceptionEnum.ES_SECURITY_003);
+        if(StringUtils.isBlank(credentials))throw new EventException(SecurityExceptionEnum.ES_SECURITY_003);
         return credentials;
     }
 
     public static <T>T getPrincipal(Class<T> clazz) {
-        if(clazz == null)throw new EventException(SectExceptionEnum.ES_SECURITY_006);
+        if(clazz == null)throw new EventException(SecurityExceptionEnum.ES_SECURITY_006);
         SecurityAuthToken authentication = getAuthentication();
         String principal = authentication.getPrincipal();
-        if(StringUtils.isBlank(principal))throw new EventException(SectExceptionEnum.ES_SECURITY_004);
+        if(StringUtils.isBlank(principal))throw new EventException(SecurityExceptionEnum.ES_SECURITY_004);
         try{
-            return (T)(JsonUtil.stringToObj(principal,clazz).orElseThrow(()->new EventException(SectExceptionEnum.ES_SECURITY_009)));
+            return (T)(JsonUtil.stringToObj(principal,clazz).orElseThrow(()->new EventException(SecurityExceptionEnum.ES_SECURITY_009)));
         }catch (EventException e){
             if(e == null){
-                throw new EventException(SectExceptionEnum.ES_SECURITY_009);
+                throw new EventException(SecurityExceptionEnum.ES_SECURITY_009);
             }
             throw new GlobalException(e.getCode(),e.getMessage());
         }catch (ClassCastException e){
-            throw new EventException(SectExceptionEnum.ES_SECURITY_009);
+            throw new EventException(SecurityExceptionEnum.ES_SECURITY_009);
         } catch (Throwable throwable) {
-            throw new EventException(SectExceptionEnum.ES_SECURITY_009);
+            throw new EventException(SecurityExceptionEnum.ES_SECURITY_009);
         }
 
     }
 
     public static SecurityAuthToken getAuthentication(){
-        if(SecurityContextHolder.getContext() == null)throw new EventException(SectExceptionEnum.ES_SECURITY_008);
-        if(SecurityContextHolder.getContext().getAuthentication() == null)throw new EventException(SectExceptionEnum.ES_SECURITY_000);
+        if(SecurityContextHolder.getContext() == null)throw new EventException(SecurityExceptionEnum.ES_SECURITY_008);
+        if(SecurityContextHolder.getContext().getAuthentication() == null)throw new EventException(SecurityExceptionEnum.ES_SECURITY_000);
         try {
             SecurityAuthToken authentication = (SecurityAuthToken) SecurityContextHolder.getContext().getAuthentication();
             return authentication;
         }catch (Exception e){
-            throw new EventException(SectExceptionEnum.ES_SECURITY_009);
+            throw new EventException(SecurityExceptionEnum.ES_SECURITY_009);
         }
     }
 }

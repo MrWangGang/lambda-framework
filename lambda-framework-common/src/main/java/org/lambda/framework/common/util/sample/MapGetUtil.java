@@ -5,7 +5,7 @@ import org.lambda.framework.common.exception.EventException;
 
 import java.util.Map;
 
-import static org.lambda.framework.common.enums.ExceptionEnum.*;
+import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
 
 
 /**
@@ -16,24 +16,24 @@ import static org.lambda.framework.common.enums.ExceptionEnum.*;
 public class MapGetUtil {
     public static <T>T get(Map map, String value){
         if(StringUtil.isBlank(value)){
-            throw new EventException(ESYS000002);
+            throw new EventException(ES_COMMON_002);
         }
 
         if(map == null){
-            throw new EventException(ESYS000001);
+            throw new EventException(ES_COMMON_001);
         }
 
         if(map.isEmpty()){
-            throw new EventException(ESYS000001);
+            throw new EventException(ES_COMMON_001);
         }
 
         Object obj = map.get(value);
         if(obj == null){
-            throw new EventException(ESYS000003);
+            throw new EventException(ES_COMMON_003);
         }
         T t = (T)obj ;
         if(t == null){
-            throw new EventException(ESYS000003);
+            throw new EventException(ES_COMMON_003);
         }
 
         return t;

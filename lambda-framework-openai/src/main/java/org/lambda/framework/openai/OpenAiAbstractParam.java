@@ -4,25 +4,25 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.openai.enums.OpaiExceptionEnum;
+import org.lambda.framework.openai.enums.OpenaiExceptionEnum;
 
 @Getter
 @Setter
 public class OpenAiAbstractParam {
     public void verify(){
-        if(this == null)throw new EventException(OpaiExceptionEnum.ES_OPAI_003);
-        if(timeOut== null)throw new EventException(OpaiExceptionEnum.ES_OPAI_015);
-        if(StringUtils.isBlank(prompt))throw new EventException(OpaiExceptionEnum.ES_OPAI_000);
-        if(uniqueParam == null)throw new EventException(OpaiExceptionEnum.ES_OPAI_003);
-        if(StringUtils.isBlank(uniqueParam.getUniqueId()))throw new EventException(OpaiExceptionEnum.ES_OPAI_003);
-        if(StringUtils.isBlank(uniqueParam.getUniqueTime()))throw new EventException(OpaiExceptionEnum.ES_OPAI_003);
-        if(StringUtils.isBlank(apiKey))throw new EventException(OpaiExceptionEnum.ES_OPAI_004);
-        if(StringUtils.isBlank(userId))throw new EventException(OpaiExceptionEnum.ES_OPAI_005);
-        if(!OpenAiContract.verify(userId, uniqueParam))throw new EventException(OpaiExceptionEnum.ES_OPAI_008);
+        if(this == null)throw new EventException(OpenaiExceptionEnum.ES_OPENAI_003);
+        if(timeOut== null)throw new EventException(OpenaiExceptionEnum.ES_OPENAI_015);
+        if(StringUtils.isBlank(prompt))throw new EventException(OpenaiExceptionEnum.ES_OPENAI_000);
+        if(uniqueParam == null)throw new EventException(OpenaiExceptionEnum.ES_OPENAI_003);
+        if(StringUtils.isBlank(uniqueParam.getUniqueId()))throw new EventException(OpenaiExceptionEnum.ES_OPENAI_003);
+        if(StringUtils.isBlank(uniqueParam.getUniqueTime()))throw new EventException(OpenaiExceptionEnum.ES_OPENAI_003);
+        if(StringUtils.isBlank(apiKey))throw new EventException(OpenaiExceptionEnum.ES_OPENAI_004);
+        if(StringUtils.isBlank(userId))throw new EventException(OpenaiExceptionEnum.ES_OPENAI_005);
+        if(!OpenAiContract.verify(userId, uniqueParam))throw new EventException(OpenaiExceptionEnum.ES_OPENAI_008);
         //配额校验
-        if(maxTokens == null)throw new EventException(OpaiExceptionEnum.ES_OPAI_012);
-        if(n == null)throw new EventException(OpaiExceptionEnum.ES_OPAI_013);
-        if(quota == null)throw new EventException(OpaiExceptionEnum.ES_OPAI_014);
+        if(maxTokens == null)throw new EventException(OpenaiExceptionEnum.ES_OPENAI_012);
+        if(n == null)throw new EventException(OpenaiExceptionEnum.ES_OPENAI_013);
+        if(quota == null)throw new EventException(OpenaiExceptionEnum.ES_OPENAI_014);
     }
     //要为每个输入消息生成的聊天完成选项数。
     private Integer n;

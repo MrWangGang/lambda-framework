@@ -1,7 +1,7 @@
 package org.lambda.framework.security.config;
 
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.security.enums.SectExceptionEnum;
+import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.lambda.framework.security.manger.SecurityAuthManager;
 import org.lambda.framework.security.manger.SecurityAutzManager;
 import org.springframework.beans.factory.annotation.Value;
@@ -75,13 +75,13 @@ public class SecurityConfig {
         http.exceptionHandling().authenticationEntryPoint(new ServerAuthenticationEntryPoint() {
             @Override
             public Mono<Void> commence(ServerWebExchange exchange, AuthenticationException ex) {
-                throw new EventException(SectExceptionEnum.ES_SECURITY_000);
+                throw new EventException(SecurityExceptionEnum.ES_SECURITY_000);
             }
         });
         http.exceptionHandling().accessDeniedHandler(new ServerAccessDeniedHandler() {
             @Override
             public Mono<Void> handle(ServerWebExchange exchange, AccessDeniedException denied) {
-                throw new EventException(SectExceptionEnum.ES_SECURITY_001);
+                throw new EventException(SecurityExceptionEnum.ES_SECURITY_001);
             }
         });
         http.authorizeExchange().pathMatchers(permitUrls).permitAll();

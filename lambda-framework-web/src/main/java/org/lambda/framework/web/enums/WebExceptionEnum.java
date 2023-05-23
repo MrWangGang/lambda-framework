@@ -2,7 +2,7 @@ package org.lambda.framework.web.enums;
 
 import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
-public enum WbcrExceptionEnum implements ExceptionEnumFunction {
+public enum WebExceptionEnum implements ExceptionEnumFunction {
 
     //系统异常-普通异常 0-99
     ES_WEB_000("ES_WEB_000","系统错误");
@@ -11,7 +11,7 @@ public enum WbcrExceptionEnum implements ExceptionEnumFunction {
 
     private String message;
     // 构造方法
-    private WbcrExceptionEnum(String code, String message) {
+    private WebExceptionEnum(String code, String message) {
         this.code = code;
         this.message = message;
 

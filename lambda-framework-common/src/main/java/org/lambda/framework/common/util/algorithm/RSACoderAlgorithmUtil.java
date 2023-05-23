@@ -14,7 +14,7 @@ import java.io.UnsupportedEncodingException;
 import java.security.*;
 import java.security.spec.*;
 
-import static org.lambda.framework.common.enums.ExceptionEnum.*;
+import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
 
 /**
  * Created by WangGang on 2017/6/22 0022.
@@ -47,7 +47,7 @@ public class RSACoderAlgorithmUtil {
 
             return Base64AlgorithmUtil.byteArrayToBase64(encryptedResult);
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ESYS000005);
+            throw new EventException(ES_COMMON_004);
         }
     }
 
@@ -66,7 +66,7 @@ public class RSACoderAlgorithmUtil {
             String signParams = RSACoderAlgorithmUtil.sign(dataInBytes, privateKey,signType);//用应用的私钥加签.
             return signParams;
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ESYS000005);
+            throw new EventException(ES_COMMON_004);
         }
     }
 
@@ -84,7 +84,7 @@ public class RSACoderAlgorithmUtil {
             byte[] encryptedBytes = decryptByPrivateKey(byte64, key, null);
             return new String(encryptedBytes, charset);
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ESYS000005);
+            throw new EventException(ES_COMMON_004);
         }
 
     }
@@ -104,7 +104,7 @@ public class RSACoderAlgorithmUtil {
             byte[] encryptedBytes = decryptByPrivateKey(byte64, key, encryptionType);
             return new String(encryptedBytes, charset);
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ESYS000005);
+            throw new EventException(ES_COMMON_004);
         }
     }
 
@@ -155,19 +155,19 @@ public class RSACoderAlgorithmUtil {
 
             return decryptedData;
         } catch (IOException e) {
-            throw new EventException(ESYS000008);
+            throw new EventException(ES_COMMON_007);
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ESYS000006);
+            throw new EventException(ES_COMMON_005);
         } catch (InvalidKeyException e) {
-            throw new EventException(ESYS000009);
+            throw new EventException(ES_COMMON_008);
         } catch (NoSuchPaddingException e) {
-            throw new EventException(ESYS000007);
+            throw new EventException(ES_COMMON_006);
         } catch (BadPaddingException e) {
-            throw new EventException(ESYS000010);
+            throw new EventException(ES_COMMON_009);
         }  catch (IllegalBlockSizeException e) {
-            throw new EventException(ESYS000011);
+            throw new EventException(ES_COMMON_010);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ESYS000012);
+            throw new EventException(ES_COMMON_011);
         }
 
     }
@@ -220,19 +220,19 @@ public class RSACoderAlgorithmUtil {
             }
             return encryptedData;
         } catch (IOException e) {
-            throw new EventException(ESYS000013);
+            throw new EventException(ES_COMMON_012);
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ESYS000006);
+            throw new EventException(ES_COMMON_005);
         } catch (InvalidKeyException e) {
-            throw new EventException(ESYS000014);
+            throw new EventException(ES_COMMON_013);
         } catch (NoSuchPaddingException e) {
-            throw new EventException(ESYS000007);
+            throw new EventException(ES_COMMON_006);
         } catch (BadPaddingException e) {
-            throw new EventException(ESYS000015);
+            throw new EventException(ES_COMMON_014);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ESYS000016);
+            throw new EventException(ES_COMMON_015);
         } catch (IllegalBlockSizeException e) {
-            throw new EventException(ESYS000017);
+            throw new EventException(ES_COMMON_016);
         }
 
     }
@@ -262,13 +262,13 @@ public class RSACoderAlgorithmUtil {
 
             return encryptBASE64(signature.sign());
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ESYS000006);
+            throw new EventException(ES_COMMON_005);
         } catch (SignatureException e) {
-            throw new EventException(ESYS000018);
+            throw new EventException(ES_COMMON_017);
         } catch (InvalidKeyException e) {
-            throw new EventException(ESYS000009);
+            throw new EventException(ES_COMMON_008);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ESYS000012);
+            throw new EventException(ES_COMMON_011);
         }
 
     }
@@ -299,13 +299,13 @@ public class RSACoderAlgorithmUtil {
             //验证签名是否正常
             return signature.verify(decryptBASE64(sign));
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ESYS000006);
+            throw new EventException(ES_COMMON_005);
         } catch (SignatureException e) {
-            throw new EventException(ESYS000018);
+            throw new EventException(ES_COMMON_017);
         } catch (InvalidKeyException e) {
-            throw new EventException(ESYS000014);
+            throw new EventException(ES_COMMON_013);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ESYS000016);
+            throw new EventException(ES_COMMON_015);
         }
     }
 
@@ -325,7 +325,7 @@ public class RSACoderAlgorithmUtil {
             maxLength = keyLength / 8 - 11;
             return maxLength;
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ESYS000016);
+            throw new EventException(ES_COMMON_015);
         }
 
     }
@@ -362,7 +362,7 @@ public class RSACoderAlgorithmUtil {
             maxLength = keyLength / 8;
             return maxLength;
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ESYS000016);
+            throw new EventException(ES_COMMON_015);
         }
     }
 

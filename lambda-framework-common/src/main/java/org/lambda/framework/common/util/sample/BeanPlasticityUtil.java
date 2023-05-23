@@ -10,7 +10,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
-import static org.lambda.framework.common.enums.ExceptionEnum.*;
+import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
 
 public class BeanPlasticityUtil {
 
@@ -20,11 +20,11 @@ public class BeanPlasticityUtil {
             org.apache.commons.beanutils.BeanUtils.copyProperties(result, orig);
             return result;
         } catch (IllegalAccessException e) {
-            throw new EventException(ESYS000022);
+            throw new EventException(ES_COMMON_021);
         } catch (InstantiationException e) {
-            throw new EventException(ESYS000022);
+            throw new EventException(ES_COMMON_021);
         } catch (InvocationTargetException e) {
-            throw new EventException(ESYS000022);
+            throw new EventException(ES_COMMON_021);
         }
     }
 
@@ -36,17 +36,17 @@ public class BeanPlasticityUtil {
                     return null;
                 }
                 if (!(value instanceof String)) {
-                    throw new EventException(ESYS000023);
+                    throw new EventException(ES_COMMON_022);
                 }
                 if (StringUtils.isBlank((String) value)) {
-                    throw new EventException(ESYS000024);
+                    throw new EventException(ES_COMMON_023);
                 }
 
                 SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
                 try {
                     return df.parse((String) value);
                 } catch (ParseException e) {
-                    throw new EventException(ESYS000025);
+                    throw new EventException(ES_COMMON_024);
                 }
             }
         }, java.util.Date.class);

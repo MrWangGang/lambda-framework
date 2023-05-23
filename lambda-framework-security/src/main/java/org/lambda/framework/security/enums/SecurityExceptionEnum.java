@@ -7,7 +7,7 @@ import org.lambda.framework.common.exception.ExceptionEnumFunction;
  * E-mail userbean@outlook.com
  * The final interpretation of this procedure is owned by the author
  */
-public enum SectExceptionEnum implements ExceptionEnumFunction {
+public enum SecurityExceptionEnum implements ExceptionEnumFunction {
 
     //系统异常-spring security 异常 - 200-299
     ES_SECURITY_000("ES_SECURITY_000","身份认证失败"), //AuthenticationException
@@ -27,7 +27,7 @@ public enum SectExceptionEnum implements ExceptionEnumFunction {
 
     private String message;
     // 构造方法
-    private SectExceptionEnum(String code, String message) {
+    private SecurityExceptionEnum(String code, String message) {
         this.code = code;
         this.message = message;
 

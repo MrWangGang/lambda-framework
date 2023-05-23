@@ -10,7 +10,7 @@ import org.lambda.framework.openai.OpenAiContract;
 import org.lambda.framework.openai.OpenAiConversation;
 import org.lambda.framework.openai.OpenAiConversations;
 import org.lambda.framework.openai.OpenAiReplying;
-import org.lambda.framework.openai.enums.OpaiExceptionEnum;
+import org.lambda.framework.openai.enums.OpenaiExceptionEnum;
 import org.lambda.framework.openai.service.image.param.OpenAiImageParam;
 import org.lambda.framework.openai.service.image.response.OpenAiImageReplied;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
@@ -33,14 +33,14 @@ public class OpenAiImageService implements OpenAiImageFunction {
         param.verify();
         //对于图片模型的maxToken的计算返回的图片数量*设置size + prompt
         Integer promptTokens = OpenAiContract.encoding(param.getPrompt());
-        if(!limitVerify(param.getQuota(),param.getMaxTokens(), OpenAiContract.encoding(param.getPrompt())))throw new EventException(OpaiExceptionEnum.ES_OPAI_016);
+        if(!limitVerify(param.getQuota(),param.getMaxTokens(), OpenAiContract.encoding(param.getPrompt())))throw new EventException(OpenaiExceptionEnum.ES_OPENAI_016);
 
-        if(!OpenAiContract.verify(param.getUserId(),param.getUniqueParam()))throw new EventException(OpaiExceptionEnum.ES_OPAI_008);
+        if(!OpenAiContract.verify(param.getUserId(),param.getUniqueParam()))throw new EventException(OpenaiExceptionEnum.ES_OPENAI_008);
 
         String uniqueId = OpenAiContract.uniqueId(param.getUserId(),param.getUniqueParam().getUniqueTime());
 
         return ReactiveRedisOperation.build(openAiImageRedisTemplate).get(uniqueId)
-                .onErrorResume(e->Mono.error(new EventException(OpaiExceptionEnum.ES_OPAI_007)))
+                .onErrorResume(e->Mono.error(new EventException(OpenaiExceptionEnum.ES_OPENAI_007)))
                 .defaultIfEmpty(Mono.empty())
                 .flatMap(e->{
                     List<OpenAiImageReplied> openAiImageReplied = null;
@@ -79,7 +79,7 @@ public class OpenAiImageService implements OpenAiImageFunction {
                     OpenAiConversations<OpenAiImageReplied> finalOpenAiConversations = openAiConversations;
                     List<OpenAiImageReplied> finalOpenAiImageReplied = openAiImageReplied;
                     return Mono.fromCallable(() -> service.createImage(request))
-                            .onErrorMap(throwable -> new EventException(OpaiExceptionEnum.ES_OPAI_006, throwable.getMessage()))
+                            .onErrorMap(throwable -> new EventException(OpenaiExceptionEnum.ES_OPENAI_006, throwable.getMessage()))
                             .flatMap(imageResult -> {
                                 finalOpenAiImageReplied.get(finalOpenAiImageReplied.size()-1).setImages(imageResult.getData());
                                 OpenAiConversation<OpenAiImageReplied> _openAiConversation = finalOpenAiConversations.getOpenAiConversations().get(finalOpenAiConversations.getOpenAiConversations().size()-1);
