@@ -14,8 +14,10 @@ lambda-framework，使框架变得更加简单和易用。这将使程序员能�
 | ----------        	| ----------- |
 | lambda-framework-common      	| 公共方法模块       |
 | lambda-framework-guid   		| 唯一序列号GUID生成组件        |
+| lambda-framework-rpc   	| 远程调用框架        |
 | lambda-framework-openai   	| openAi调用组件        |
 | lambda-framework-redis   		| 抽象redis组件        |
+| lambda-framework-repository   	| 持久层框架        |
 | lambda-framework-web   		| reactor web核心 基于reactive webflux        |
 | lambda-framework-security   	| 权限框架        |
 
@@ -185,7 +187,7 @@ public class SecurityAuthRedisConfig extends AbstractSecurityRedisConfig {
     private Integer database;
     @Bean("securityAuthRedisOperation")
     public ReactiveRedisOperation securityAuthRedisOperation(){
-        return redisOperation();
+        return buildRedisOperation();
     }
 
     @Override
@@ -262,10 +264,21 @@ pulic Mono get(){
 }
 ```
 ## lambda-framework-rpc
+lambda-framework-rpc使用了spring6的声明式http interface 来作为rpc框架的支持。
 将远程接口暴露的class文件必须放入 名为facade包的目录下，facade包可以在任意位置
+class文件位置遵循以下原则:
 ```
 classpath*:/**/facade/**/*.class
 ```
+使用方式
+```
+@HttpExchange("https://mockend.com/Fall-Rain/mockend/posts")
+public interface UserApi {
+@GetExchange
+    List<User> getUsers();
+}
+```
+如果是注册中心，则将https://mockend.com/Fall-Rain/mockend/posts 改成 注册中心中的服务名
 ## lambda-framework-guid
 在pom文件中引用下面代码块
 
