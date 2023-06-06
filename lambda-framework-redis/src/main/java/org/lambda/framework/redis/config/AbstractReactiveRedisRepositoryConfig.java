@@ -39,7 +39,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
         //##数据库序号
         protected abstract Integer database();
 
-        public ReactiveRedisOperation redisOperation() {
+        public ReactiveRedisOperation buildRedisOperation() {
             RedisSerializationContext.SerializationPair<String> stringSerializationPair = RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer.UTF_8);
             Jackson2JsonRedisSerializer<Object> valueSerializer = new Jackson2JsonRedisSerializer<>(new ObjectMapper(),Object.class);
 

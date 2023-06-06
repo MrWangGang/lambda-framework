@@ -13,7 +13,7 @@ public class SecurityAutzRedisRepositoryConfig extends AbstractSecurityRedisRepo
 
     @Bean("securityAutzRedisOperation")
     public ReactiveRedisOperation securityAutzRedisOperation(){
-        return redisOperation();
+        return buildRedisOperation();
     }
 
     @Override

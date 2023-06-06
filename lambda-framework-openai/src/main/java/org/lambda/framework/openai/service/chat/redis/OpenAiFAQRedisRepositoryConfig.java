@@ -14,7 +14,7 @@ public class OpenAiFAQRedisRepositoryConfig extends AbstractOpenAiRedisRepositor
 
     @Bean("openAiFAQRedisOperation")
     public ReactiveRedisOperation openAiFAQRedisOperation(){
-        return super.redisOperation();
+        return super.buildRedisOperation();
     }
 
 

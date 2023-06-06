@@ -15,7 +15,7 @@ public class OpenAiChatRedisRepositoryConfig extends AbstractOpenAiRedisReposito
 
     @Bean("openAiChatRedisOperation")
     public ReactiveRedisOperation openAiChatRedisOperation(){
-        return super.redisOperation();
+        return super.buildRedisOperation();
     }
 
     @Override

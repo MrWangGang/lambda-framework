@@ -194,7 +194,78 @@ public class SecurityAuthRedisConfig extends AbstractSecurityRedisConfig {
     }
 }
 ```
+## lambda-framework-repository
+在pom文件中引用下面代码块
+```		
+<dependency>
+	<groupId>org.lambda.framework</groupId>
+	<artifactId>lambda-framework-repository</artifactId>
+</dependency>
+```
+可以针对多数据源配置,针对不同的模块，你可以这样去配置
+如果要使用相同的host地址不同的database可以先定义一个抽象超类，
+```
+    public abstract class AbstractCustomerMysqlRepositoryConfig extends AbstractReactiveMysqlRepositoryConfig {
+    //##mysql服务器地址
+    protected abstract String host();
+    //##mysql用户名
+    protected abstract String user();
+    //##mysql密码
+    protected abstract String password();
+    //##mysql库名
+    protected abstract String database();
+    //##mysql端口
+    protected abstract Integer port();
+    //##mysql最大超时时间
+    protected abstract Integer connectTimeoutSeconds();
+    //##mysql线程池-线程最大空闲时间
+    protected abstract Integer maxIdleTimeSeconds();
+    //##mysql线程池-线程最大数量
+    protected abstract Integer maxSize();
+    ...get/set
+}
+```
+通过实现超类，将database自定义配置暴露出去
+```
+@Configuration
+public class CustomerMysqlRepositoryConfig extends AbstractCustomerMysqlRepositoryConfig {
+    //##数据库序号
+    @Value("${xxx.xxx.xxx.xxx.database:store}")
+    private Integer database;
+    
+    @Bean("customerMysqlConnectionFactory")
+    public ConnectionFactory customerMysqlConnectionFactory(){
+        return buildMysqlConnectionFactory();
+    }
+}
+```
+配置好了ConnectionFactory后需要通过继承ReactiveMySqlRepositoryOperation，并声明@Repository,如果使用了这种形式，只能使用单数据源
+```
+public class CustomerMysqlRepositoryOperation extends ReactiveMySqlRepositoryOperation{
+  @Query("select o  from Employee o where id=(select max(id) from Employee t1)")
+  Employee getEmployeeByMaxId();
+}
+```
+如果要使用多数据源的形式，通过ConnectionFactory去使用
+```
+@Resource(name="customerMysqlConnectionFactory")
+private ConnectionFactory customerMysqlConnectionFactory;
 
+pulic Mono get(){
+    Mono.from(connectionFactory.create())
+            .flatMap(connection -> Mono.from(
+                    connection.createStatement("SELECT id,name,phone,mail FROM user WHERE name = ?name")
+                            .bind("name", "张三")
+                            .execute())
+    
+            )})).subscribe(u -> System.out.println(u.toString()));
+}
+```
+## lambda-framework-rpc
+将远程接口暴露的class文件必须放入 名为facade包的目录下，facade包可以在任意位置
+```
+classpath*:/**/facade/**/*.class
+```
 ## lambda-framework-guid
 在pom文件中引用下面代码块
 

@@ -14,7 +14,7 @@ public class OpenAiImageRedisRepositoryConfig extends AbstractOpenAiRedisReposit
 
     @Bean("openAiImageRedisOperation")
     public ReactiveRedisOperation openAiImageRedisOperation(){
-        return super.redisOperation();
+        return super.buildRedisOperation();
     }
 
     @Override
