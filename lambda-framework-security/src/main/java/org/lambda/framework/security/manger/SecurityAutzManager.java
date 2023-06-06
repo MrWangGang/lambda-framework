@@ -8,7 +8,6 @@ import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.contract.SecurityContract;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.core.Authentication;
@@ -29,8 +28,8 @@ public abstract class SecurityAutzManager implements ReactiveAuthorizationManage
         this.securityAuthManager = securityAuthManager;
     }
 
-    @Resource(name = "securityAutzRedisTemplate")
-    private ReactiveRedisTemplate securityAutzRedisTemplate;
+    @Resource(name = "securityAutzRedisOperation")
+    private ReactiveRedisOperation securityAutzRedisOperation;
 
 
     private String urlAutz;
@@ -50,7 +49,7 @@ public abstract class SecurityAutzManager implements ReactiveAuthorizationManage
             if(!auth.isAuthenticated()) return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_000));
             String currentPath = authorizationContext.getExchange().getRequest().getURI().getPath();
             // redis可能获取信息发生错误，导致直接抛出异常。所以默认空值，用于判断permit_all_url逻辑;
-            return ReactiveRedisOperation.build(securityAutzRedisTemplate).get(currentPath)
+            return securityAutzRedisOperation.get(currentPath)
                         .onErrorResume(e->Mono.just(SecurityContract.LAMBDA_SECURITY_EMPTY_STR))
                         .defaultIfEmpty(SecurityContract.LAMBDA_SECURITY_EMPTY_STR)
                         .flatMap(currentPathAutzTree->{

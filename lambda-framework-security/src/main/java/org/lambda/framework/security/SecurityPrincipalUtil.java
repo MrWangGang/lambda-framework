@@ -10,7 +10,6 @@ import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.container.SecurityAuthToken;
 import org.lambda.framework.security.contract.SecurityContract;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -23,11 +22,11 @@ import reactor.core.publisher.Mono;
 @Component
 public class SecurityPrincipalUtil {
 
-    @Resource(name = "securityAuthRedisTemplate")
-    private ReactiveRedisTemplate securityAuthRedisTemplate;
+    @Resource(name = "securityAuthRedisOperation")
+    private ReactiveRedisOperation securityAuthRedisOperation;
 
     public Mono<String> getPrincipalByToken(String key){
-        return ReactiveRedisOperation.<String,String>build(securityAuthRedisTemplate).get(key);
+        return securityAuthRedisOperation.get(key);
     }
 
     public String setPrincipalToToken(String principal){
@@ -35,7 +34,7 @@ public class SecurityPrincipalUtil {
             throw new EventException(SecurityExceptionEnum.ES_SECURITY_002);
         }
         String key = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY+ MD5Util.hash(principal+"."+ SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT);
-        ReactiveRedisOperation.build(securityAuthRedisTemplate).set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue());
+        securityAuthRedisOperation.set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue());
         return key;
     }
 

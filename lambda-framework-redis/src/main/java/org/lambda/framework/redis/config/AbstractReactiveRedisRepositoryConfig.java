@@ -3,19 +3,19 @@ package org.lambda.framework.redis.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.apache.logging.log4j.util.Strings;
+import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisPassword;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
-public abstract class AbstractReactiveRedisConfig {
+public abstract class AbstractReactiveRedisRepositoryConfig {
 
         //##Redis服务器地址
         protected abstract String host();
@@ -39,7 +39,7 @@ public abstract class AbstractReactiveRedisConfig {
         //##数据库序号
         protected abstract Integer database();
 
-        public ReactiveRedisTemplate redisTemplate() {
+        public ReactiveRedisOperation redisOperation() {
             RedisSerializationContext.SerializationPair<String> stringSerializationPair = RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer.UTF_8);
             Jackson2JsonRedisSerializer<Object> valueSerializer = new Jackson2JsonRedisSerializer<>(new ObjectMapper(),Object.class);
 
@@ -51,8 +51,8 @@ public abstract class AbstractReactiveRedisConfig {
             builder.hashValue(valueSerializer);
             builder.string(stringSerializationPair);
             RedisSerializationContext build = builder.build();
-            ReactiveRedisTemplate reactiveRedisTemplate = new ReactiveRedisTemplate(redisConnectionFactory(), build);
-            return reactiveRedisTemplate;
+            ReactiveRedisOperation reactiveRedisOperation = new ReactiveRedisOperation(redisConnectionFactory(), build);
+            return reactiveRedisOperation;
         }
 
         private ReactiveRedisConnectionFactory redisConnectionFactory(){

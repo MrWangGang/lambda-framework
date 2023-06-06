@@ -46,15 +46,16 @@
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>20</java.version>
 		<spring-cloud.version>2022.0.2</spring-cloud.version>
-		<openai-gpt3-java.version>0.12.0</openai-gpt3-java.version>
-		<google-guava.version>31.1-jre</google-guava.version>
-		<knuddels.version>0.4.0</knuddels.version>
-		<javax-el.version>3.0.1-b06</javax-el.version>
-		<glassfish-web.version>2.2.6</glassfish-web.version>
-		<javax-validation.version>2.0.1.Final</javax-validation.version>
-		<apache-commons.version>3.12.0</apache-commons.version>
+		<openai-service.version>0.12.0</openai-service.version>
+		<guava.version>31.1-jre</guava.version>
+		<jtokkit.version>0.4.0</jtokkit.version>
+		<javax.el-api.version>3.0.1-b06</javax.el-api.version>
+		<javax.el.version>2.2.6</javax.el.version>
+		<validation-api.version>2.0.1.Final</validation-api.version>
+		<commons-lang3.version>3.12.0</commons-lang3.version>
 		<commons-beanutils.version>1.9.4</commons-beanutils.version>
-		<io-asyncer.version>1.0.1</io-asyncer.version>
+		<r2dbc-mysql.version>1.0.1</r2dbc-mysql.version>
+		<r2dbc-pool.version>1.0.0.RELEASE</r2dbc-pool.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -98,32 +99,32 @@
 			<dependency>
 				<groupId>com.theokanning.openai-gpt3-java</groupId>
 				<artifactId>service</artifactId>
-				<version>${openai-gpt3-java.version}</version>
+				<version>${openai-service.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>com.knuddels</groupId>
 				<artifactId>jtokkit</artifactId>
-				<version>${knuddels.version}</version>
+				<version>${jtokkit.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>javax.el</groupId>
 				<artifactId>javax.el-api</artifactId>
-				<version>${javax-el.version}</version>
+				<version>${javax.el-api.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.glassfish.web</groupId>
 				<artifactId>javax.el</artifactId>
-				<version>${glassfish-web.version}</version>
+				<version>${javax.el.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>javax.validation</groupId>
 				<artifactId>validation-api</artifactId>
-				<version>${javax-validation.version}</version>
+				<version>${validation-api.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-lang3</artifactId>
-				<version>${apache-commons.version}</version>
+				<version>${commons-lang3.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>commons-beanutils</groupId>
@@ -133,12 +134,17 @@
 			<dependency>
 				<groupId>com.google.guava</groupId>
 				<artifactId>guava</artifactId>
-				<version>${google-guava.version}</version>
+				<version>${guava.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>io.asyncer</groupId>
 				<artifactId>r2dbc-mysql</artifactId>
-				<version>${io-asyncer.version}</version>
+				<version>${r2dbc-mysql.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>io.r2dbc</groupId>
+				<artifactId>r2dbc-pool</artifactId>
+				<version>${r2dbc-pool.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>

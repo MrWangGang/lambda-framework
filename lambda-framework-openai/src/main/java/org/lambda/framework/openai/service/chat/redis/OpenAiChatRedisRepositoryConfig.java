@@ -1,21 +1,21 @@
 package org.lambda.framework.openai.service.chat.redis;
 
 
-import org.lambda.framework.openai.AbstractOpenAiRedisConfig;
+import org.lambda.framework.openai.AbstractOpenAiRedisRepositoryConfig;
+import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
 
 @Configuration
-public class OpenAiChatRedisConfig extends AbstractOpenAiRedisConfig {
+public class OpenAiChatRedisRepositoryConfig extends AbstractOpenAiRedisRepositoryConfig {
     //##数据库序号
     @Value("${lambda.openai.chat.redis.database:0}")
     private Integer database;
 
-    @Bean("openAiChatRedisTemplate")
-    public ReactiveRedisTemplate openAiChatRedisTemplate(){
-        return super.redisTemplate();
+    @Bean("openAiChatRedisOperation")
+    public ReactiveRedisOperation openAiChatRedisOperation(){
+        return super.redisOperation();
     }
 
     @Override

@@ -18,7 +18,6 @@ import org.lambda.framework.openai.enums.OpenaiExceptionEnum;
 import org.lambda.framework.openai.service.chat.param.OpenAiChatParam;
 import org.lambda.framework.openai.service.chat.response.OpenAiChatReplied;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -32,8 +31,8 @@ import static org.lambda.framework.openai.OpenAiContract.encoding;
 @Component
 public class OpenAiChatService implements OpenAiChatFunction {
 
-    @Resource(name = "openAiChatRedisTemplate")
-    private ReactiveRedisTemplate openAiChatRedisTemplate;
+    @Resource(name = "openAiChatRedisOperation")
+    private ReactiveRedisOperation openAiChatRedisOperation;
 
     @Override
     public Mono<OpenAiReplying<OpenAiChatReplied>> execute(OpenAiChatParam param) {
@@ -42,7 +41,7 @@ public class OpenAiChatService implements OpenAiChatFunction {
 
         String uniqueId = OpenAiContract.uniqueId(param.getUserId(),param.getUniqueParam().getUniqueTime());
 
-        return ReactiveRedisOperation.build(openAiChatRedisTemplate).get(uniqueId)
+        return openAiChatRedisOperation.get(uniqueId)
                 .onErrorResume(e->Mono.error(new EventException(OpenaiExceptionEnum.ES_OPENAI_007)))
                 .defaultIfEmpty(Mono.empty())
                 .flatMap(e->{
@@ -119,7 +118,7 @@ public class OpenAiChatService implements OpenAiChatFunction {
                                 finalOpenAiConversations.setTotalTokens(finalOpenAiConversations.getTotalTokens() + chatCompletionResult.getUsage().getTotalTokens());
                                 finalOpenAiConversations.setTotalPromptTokens(finalOpenAiConversations.getTotalPromptTokens() + chatCompletionResult.getUsage().getPromptTokens());
                                 finalOpenAiConversations.setTotalCompletionTokens(finalOpenAiConversations.getTotalCompletionTokens() + chatCompletionResult.getUsage().getCompletionTokens());
-                                ReactiveRedisOperation.build(openAiChatRedisTemplate).set(uniqueId, finalOpenAiConversations);
+                                openAiChatRedisOperation.set(uniqueId, finalOpenAiConversations);
                                 return Mono.just(_openAiConversation);
                             })
                             .flatMap(current->{

@@ -14,7 +14,6 @@ import org.lambda.framework.openai.enums.OpenaiExceptionEnum;
 import org.lambda.framework.openai.service.image.param.OpenAiImageParam;
 import org.lambda.framework.openai.service.image.response.OpenAiImageReplied;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -25,8 +24,8 @@ import java.util.List;
 @Component
 public class OpenAiImageService implements OpenAiImageFunction {
 
-    @Resource(name = "openAiImageRedisTemplate")
-    private ReactiveRedisTemplate openAiImageRedisTemplate;
+    @Resource(name = "openAiImageRedisOperation")
+    private ReactiveRedisOperation openAiImageRedisOperation;
     @Override
     public Mono<OpenAiReplying<OpenAiImageReplied>> execute(OpenAiImageParam param) {
         //参数校验
@@ -39,7 +38,7 @@ public class OpenAiImageService implements OpenAiImageFunction {
 
         String uniqueId = OpenAiContract.uniqueId(param.getUserId(),param.getUniqueParam().getUniqueTime());
 
-        return ReactiveRedisOperation.build(openAiImageRedisTemplate).get(uniqueId)
+        return openAiImageRedisOperation.get(uniqueId)
                 .onErrorResume(e->Mono.error(new EventException(OpenaiExceptionEnum.ES_OPENAI_007)))
                 .defaultIfEmpty(Mono.empty())
                 .flatMap(e->{
@@ -91,7 +90,7 @@ public class OpenAiImageService implements OpenAiImageFunction {
                                 finalOpenAiConversations.setTotalTokens(finalOpenAiConversations.getTotalTokens() + totalTokens);
                                 finalOpenAiConversations.setTotalPromptTokens(finalOpenAiConversations.getTotalPromptTokens() + promptTokens);
                                 finalOpenAiConversations.setTotalCompletionTokens(finalOpenAiConversations.getTotalCompletionTokens() + completionTokens);
-                                ReactiveRedisOperation.build(openAiImageRedisTemplate).set(uniqueId, finalOpenAiConversations);
+                                openAiImageRedisOperation.set(uniqueId, finalOpenAiConversations);
                                 return Mono.just(_openAiConversation);
                             }).flatMap(current->{
                                 OpenAiReplying<OpenAiImageReplied> openAiReplying =  new OpenAiReplying<OpenAiImageReplied>();

@@ -29,8 +29,8 @@
 		</dependency>
 		<!-- HikariCP Connection Pool -->
 		<dependency>
-			<groupId>com.zaxxer</groupId>
-			<artifactId>HikariCP</artifactId>
+			<groupId>io.r2dbc</groupId>
+			<artifactId>r2dbc-pool</artifactId>
 		</dependency>
 	</dependencies>
 </project>

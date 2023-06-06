@@ -1,7 +1,9 @@
 package org.lambda.framework.redis.operation;
 
 
+import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.serializer.RedisSerializationContext;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
@@ -12,37 +14,37 @@ import java.time.Duration;
  * @author: Mr.WangGang
  * @create: 2018-10-15 下午 12:08
  **/
-public class ReactiveRedisOperation<KEY,V> {
+public class ReactiveRedisOperation extends ReactiveRedisTemplate{
 
-    private ReactiveRedisTemplate<KEY,V> reactiveRedisTemplate;
-    private  <KEY,V> ReactiveRedisOperation(ReactiveRedisTemplate reactiveRedisTemplate){
-        this.reactiveRedisTemplate = reactiveRedisTemplate;
+
+    public ReactiveRedisOperation(ReactiveRedisConnectionFactory connectionFactory, RedisSerializationContext serializationContext) {
+        super(connectionFactory, serializationContext);
     }
 
-    public static <KEY,V> ReactiveRedisOperation<KEY,V> build(ReactiveRedisTemplate reactiveRedisTemplate){
-        return new ReactiveRedisOperation(reactiveRedisTemplate);
-    }
-    public void set(KEY key, V t, Long timeout){
-         reactiveRedisTemplate.opsForValue().set(key,t, Duration.ofSeconds(timeout)).subscribe();
+    public ReactiveRedisOperation(ReactiveRedisConnectionFactory connectionFactory, RedisSerializationContext serializationContext, boolean exposeConnection) {
+        super(connectionFactory, serializationContext, exposeConnection);
     }
 
-    public void set(KEY key, V t){
-        reactiveRedisTemplate.opsForValue().set(key,t).subscribe();
+    public <K,V>void set(K k, V t, Long timeout){
+        super.opsForValue().set(k,t, Duration.ofSeconds(timeout)).subscribe();
     }
 
-    public void delete(KEY key){
-         reactiveRedisTemplate.delete(key).subscribe();
+    public <K,V>void set(K k, V t){
+        super.opsForValue().set(k,t).subscribe();
     }
 
-    public void expire(KEY key,Long timeout){
-         reactiveRedisTemplate.expire(key,Duration.ofSeconds(timeout)).subscribe();
+    public <K>void delete(K k){
+         super.delete(k).subscribe();
     }
 
-    public Mono<V> get(KEY key){
-        return reactiveRedisTemplate.opsForValue().get(key);
+    public <K>void expire(K k,Long timeout){
+        super.expire(k,Duration.ofSeconds(timeout)).subscribe();
     }
 
-    public Mono<Boolean> hasKey(KEY key){
-        return reactiveRedisTemplate.hasKey(key);
+    public <K,V>Mono<V> get(K k){
+        return super.opsForValue().get(k);
+    }
+    public <K>Mono<Boolean> haveKey(K k){
+        return super.hasKey(k);
     }
 }

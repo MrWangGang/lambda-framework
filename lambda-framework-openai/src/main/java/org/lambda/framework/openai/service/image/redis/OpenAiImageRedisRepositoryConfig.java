@@ -1,20 +1,20 @@
 package org.lambda.framework.openai.service.image.redis;
 
-import org.lambda.framework.openai.AbstractOpenAiRedisConfig;
+import org.lambda.framework.openai.AbstractOpenAiRedisRepositoryConfig;
+import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.redis.core.ReactiveRedisTemplate;
 
 @Configuration
-public class OpenAiImageRedisConfig extends AbstractOpenAiRedisConfig {
+public class OpenAiImageRedisRepositoryConfig extends AbstractOpenAiRedisRepositoryConfig {
     //##数据库序号
     @Value("${lambda.openai.image.redis.database:2}")
     private Integer database;
 
-    @Bean("openAiImageRedisTemplate")
-    public ReactiveRedisTemplate openAiImageRedisTemplate(){
-        return super.redisTemplate();
+    @Bean("openAiImageRedisOperation")
+    public ReactiveRedisOperation openAiImageRedisOperation(){
+        return super.redisOperation();
     }
 
     @Override

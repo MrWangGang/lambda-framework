@@ -183,9 +183,9 @@ public class SecurityAuthRedisConfig extends AbstractSecurityRedisConfig {
     //##数据库序号
     @Value("${lambda.security.redis.auth.database:0}")
     private Integer database;
-    @Bean("securityAuthRedisTemplate")
-    public ReactiveRedisTemplate securityAuthRedisTemplate(){
-        return redisTemplate();
+    @Bean("securityAuthRedisOperation")
+    public ReactiveRedisOperation securityAuthRedisOperation(){
+        return redisOperation();
     }
 
     @Override
