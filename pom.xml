@@ -97,6 +97,11 @@
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
+				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-rpc</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
 				<groupId>com.theokanning.openai-gpt3-java</groupId>
 				<artifactId>service</artifactId>
 				<version>${openai-service.version}</version>
@@ -164,5 +169,6 @@
 		<module>lambda-framework-redis</module>
 		<module>lambda-framework-repository</module>
 		<module>lambda-framework-openai</module>
+		<module>lambda-framework-rpc</module>
 	</modules>
 </project>
