@@ -98,6 +98,11 @@
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-repository</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.lambda.framework</groupId>
 				<artifactId>lambda-framework-rpc</artifactId>
 				<version>${project.version}</version>
 			</dependency>
@@ -164,11 +169,11 @@
     <modules>
 		<module>lambda-framework-common</module>
 		<module>lambda-framework-web</module>
+		<module>lambda-framework-rpc</module>
 		<module>lambda-framework-security</module>
 		<module>lambda-framework-guid</module>
 		<module>lambda-framework-redis</module>
 		<module>lambda-framework-repository</module>
 		<module>lambda-framework-openai</module>
-		<module>lambda-framework-rpc</module>
 	</modules>
 </project>
