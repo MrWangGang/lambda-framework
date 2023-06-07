@@ -7,6 +7,7 @@ import org.lambda.framework.security.manger.SecurityAutzManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
@@ -30,6 +31,7 @@ import reactor.core.publisher.Mono;
  **/
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
+@Configuration
 public class SecurityConfig {
 
     @Value("#{'${lambda.security.permit_urls:}'.empty ?new String[]{''} :'${lambda.security.permit_urls:}'.split(',')}")
