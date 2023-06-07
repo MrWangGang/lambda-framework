@@ -3,32 +3,50 @@ package org.lambda.framework.rpc;
 import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.EventException;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.cloud.client.ServiceInstance;
+import org.springframework.cloud.client.loadbalancer.LoadBalancerClient;
+import org.springframework.cloud.client.loadbalancer.reactive.LoadBalancerClientRequestTransformer;
+import org.springframework.cloud.client.loadbalancer.reactive.ReactiveLoadBalancer;
 import org.springframework.cloud.client.loadbalancer.reactive.ReactorLoadBalancerExchangeFilterFunction;
 import org.springframework.context.ResourceLoaderAware;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.ResourcePatternUtils;
 import org.springframework.core.type.classreading.CachingMetadataReaderFactory;
 import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
+import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.support.WebClientAdapter;
 import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
+import java.util.List;
+
 import static org.lambda.framework.rpc.enums.RpcExceptionEnum.ES_RPC_000;
 
-@Configuration
-public class RpcPostProcessor implements ResourceLoaderAware, BeanDefinitionRegistryPostProcessor {
+@Component
+public class RpcPostProcessor implements ResourceLoaderAware,ApplicationRunner {
     private ResourceLoader resourceLoader;
-
     @Resource
     private ReactorLoadBalancerExchangeFilterFunction reactorLoadBalancerExchangeFilterFunction;
+    @Resource
+    private ConfigurableListableBeanFactory beanFactory;
+
     @Override
-    public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) throws BeansException {
+    public void setResourceLoader(ResourceLoader resourceLoader) {
+        this.resourceLoader = resourceLoader;
+    }
+    @Override
+    public void run(ApplicationArguments args) throws Exception {
         try {
             //获取指定目录下的class文件
             org.springframework.core.io.Resource[] resources = ResourcePatternUtils.getResourcePatternResolver(resourceLoader)
@@ -53,16 +71,6 @@ public class RpcPostProcessor implements ResourceLoaderAware, BeanDefinitionRegi
         } catch (Exception e) {
             throw new EventException(ES_RPC_000);
         }
-    }
-
-    @Override
-    public void setResourceLoader(ResourceLoader resourceLoader) {
-        this.resourceLoader = resourceLoader;
-    }
-
-    @Override
-    public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
-
     }
 }
 
