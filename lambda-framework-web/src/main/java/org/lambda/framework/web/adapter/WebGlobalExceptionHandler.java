@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBufferFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -17,6 +18,10 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.lambda.framework.web.enums.WebExceptionEnum.ES_WEB_000;
 
@@ -59,7 +64,8 @@ public class WebGlobalExceptionHandler implements ErrorWebExceptionHandler {
 
     private  <T> Mono<Void> write(ServerHttpResponse httpResponse, T object) {
         httpResponse.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
-        httpResponse.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        MediaType mediaType = new MediaType(MediaType.APPLICATION_JSON, StandardCharsets.UTF_8);
+        httpResponse.getHeaders().setContentType(mediaType);
         return httpResponse
                 .writeWith(Mono.fromSupplier(() -> {
                     DataBufferFactory bufferFactory = httpResponse.bufferFactory();
