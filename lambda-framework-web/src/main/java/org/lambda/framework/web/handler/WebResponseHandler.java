@@ -1,59 +1,43 @@
 package org.lambda.framework.web.handler;
 
 import org.lambda.framework.common.templete.ResponseTemplete;
-import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Collection;
-
-import static org.springframework.http.MediaType.APPLICATION_JSON;
-
 public abstract class WebResponseHandler {
-
-    protected Mono<ServerResponse> routing(Collection data){
-        return ServerResponse.ok().contentType(APPLICATION_JSON).body(handlerFlux(Flux.just(data)), ResponseTemplete.class);
+/*    @Deprecated
+    public static Mono<ServerResponse> ok(Mono data){
+        return ServerResponse.ok().contentType(MEDIATYPE).body(handlerMono(data), ResponseTemplete.class);
     }
-    protected Mono<ServerResponse> routing(Object data){
-        return ServerResponse.ok().contentType(APPLICATION_JSON).body(handlerMono(Mono.just(data)), ResponseTemplete.class);
-    }
-    protected Mono<ServerResponse> routing(Mono data){
-        return ServerResponse.ok().contentType(APPLICATION_JSON).body(handlerMono(data), ResponseTemplete.class);
+    @Deprecated
+    public static Mono<ServerResponse> ok(Flux data){
+        return ServerResponse.ok().contentType(MEDIATYPE).body(handlerFlux(data), ResponseTemplete.class);
     }
 
-    protected Mono<ServerResponse> routing(Flux data){
-        return ServerResponse.ok().contentType(APPLICATION_JSON).body(handlerFlux(data), ResponseTemplete.class);
-    }
-
-    protected Mono<ServerResponse> routing(){
+    @Deprecated
+    public static Mono<ServerResponse> ok(){
         ResponseTemplete responseTemplete = new ResponseTemplete();
-        return ServerResponse.ok().contentType(APPLICATION_JSON).body(responseTemplete, ResponseTemplete.class);
-    }
-    protected Mono<ResponseTemplete> returning(Collection data){
-        return handlerFlux(Flux.just(data));
-    }
-    protected Mono<ResponseTemplete> returning(Object data){
-        return handlerMono(Mono.just(data));
-    }
+        return ServerResponse.ok().contentType(MEDIATYPE).body(Mono.just(responseTemplete), ResponseTemplete.class);
+    }*/
 
-    protected Mono<ResponseTemplete> returning(Mono data){
+    protected  Mono<ResponseTemplete> ok(Mono data){
         return handlerMono(data);
     }
-    protected Mono<ResponseTemplete> returning(Flux data){
+    protected  Mono<ResponseTemplete> ok(Flux data){
         return handlerFlux(data);
     }
 
-    protected Mono<ResponseTemplete> returning(){
+    protected   Mono<ResponseTemplete> ok(){
         return Mono.just(new ResponseTemplete());
     }
 
-    private Mono<ResponseTemplete> handlerMono(Mono data){
+    private  Mono<ResponseTemplete> handlerMono(Mono data){
         return data.flatMap(e->{
            return  Mono.just(new ResponseTemplete(e));
         });
     }
 
-    private Mono<ResponseTemplete> handlerFlux(Flux data){
+    private  Mono<ResponseTemplete> handlerFlux(Flux data){
         return data.collectList().flatMap(e->{
             return  Mono.just(new ResponseTemplete(e));
         });
