@@ -31,7 +31,7 @@ public class WebGlobalResponseHandler  {
 
     static {
         try {
-            // 获得 METHOD_PARAMETER_MONO_COMMON_RESULT 。其中 -1 表示 `#methodForParams()` 方法的返回值
+            // 获得 METHOD_PARAMETER 。其中 -1 表示 `#methodForParams()` 方法的返回值
             METHOD_PARAMETER = new MethodParameter(
                     WebGlobalResponseHandler.class.getDeclaredMethod("methodForParams"), -1);
         } catch (NoSuchMethodException e) {
