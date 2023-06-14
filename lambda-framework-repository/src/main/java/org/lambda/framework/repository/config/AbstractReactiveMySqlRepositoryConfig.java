@@ -11,7 +11,7 @@ import java.time.Duration;
 
 import static io.r2dbc.spi.ConnectionFactoryOptions.*;
 
-public abstract class AbstractReactivMySqlRepositoryConfig {
+public abstract class AbstractReactiveMySqlRepositoryConfig {
 
     protected abstract String host();
     protected abstract String user();
@@ -19,7 +19,9 @@ public abstract class AbstractReactivMySqlRepositoryConfig {
     protected abstract String database();
     protected abstract Integer port();
     protected abstract Integer connectTimeoutSeconds();
+    //用于指定数据库连接在空闲状态下的最大存活时间
     protected abstract Integer maxIdleTimeSeconds();
+    //连接池中的最大连接数
     protected abstract Integer maxSize();
 
     protected ConnectionFactory buildMysqlConnectionFactory(){
