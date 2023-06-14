@@ -28,7 +28,7 @@ public enum CommonExceptionEnum implements ExceptionEnumFunction {
     ES_COMMON_018("ES_COMMON_018","JSON转换OBJ失败"),
     ES_COMMON_019("ES_COMMON_019","OBJ转换JSON失败"),
     ES_COMMON_020("ES_COMMON_020","调用失败"),
-    ES_COMMON_021("ES_COMMON_021","BeanPlasticityUtill异常"),
+    ES_COMMON_021("ES_COMMON_021","copy bean异常"),
     ES_COMMON_022("ES_COMMON_022","类型不匹配String"),
     ES_COMMON_023("ES_COMMON_023","要转成date的value不能为空"),
     ES_COMMON_024("ES_COMMON_024","日期转化失败"),
