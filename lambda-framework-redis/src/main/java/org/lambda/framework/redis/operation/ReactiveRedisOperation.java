@@ -25,26 +25,26 @@ public class ReactiveRedisOperation extends ReactiveRedisTemplate{
         super(connectionFactory, serializationContext, exposeConnection);
     }
 
-    public <K,V>void set(K k, V t, Long timeout){
-        super.opsForValue().set(k,t, Duration.ofSeconds(timeout)).subscribe();
+    public <K,V>Mono<Boolean> set(K k, V t, Long timeout){
+        return super.opsForValue().set(k,t, Duration.ofSeconds(timeout));
     }
 
-    public <K,V>void set(K k, V t){
-        super.opsForValue().set(k,t).subscribe();
+    public <K,V>Mono<Boolean> set(K k, V t){
+        return super.opsForValue().set(k,t);
     }
 
     public <K>void delete(K k){
-         super.delete(k).subscribe();
+         super.delete(k);
     }
 
-    public <K>void expire(K k,Long timeout){
-        super.expire(k,Duration.ofSeconds(timeout)).subscribe();
+    public <K>Mono<Boolean> expire(K k,Long timeout){
+        return super.expire(k,Duration.ofSeconds(timeout));
     }
 
     public <K,V>Mono<V> get(K k){
         return super.opsForValue().get(k);
     }
-    public <K>Mono<Boolean> haveKey(K k){
+    public <K>Mono<Boolean> existKey(K k){
         return super.hasKey(k);
     }
 }

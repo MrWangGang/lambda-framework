@@ -116,7 +116,7 @@ public class OpenAiFAQService implements OpenAiFAQFunction {
                                     finalOpenAiConversations.setTotalTokens(finalOpenAiConversations.getTotalTokens() + chatCompletionResult.getUsage().getTotalTokens());
                                     finalOpenAiConversations.setTotalPromptTokens(finalOpenAiConversations.getTotalPromptTokens() + chatCompletionResult.getUsage().getPromptTokens());
                                     finalOpenAiConversations.setTotalCompletionTokens(finalOpenAiConversations.getTotalCompletionTokens() + chatCompletionResult.getUsage().getCompletionTokens());
-                                    openAiFAQRedisOperation.set(uniqueId, finalOpenAiConversations);
+                                    openAiFAQRedisOperation.set(uniqueId, finalOpenAiConversations).subscribe();
                                     return Mono.just(_openAiConversation);
                                 }).flatMap(current->{
                                     OpenAiReplying<OpenAiChatReplied> currentConversation =  new OpenAiReplying<OpenAiChatReplied>();

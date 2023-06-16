@@ -118,7 +118,7 @@ public class OpenAiChatService implements OpenAiChatFunction {
                                 finalOpenAiConversations.setTotalTokens(finalOpenAiConversations.getTotalTokens() + chatCompletionResult.getUsage().getTotalTokens());
                                 finalOpenAiConversations.setTotalPromptTokens(finalOpenAiConversations.getTotalPromptTokens() + chatCompletionResult.getUsage().getPromptTokens());
                                 finalOpenAiConversations.setTotalCompletionTokens(finalOpenAiConversations.getTotalCompletionTokens() + chatCompletionResult.getUsage().getCompletionTokens());
-                                openAiChatRedisOperation.set(uniqueId, finalOpenAiConversations);
+                                openAiChatRedisOperation.set(uniqueId, finalOpenAiConversations).subscribe();
                                 return Mono.just(_openAiConversation);
                             })
                             .flatMap(current->{

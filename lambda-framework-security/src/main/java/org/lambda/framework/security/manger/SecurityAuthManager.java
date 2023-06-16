@@ -34,7 +34,7 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
         if(!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGX).matcher(authToken).matches()))throw new EventException(SecurityExceptionEnum.ES_SECURITY_007);
         //authentication
         //令牌与库中不匹配
-        return securityAuthRedisOperation.haveKey(authToken).onErrorResume(e1->Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_003))).flatMap(e -> {
+        return securityAuthRedisOperation.existKey(authToken).map(e -> {
             if (e == null || !e) return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_003));
             return Mono.just(true);
         }).flatMap(e -> {
@@ -46,8 +46,8 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
             //刷新TOKEN存活时间 保持登陆
             //更新SecurityContext中的Authentication信息
             if(!verify(principal.toString())) return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_000));
-            securityAuthRedisOperation.expire(authToken, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND);
-            return Mono.just(SecurityAuthToken.builder().principal(principal.toString()).credentials(authToken).authenticated(true).build());
+            return securityAuthRedisOperation.expire(authToken, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND)
+                    .then(Mono.just(SecurityAuthToken.builder().principal(principal.toString()).credentials(authToken).authenticated(true).build()));
        });
     }
 }

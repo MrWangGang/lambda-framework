@@ -29,15 +29,17 @@ public class SecurityPrincipalUtil {
         return securityAuthRedisOperation.get(key);
     }
 
-    public String setPrincipalToToken(String principal){
+    public Mono<String> setPrincipalToToken(String principal){
         if(StringUtils.isBlank(principal)){
             throw new EventException(SecurityExceptionEnum.ES_SECURITY_002);
         }
         String key = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY+ MD5Util.hash(principal+"."+ SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT);
-        securityAuthRedisOperation.set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue());
-        return key;
+        return securityAuthRedisOperation.set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(key));
     }
 
+
+    //这些方法不是响应式的可能会出问题，不要使用
+    @Deprecated
     public static String getCredentials(){
         SecurityAuthToken authentication = getAuthentication();
         String credentials = authentication.getCredentials();
@@ -45,6 +47,7 @@ public class SecurityPrincipalUtil {
         return credentials;
     }
 
+    @Deprecated
     public static <T>T getPrincipal(Class<T> clazz) {
         if(clazz == null)throw new EventException(SecurityExceptionEnum.ES_SECURITY_006);
         SecurityAuthToken authentication = getAuthentication();
@@ -65,6 +68,7 @@ public class SecurityPrincipalUtil {
 
     }
 
+    @Deprecated
     public static SecurityAuthToken getAuthentication(){
         if(SecurityContextHolder.getContext() == null)throw new EventException(SecurityExceptionEnum.ES_SECURITY_008);
         if(SecurityContextHolder.getContext().getAuthentication() == null)throw new EventException(SecurityExceptionEnum.ES_SECURITY_000);

@@ -90,7 +90,7 @@ public class OpenAiImageService implements OpenAiImageFunction {
                                 finalOpenAiConversations.setTotalTokens(finalOpenAiConversations.getTotalTokens() + totalTokens);
                                 finalOpenAiConversations.setTotalPromptTokens(finalOpenAiConversations.getTotalPromptTokens() + promptTokens);
                                 finalOpenAiConversations.setTotalCompletionTokens(finalOpenAiConversations.getTotalCompletionTokens() + completionTokens);
-                                openAiImageRedisOperation.set(uniqueId, finalOpenAiConversations);
+                                openAiImageRedisOperation.set(uniqueId, finalOpenAiConversations).subscribe();
                                 return Mono.just(_openAiConversation);
                             }).flatMap(current->{
                                 OpenAiReplying<OpenAiImageReplied> openAiReplying =  new OpenAiReplying<OpenAiImageReplied>();
