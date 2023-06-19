@@ -17,6 +17,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_003;
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_004;
 
 /**
  * @description: 获取spring secutiy中的principal
@@ -34,6 +35,8 @@ public class SecurityPrincipalUtil {
             return Mono.just(e.getHeaders().get("Auth-Token").get(0));
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e-> {
             return securityAuthRedisOperation.get(e);
+        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004))).flatMap(e->{
+            return Mono.just(e.toString());
         });
     }
 
@@ -48,7 +51,7 @@ public class SecurityPrincipalUtil {
     public Mono<Void> deletePrincipalByToken(){
         return getServerHttpRequest().flatMap(e->{
             return Mono.just(e.getHeaders().get("Auth-Token").get(0));
-        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).then(getPrincipal()).flatMap(e->{
+        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e->{
                 return securityAuthRedisOperation.delete(e);
             }).then(Mono.empty());
     }
@@ -72,7 +75,7 @@ public class SecurityPrincipalUtil {
         if(clazz == null)throw new EventException(SecurityExceptionEnum.ES_SECURITY_006);
         SecurityAuthToken authentication = getAuthentication();
         String principal = authentication.getPrincipal();
-        if(StringUtils.isBlank(principal))throw new EventException(SecurityExceptionEnum.ES_SECURITY_004);
+        if(StringUtils.isBlank(principal))throw new EventException(ES_SECURITY_004);
         try{
             return (T)(JsonUtil.stringToObj(principal,clazz).orElseThrow(()->new EventException(SecurityExceptionEnum.ES_SECURITY_009)));
         }catch (EventException e){
