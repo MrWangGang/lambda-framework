@@ -21,6 +21,7 @@ import org.springframework.security.web.server.context.NoOpServerSecurityContext
 import org.springframework.security.web.server.savedrequest.NoOpServerRequestCache;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -67,7 +68,31 @@ public class SecurityConfig {
     //    });
     //    return authenticationWebFilter;
     //}
-
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowCredentials(true); // 允许发送身份验证信息
+        configuration.addAllowedOriginPattern("*");
+        configuration.addAllowedMethod("OPTIONS");
+        configuration.addAllowedMethod("HEAD");
+        configuration.addAllowedMethod("GET");
+        configuration.addAllowedMethod("PUT");
+        configuration.addAllowedMethod("POST");
+        configuration.addAllowedMethod("DELETE");
+        configuration.addAllowedMethod("PATCH");
+        configuration.addAllowedHeader("User-Agent");
+        configuration.addAllowedHeader("Cache-Control");
+        configuration.addAllowedHeader("X-Requested-With");
+        configuration.addAllowedHeader("Content-Type");
+        configuration.addAllowedHeader("Accept");
+        configuration.addAllowedHeader("Accept-Encoding");
+        configuration.addAllowedHeader("Accept-Language");
+        configuration.addAllowedHeader("Authorization");
+        configuration.addAllowedHeader("Auth-Token");
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration); // 对所有URL生效
+        return source;
+    }
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http,ReactiveAuthorizationManager autzManager) {
         http.httpBasic().disable();
@@ -76,7 +101,7 @@ public class SecurityConfig {
         http.headers().disable();
         http.csrf().disable();
         http.requestCache().disable();
-        http.cors().disable();
+        http.cors().configurationSource(corsConfigurationSource()); // 启用CORS支持，并使用上述配置
         //禁用请求换成，禁用session
         http.requestCache().requestCache(NoOpServerRequestCache.getInstance());
         http.securityContextRepository(NoOpServerSecurityContextRepository.getInstance());

@@ -14,6 +14,7 @@ public class WebGlobalCorsConfig {
                 new UrlBasedCorsConfigurationSource();
 
         CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
         config.addAllowedOriginPattern("*");
         config.addAllowedMethod("OPTIONS");
         config.addAllowedMethod("HEAD");
