@@ -28,7 +28,6 @@ import static org.lambda.framework.web.enums.WebExceptionEnum.ES_WEB_000;
  * The final interpretation of this procedure is owned by the author
  */
 @Component
-@RestControllerAdvice
 @Order(-2)
 @Slf4j
 public class WebGlobalExceptionHandler implements ErrorWebExceptionHandler {
@@ -36,7 +35,6 @@ public class WebGlobalExceptionHandler implements ErrorWebExceptionHandler {
     private Logger logger = LoggerFactory.getLogger(WebGlobalExceptionHandler.class);
 
     @Override
-    @ExceptionHandler(Exception.class)
     public Mono<Void> handle(ServerWebExchange serverWebExchange, Throwable throwable) {
         return writeResponse(serverWebExchange,handleTransferException(throwable));
     }
