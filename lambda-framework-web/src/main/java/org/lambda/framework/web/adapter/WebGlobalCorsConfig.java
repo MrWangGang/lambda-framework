@@ -1,4 +1,4 @@
-package org.lambda.framework.web;
+package org.lambda.framework.web.adapter;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
