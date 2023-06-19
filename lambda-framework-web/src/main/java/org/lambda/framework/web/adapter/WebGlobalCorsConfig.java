@@ -4,8 +4,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsProcessor;
 import org.springframework.web.cors.reactive.CorsWebFilter;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+import org.springframework.web.server.ServerWebExchange;
 
 @Configuration
 public class WebGlobalCorsConfig {
@@ -22,6 +24,13 @@ public class WebGlobalCorsConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", corsConfig);
 
-        return new CorsWebFilter(source);
+
+        CorsProcessor corsProcessor = new CorsProcessor() {
+            @Override
+            public boolean process(CorsConfiguration corsConfiguration, ServerWebExchange serverWebExchange)  {
+                return true;
+            }
+        };
+        return new CorsWebFilter(source, corsProcessor);
     }
 }
