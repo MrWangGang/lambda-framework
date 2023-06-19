@@ -37,6 +37,17 @@ public class SecurityPrincipalUtil {
         return securityAuthRedisOperation.set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(key));
     }
 
+    public Mono<Void> deletePrincipalByToken(String authToken){
+        if(StringUtils.isBlank(authToken)){
+            throw new EventException(SecurityExceptionEnum.ES_SECURITY_003);
+        }
+        return getPrincipalByToken(authToken).switchIfEmpty(Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004))).map(e->{
+            return e;
+        }).map(e->{
+             return securityAuthRedisOperation.delete(e);
+        }).then(Mono.empty());
+    }
+
 
     //这些方法不是响应式的可能会出问题，不要使用
     @Deprecated
