@@ -40,7 +40,7 @@ public class SecurityPrincipalUtil {
         });
     }
 
-    public Mono<String> setPrincipalToToken(String principal){
+    public Mono<String> setPrincipal(String principal){
         if(StringUtils.isBlank(principal)){
             throw new EventException(SecurityExceptionEnum.ES_SECURITY_002);
         }
@@ -48,7 +48,7 @@ public class SecurityPrincipalUtil {
         return securityAuthRedisOperation.set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(key));
     }
 
-    public Mono<Void> deletePrincipalByToken(){
+    public Mono<Void> deletePrincipal(){
         return getServerHttpRequest().flatMap(e->{
             return Mono.just(e.getHeaders().get("Auth-Token").get(0));
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e->{
