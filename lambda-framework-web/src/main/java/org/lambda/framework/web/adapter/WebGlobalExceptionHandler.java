@@ -1,22 +1,22 @@
 package org.lambda.framework.web.adapter;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.templete.ResponseTemplete;
+import org.lambda.framework.common.util.sample.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.io.buffer.DataBufferFactory;
+import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import reactor.netty.ByteBufMono;
 
 import static org.lambda.framework.web.enums.GlobalResponseContentType.APPLICATION_JSON_UTF8;
 import static org.lambda.framework.web.enums.WebExceptionEnum.ES_WEB_000;
@@ -29,7 +29,7 @@ import static org.lambda.framework.web.enums.WebExceptionEnum.ES_WEB_000;
  */
 @Component
 @RestControllerAdvice
-@Order(-1)
+@Order(-2)
 @Slf4j
 public class WebGlobalExceptionHandler implements ErrorWebExceptionHandler {
 
@@ -38,7 +38,7 @@ public class WebGlobalExceptionHandler implements ErrorWebExceptionHandler {
     @Override
     @ExceptionHandler(Exception.class)
     public Mono<Void> handle(ServerWebExchange serverWebExchange, Throwable throwable) {
-        return write(serverWebExchange.getResponse(),handleTransferException(throwable));
+        return writeResponse(serverWebExchange,handleTransferException(throwable));
     }
 
     private ResponseTemplete handleTransferException(Throwable e) {
@@ -56,21 +56,13 @@ public class WebGlobalExceptionHandler implements ErrorWebExceptionHandler {
         return responseTemplete;
     }
 
-
-
-    private  <T> Mono<Void> write(ServerHttpResponse httpResponse, T object) {
-        httpResponse.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
-        httpResponse.getHeaders().setContentType(APPLICATION_JSON_UTF8);
-        return httpResponse
-                .writeWith(Mono.fromSupplier(() -> {
-                    DataBufferFactory bufferFactory = httpResponse.bufferFactory();
-                    try {
-                        return bufferFactory.wrap((new ObjectMapper()).writeValueAsBytes(object));
-                    } catch (Exception ex) {
-                        logger.warn("Error writing response", ex);
-                        return bufferFactory.wrap(new byte[0]);
-                    }
-                }));
+    private Mono<Void> writeResponse(ServerWebExchange exchange, ResponseTemplete errorBody) {
+        ServerHttpResponse response = exchange.getResponse();
+        response.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        response.getHeaders().setContentType(APPLICATION_JSON_UTF8);
+        DataBuffer dataBuffer = response.bufferFactory()
+                .allocateBuffer().write(JsonUtil.objToString(errorBody).getBytes());
+        return response.writeAndFlushWith(Mono.just(ByteBufMono.just(dataBuffer)));
     }
 
 
