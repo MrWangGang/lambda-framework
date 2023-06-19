@@ -10,9 +10,13 @@ import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.container.SecurityAuthToken;
 import org.lambda.framework.security.contract.SecurityContract;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_003;
 
 /**
  * @description: 获取spring secutiy中的principal
@@ -25,8 +29,12 @@ public class SecurityPrincipalUtil {
     @Resource(name = "securityAuthRedisOperation")
     private ReactiveRedisOperation securityAuthRedisOperation;
 
-    public Mono<String> getPrincipalByToken(String key){
-        return securityAuthRedisOperation.get(key);
+    public Mono<String> getPrincipal() {
+        return getServerHttpRequest().flatMap(e -> {
+            return Mono.just(e.getHeaders().get("Auth-Token").get(0));
+        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e-> {
+            return securityAuthRedisOperation.get(e);
+        });
     }
 
     public Mono<String> setPrincipalToToken(String principal){
@@ -37,15 +45,16 @@ public class SecurityPrincipalUtil {
         return securityAuthRedisOperation.set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(key));
     }
 
-    public Mono<Void> deletePrincipalByToken(String authToken){
-        if(StringUtils.isBlank(authToken)){
-            throw new EventException(SecurityExceptionEnum.ES_SECURITY_003);
-        }
-        return getPrincipalByToken(authToken).switchIfEmpty(Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004))).map(e->{
-            return e;
-        }).map(e->{
-             return securityAuthRedisOperation.delete(e);
-        }).then(Mono.empty());
+    public Mono<Void> deletePrincipalByToken(){
+        return getServerHttpRequest().flatMap(e->{
+            return Mono.just(e.getHeaders().get("Auth-Token").get(0));
+        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).then(getPrincipal()).flatMap(e->{
+                return securityAuthRedisOperation.delete(e);
+            }).then(Mono.empty());
+    }
+    public static Mono<ServerHttpRequest> getServerHttpRequest() {
+        return Mono.deferContextual(Mono::just)
+                .map(contextView -> contextView.get(ServerWebExchange.class).getRequest());
     }
 
 
@@ -54,7 +63,7 @@ public class SecurityPrincipalUtil {
     public static String getCredentials(){
         SecurityAuthToken authentication = getAuthentication();
         String credentials = authentication.getCredentials();
-        if(StringUtils.isBlank(credentials))throw new EventException(SecurityExceptionEnum.ES_SECURITY_003);
+        if(StringUtils.isBlank(credentials))throw new EventException(ES_SECURITY_003);
         return credentials;
     }
 
