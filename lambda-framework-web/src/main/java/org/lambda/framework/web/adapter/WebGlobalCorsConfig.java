@@ -18,8 +18,7 @@ public class WebGlobalCorsConfig {
         corsConfig.addAllowedMethod(HttpMethod.DELETE);
         corsConfig.addAllowedMethod(HttpMethod.PATCH);
         corsConfig.addAllowedOrigin("*"); // 允许的源（域），可以设置具体的域名
-        corsConfig.addAllowedHeader("Content-Type");
-        corsConfig.addAllowedHeader("Auth-Token");
+        corsConfig.addAllowedHeader("*");
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", corsConfig);
 
