@@ -71,6 +71,7 @@ public class SecurityConfig {
         http.headers().disable();
         http.csrf().disable();
         http.requestCache().disable();
+        http.cors().disable();
         //禁用请求换成，禁用session
         http.requestCache().requestCache(NoOpServerRequestCache.getInstance());
         http.securityContextRepository(NoOpServerSecurityContextRepository.getInstance());
