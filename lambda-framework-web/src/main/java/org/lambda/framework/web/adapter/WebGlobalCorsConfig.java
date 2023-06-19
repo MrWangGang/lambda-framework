@@ -28,7 +28,7 @@ public class WebGlobalCorsConfig {
         config.addAllowedMethod("POST");
         config.addAllowedMethod("DELETE");
         config.addAllowedMethod("PATCH");
-        config.addAllowedHeader("*");
+        config.addAllowedHeader("Auth-Token");
         configSource.registerCorsConfiguration("/**",config);
         return new CorsWebFilter(configSource);
     }
