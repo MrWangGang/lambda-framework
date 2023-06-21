@@ -20,13 +20,10 @@ public class WebJacksonGlobalConfig {
     @Bean
     public ObjectMapper globalObjectMapper() {
         ObjectMapper objectMapper = new ObjectMapper();
-
         JavaTimeModule javaTimeModule = new JavaTimeModule();
         javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
         javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-
         objectMapper.registerModule(javaTimeModule);
-
         return objectMapper;
     }
 }
