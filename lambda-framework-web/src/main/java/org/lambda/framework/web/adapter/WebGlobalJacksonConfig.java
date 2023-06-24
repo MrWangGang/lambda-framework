@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 @Configuration
-public class WebJacksonGlobalConfig {
+public class WebGlobalJacksonConfig {
     @Bean
     public ObjectMapper objectMapper(ObjectMapper globalObjectMapper) {
         return globalObjectMapper.copy();

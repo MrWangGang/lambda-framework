@@ -4,9 +4,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
+import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import org.lambda.framework.common.exception.EventException;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
@@ -20,6 +24,13 @@ import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
 public class JsonUtil {
     public static String objToString(Object data){
         try {
+            ObjectMapper objectMapper = JsonMapper.builder()
+                    .addModule(new JavaTimeModule())
+                    .build();
+            JavaTimeModule javaTimeModule = new JavaTimeModule();
+            javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            objectMapper.registerModule(javaTimeModule);
             return JsonMapper.builder()
                     .addModule(new JavaTimeModule())
                     .build().writeValueAsString(data);
@@ -30,7 +41,14 @@ public class JsonUtil {
 
     public static <T>Optional<T> stringToObj(String data,Class<T> clazz){
         try {
-            return Optional.ofNullable((new ObjectMapper()).readValue(data,clazz));
+            ObjectMapper objectMapper = JsonMapper.builder()
+                    .addModule(new JavaTimeModule())
+                    .build();
+            JavaTimeModule javaTimeModule = new JavaTimeModule();
+            javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+            objectMapper.registerModule(javaTimeModule);
+            return Optional.ofNullable(objectMapper.readValue(data,clazz));
         } catch (JsonProcessingException e) {
             throw new EventException(ES_COMMON_018);
         } catch (IOException e) {
