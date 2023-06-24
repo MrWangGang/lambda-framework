@@ -21,7 +21,6 @@ public class WebGlobalJacksonConfig {
     @Bean
     public ObjectMapper globalObjectMapper() {
         ObjectMapper objectMapper = JsonMapper.builder()
-                .addModule(new JavaTimeModule())
                 .build();
         JavaTimeModule javaTimeModule = new JavaTimeModule();
         javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));

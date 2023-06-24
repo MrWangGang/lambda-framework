@@ -25,7 +25,6 @@ public class JsonUtil {
     public static String objToString(Object data){
         try {
             ObjectMapper objectMapper = JsonMapper.builder()
-                    .addModule(new JavaTimeModule())
                     .build();
             JavaTimeModule javaTimeModule = new JavaTimeModule();
             javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
@@ -42,7 +41,6 @@ public class JsonUtil {
     public static <T>Optional<T> stringToObj(String data,Class<T> clazz){
         try {
             ObjectMapper objectMapper = JsonMapper.builder()
-                    .addModule(new JavaTimeModule())
                     .build();
             JavaTimeModule javaTimeModule = new JavaTimeModule();
             javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
