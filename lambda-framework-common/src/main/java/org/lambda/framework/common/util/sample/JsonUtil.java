@@ -2,6 +2,8 @@ package org.lambda.framework.common.util.sample;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.lambda.framework.common.exception.EventException;
 
 import java.io.IOException;
@@ -18,7 +20,9 @@ import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
 public class JsonUtil {
     public static String objToString(Object data){
         try {
-            return (new ObjectMapper()).writeValueAsString(data);
+            return JsonMapper.builder()
+                    .addModule(new JavaTimeModule())
+                    .build().writeValueAsString(data);
         } catch (JsonProcessingException e) {
             throw new EventException(ES_COMMON_019);
         }
