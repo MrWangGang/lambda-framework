@@ -49,8 +49,6 @@ public class JsonUtil {
             return Optional.ofNullable(objectMapper.readValue(data,clazz));
         } catch (JsonProcessingException e) {
             throw new EventException(ES_COMMON_018);
-        } catch (IOException e) {
-            throw new EventException(ES_COMMON_003);
         }
     }
 }
