@@ -31,7 +31,7 @@ public class RpcPostProcessor implements ResourceLoaderAware,BeanFactoryPostProc
         try {
             //获取指定目录下的class文件
             org.springframework.core.io.Resource[] resources = ResourcePatternUtils.getResourcePatternResolver(resourceLoader)
-                    .getResources("classpath*:/**/facade/**/*.class");
+                    .getResources("classpath:/**/facade/**/*.class");
             //根据resources创建数据读取工厂
             MetadataReaderFactory metaReader = new CachingMetadataReaderFactory(resourceLoader);
             for (org.springframework.core.io.Resource resource : resources) {
