@@ -1,17 +1,14 @@
 package org.lambda.framework.common.util.sample;
 
 
-import org.apache.commons.beanutils.ConvertUtils;
-import org.apache.commons.beanutils.Converter;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.beanutils.BeanUtils;
+import org.apache.commons.beanutils.BeanUtilsBean;
 import org.lambda.framework.common.exception.EventException;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
+import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_021;
 
 public class BeanPlasticityUtil {
 
@@ -20,7 +17,7 @@ public class BeanPlasticityUtil {
             Constructor<T> constructor = t.getDeclaredConstructor();
             constructor.setAccessible(true);
             T result = t.newInstance();
-            org.apache.commons.beanutils.BeanUtils.copyProperties(result, orig);
+            BeanUtils.copyProperties(result, orig);
             return result;
         } catch (IllegalAccessException e) {
             throw new EventException(ES_COMMON_021);
@@ -35,7 +32,11 @@ public class BeanPlasticityUtil {
 
     public static void copy(Object target1, Object target2) {
         try {
-             org.apache.commons.beanutils.BeanUtils.copyProperties(target1, target2);
+            BeanUtilsBean beanUtilsBean = BeanUtilsBean.getInstance();
+            // 自定义属性复制的行为
+            beanUtilsBean.getConvertUtils().register(false, true, 0);
+            // 复制target2对象的非空属性到target1对象
+            beanUtilsBean.copyProperties(target1, target2);
         } catch (IllegalAccessException e) {
             throw new EventException(ES_COMMON_021);
         } catch (InvocationTargetException e) {
