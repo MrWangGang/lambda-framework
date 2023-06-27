@@ -57,6 +57,7 @@
 		<r2dbc-mysql.version>1.0.1</r2dbc-mysql.version>
 		<r2dbc-pool.version>1.0.0.RELEASE</r2dbc-pool.version>
 		<jackson-datatype-jsr310.version>2.14.2</jackson-datatype-jsr310.version>
+		<hutool-core.version>5.8.20</hutool-core.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -161,6 +162,11 @@
 				<groupId>com.fasterxml.jackson.datatype</groupId>
 				<artifactId>jackson-datatype-jsr310</artifactId>
 				<version>${jackson-datatype-jsr310.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>cn.hutool</groupId>
+				<artifactId>hutool-core</artifactId>
+				<version>${hutool-core.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
