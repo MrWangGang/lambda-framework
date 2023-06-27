@@ -32,6 +32,16 @@ public class BeanPlasticityUtil {
             throw new EventException(ES_COMMON_021);
         }
     }
+
+    public static void copy(Object target1, Object target2) {
+        try {
+             org.apache.commons.beanutils.BeanUtils.copyProperties(target1, target2);
+        } catch (IllegalAccessException e) {
+            throw new EventException(ES_COMMON_021);
+        } catch (InvocationTargetException e) {
+            throw new EventException(ES_COMMON_021);
+        }
+    }
 }
 
 
