@@ -30,6 +30,7 @@ public class BeanPlasticityUtil {
         }
     }
 
+    //target2非空属性复置到target1
     public static void copy(Object target1, Object target2) {
         try {
             BeanUtilsBean beanUtilsBean = BeanUtilsBean.getInstance();
