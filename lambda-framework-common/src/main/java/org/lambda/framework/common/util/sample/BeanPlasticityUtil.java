@@ -24,9 +24,9 @@ public class BeanPlasticityUtil {
         }
     }
 
-    public static  void copy(Object target1, Object target2) {
+    public static  void copy(Object source, Object target) {
         try {
-            BeanUtil.copyProperties(target1, target2, CopyOptions.create().setIgnoreNullValue(true));
+            BeanUtil.copyProperties(source, target, CopyOptions.create().setIgnoreNullValue(true));
         }catch (Exception e){
             throw new EventException(ES_COMMON_021);
 
