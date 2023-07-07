@@ -15,9 +15,9 @@ public class BeanPlasticityUtil {
         try {
             Constructor<T> constructor = t.getDeclaredConstructor();
             constructor.setAccessible(true);
-            T result = t.newInstance();
-            BeanUtil.copyProperties(source, result);
-            return result;
+            T target = t.newInstance();
+            BeanUtil.copyProperties(source, target);
+            return target;
         } catch (Exception e) {
             throw new EventException(ES_COMMON_021);
         }
