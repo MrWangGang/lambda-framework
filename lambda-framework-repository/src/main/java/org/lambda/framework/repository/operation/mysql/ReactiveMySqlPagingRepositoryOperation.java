@@ -4,5 +4,5 @@ import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 
 public interface ReactiveMySqlPagingRepositoryOperation<Entity> {
-    Flux<Entity> findAll(Pageable page);
+    Flux<Entity> findBy(Pageable pageable);
 }
