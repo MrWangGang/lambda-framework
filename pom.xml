@@ -178,7 +178,7 @@
 		</dependency>
 	</dependencies>
 
-    <modules>
+	<modules>
 		<module>lambda-framework-common</module>
 		<module>lambda-framework-web</module>
 		<module>lambda-framework-rpc</module>
