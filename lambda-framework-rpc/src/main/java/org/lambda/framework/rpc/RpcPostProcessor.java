@@ -54,7 +54,7 @@ public class RpcPostProcessor implements ResourceLoaderAware, SmartInitializingS
                     HttpServiceProxyFactory factory = HttpServiceProxyFactory.builder(WebClientAdapter.forClient(webClient)).build();
                     //利用类的全限定名通过Class.forName获取class对象并利用http服务的代理工厂创建出代理对象
                     Object client = factory.createClient(Class.forName(metadataReader.getClassMetadata().getClassName()));
-                    //将创建出来的代理对象放到io容器当中
+                    //将创建出来的代理对象放到spring容器当中
                     String className = metadataReader.getClassMetadata().getClassName();
                     beanFactory.registerSingleton(className, client);
                 }
