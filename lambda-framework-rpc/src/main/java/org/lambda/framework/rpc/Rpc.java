@@ -13,9 +13,7 @@ import java.lang.annotation.Target;
 
 @Target({ElementType.FIELD})
 @Retention(RetentionPolicy.RUNTIME)
-@SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
-@Autowired(required = false)
 @Lazy
+@Autowired(required = false)
 public @interface Rpc {
-
 }
