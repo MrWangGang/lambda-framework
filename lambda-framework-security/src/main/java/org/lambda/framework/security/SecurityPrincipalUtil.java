@@ -1,7 +1,11 @@
 package org.lambda.framework.security;
 
+import cn.hutool.core.date.DateUnit;
+import cn.hutool.core.date.DateUtil;
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateFormatUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.util.sample.JsonUtil;
@@ -15,6 +19,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+
+import java.util.Date;
 
 import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_003;
 import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_004;
@@ -44,7 +50,7 @@ public class SecurityPrincipalUtil {
         if(StringUtils.isBlank(principal)){
             throw new EventException(SecurityExceptionEnum.ES_SECURITY_002);
         }
-        String key = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY+ MD5Util.hash(principal+"."+ SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT);
+        String key = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY+ MD5Util.hash(principal+"."+ SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT) + "."+String.valueOf(new Date().getTime());
         return securityAuthRedisOperation.set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(key));
     }
 
