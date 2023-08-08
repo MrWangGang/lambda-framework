@@ -50,7 +50,7 @@ public class SecurityPrincipalUtil {
         if(StringUtils.isBlank(principal)){
             throw new EventException(SecurityExceptionEnum.ES_SECURITY_002);
         }
-        String key = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY+ MD5Util.hash(principal+"."+ SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT) + "."+String.valueOf(new Date().getTime());
+        String key = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY+ MD5Util.hash(principal+"."+ SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT+"."+String.valueOf(new Date().getTime()));
         return securityAuthRedisOperation.set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(key));
     }
 
