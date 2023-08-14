@@ -62,5 +62,6 @@ public class RpcPostProcessor implements ResourceLoaderAware, SmartInitializingS
         } catch (Exception e) {
             throw new EventException(ES_RPC_000);
         }
+
     }
 }
