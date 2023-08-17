@@ -36,7 +36,6 @@ public class WebGlobalResponseHandler  {
     }
 
     @Bean
-    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     public ResponseBodyResultHandler responseWrapper(ServerCodecConfigurer serverCodecConfigurer,
                                                     RequestedContentTypeResolver requestedContentTypeResolver) {
         return new ResponseBodyResultHandler(serverCodecConfigurer.getWriters(), requestedContentTypeResolver) {
