@@ -4,7 +4,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface UnifyPagingOperation<Entity> {
-    public Mono<Integer> count();
+    public <Condition>Mono<Integer> count(Integer page,Integer size,Condition condition);
 
-    public Flux<Entity> query();
+    public <Condition>Flux<Entity> query(Integer page,Integer size,Condition condition);
 }
