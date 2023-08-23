@@ -7,7 +7,9 @@ public enum RepositoryExceptionEnum implements ExceptionEnumFunction {
     ES_REPOSITORY_MYSQL_000("ES_REPOSITORY_MYSQL_000","mysql缺少host配置"),
     ES_REPOSITORY_MYSQL_001("ES_REPOSITORY_MYSQL_001","mysql缺少user配置"),
     ES_REPOSITORY_MYSQL_002("ES_REPOSITORY_MYSQL_002","mysql缺少password配置"),
-    ES_REPOSITORY_MYSQL_003("ES_REPOSITORY_MYSQL_003","mysql缺少database配置");
+    ES_REPOSITORY_MYSQL_003("ES_REPOSITORY_MYSQL_003","mysql缺少database配置"),
+
+    ES_REPOSITORY_MYSQL_100("ES_REPOSITORY_MYSQL_100","分页参数不规范 page 必须 >0 size必须 >0 ");
 
 
     private String code;
