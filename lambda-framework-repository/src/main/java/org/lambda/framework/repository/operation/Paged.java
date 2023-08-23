@@ -12,13 +12,13 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Paged<Entity> {
-    private Integer page;
+    private Long page;
 
-    private Integer size;
+    private Long size;
 
-    private Integer total;
+    private Long total;
 
-    private Integer pages;
+    private Long pages;
 
     private List<Entity> records;
 }
