@@ -61,7 +61,8 @@ public class WebGlobalResponseHandler  {
                     //  <1.3> 处理结果为其它类型
                 } else {
                     //不允许其他类型返回
-                    throw new EventException(ES_WEB_002);
+                    //throw new EventException(ES_WEB_002);
+                    body = result.getReturnValue();
                 }
                 return writeBody(body, METHOD_PARAMETER, exchange);
             }
