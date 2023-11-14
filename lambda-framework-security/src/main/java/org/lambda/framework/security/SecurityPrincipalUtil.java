@@ -1,5 +1,8 @@
 package org.lambda.framework.security;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
@@ -18,8 +21,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.Date;
 
-import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_003;
-import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_004;
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.*;
 
 /**
  * @description: 获取spring secutiy中的principal
@@ -41,6 +43,20 @@ public class SecurityPrincipalUtil {
             return Mono.just(e.toString());
         });
     }
+
+    public <T>Mono<T> getPrincipal2Object(Class<T> valueType) {
+
+        return getServerHttpRequest().flatMap(e -> {
+            return Mono.just(e.getHeaders().get("Auth-Token").get(0));
+        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e-> {
+            ObjectMapper jsonMapper = new ObjectMapper();
+            try {
+                return Mono.just(jsonMapper.readValue(e,valueType));
+            } catch (JsonProcessingException ex) {
+                throw new EventException(ES_SECURITY_006);
+            }
+        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004)));
+    };
 
     public Mono<String> setPrincipal(String principal){
         if(StringUtils.isBlank(principal)){
@@ -74,7 +90,7 @@ public class SecurityPrincipalUtil {
 
     @Deprecated
     public static <T>T getPrincipal(Class<T> clazz) {
-        if(clazz == null)throw new EventException(SecurityExceptionEnum.ES_SECURITY_006);
+        if(clazz == null)throw new EventException(ES_SECURITY_006);
         SecurityAuthToken authentication = getAuthentication();
         String principal = authentication.getPrincipal();
         if(StringUtils.isBlank(principal))throw new EventException(ES_SECURITY_004);
