@@ -45,17 +45,20 @@ public class SecurityPrincipalUtil {
     }
 
     public <T>Mono<T> getPrincipal2Object(Class<T> valueType) {
-
         return getServerHttpRequest().flatMap(e -> {
             return Mono.just(e.getHeaders().get("Auth-Token").get(0));
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e-> {
+            return securityAuthRedisOperation.get(e);
+        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004))).flatMap(e->{
+            return Mono.just(e.toString());
+        }).flatMap(e->{
             ObjectMapper jsonMapper = new ObjectMapper();
             try {
                 return Mono.just(jsonMapper.readValue(e,valueType));
             } catch (JsonProcessingException ex) {
-                throw new EventException(ES_SECURITY_006);
+                return Mono.error(new EventException(ES_SECURITY_006));
             }
-        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004)));
+        });
     };
 
     public Mono<String> setPrincipal(String principal){
