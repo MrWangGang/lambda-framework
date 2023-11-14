@@ -22,6 +22,16 @@ import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
  * @create: 2018-11-23 下午 12:51
  **/
 public class JsonUtil {
+
+    public static ObjectMapper getJsonFactory(){
+        ObjectMapper objectMapper = JsonMapper.builder()
+                .build();
+        JavaTimeModule javaTimeModule = new JavaTimeModule();
+        javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        objectMapper.registerModule(javaTimeModule);
+        return objectMapper;
+    }
     public static String objToString(Object data){
         try {
             ObjectMapper objectMapper = JsonMapper.builder()
@@ -30,9 +40,7 @@ public class JsonUtil {
             javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
             javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
             objectMapper.registerModule(javaTimeModule);
-            return JsonMapper.builder()
-                    .addModule(new JavaTimeModule())
-                    .build().writeValueAsString(data);
+            return objectMapper.writeValueAsString(data);
         } catch (JsonProcessingException e) {
             throw new EventException(ES_COMMON_019);
         }

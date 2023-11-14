@@ -1,8 +1,8 @@
 package org.lambda.framework.redis.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.apache.logging.log4j.util.Strings;
+import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisPassword;
@@ -41,8 +41,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
 
         public ReactiveRedisOperation buildRedisOperation() {
             RedisSerializationContext.SerializationPair<String> stringSerializationPair = RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer.UTF_8);
-            Jackson2JsonRedisSerializer<Object> valueSerializer = new Jackson2JsonRedisSerializer<>(new ObjectMapper(),Object.class);
-
+            Jackson2JsonRedisSerializer<Object> valueSerializer = new Jackson2JsonRedisSerializer<>(JsonUtil.getJsonFactory(),Object.class);
             RedisSerializationContext.RedisSerializationContextBuilder builder =
                     RedisSerializationContext.newSerializationContext();
             builder.key(stringSerializationPair);
