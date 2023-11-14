@@ -52,12 +52,7 @@ public class SecurityPrincipalUtil {
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004))).flatMap(e->{
             return Mono.just(e.toString());
         }).flatMap(e->{
-            ObjectMapper jsonMapper = new ObjectMapper();
-            try {
-                return Mono.just(jsonMapper.readValue(e,valueType));
-            } catch (JsonProcessingException ex) {
-                return Mono.error(new EventException(ES_SECURITY_006));
-            }
+            return Mono.just(JsonUtil.stringToObj(e,valueType).orElseThrow(()->new EventException(ES_SECURITY_006)));
         });
     };
 
