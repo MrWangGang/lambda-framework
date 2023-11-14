@@ -48,11 +48,11 @@ public class DefaultReactiveMySqlRepositoryConfig  extends AbstractReactiveMySql
 
     @Value("${lambda.repository.mysql.port:3306}")
     private Integer port;
-    @Value("${lambda.repository.mysql.connectTimeoutSeconds:60}")
+    @Value("${lambda.repository.mysql.connect-timeout-seconds:60}")
     private Integer connectTimeoutSeconds;
-    @Value("${lambda.repository.mysql.maxIdleTimeSeconds:30}")
+    @Value("${lambda.repository.mysql.max-idle-time-seconds:30}")
     private Integer maxIdleTimeSeconds;
-    @Value("${lambda.repository.mysql.maxSize:50}")
+    @Value("${lambda.repository.mysql.max-size:50}")
     private Integer maxSize;
 
     @Override

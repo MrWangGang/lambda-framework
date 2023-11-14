@@ -40,7 +40,7 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    @Value("#{'${lambda.security.permit_urls:}'.empty ?new String[]{''} :'${lambda.security.permit_urls:}'.split(',')}")
+    @Value("#{'${lambda.security.permit-urls:}'.empty ?new String[]{''} :'${lambda.security.permit-urls:}'.split(',')}")
     private String[] permitUrls;
 
 

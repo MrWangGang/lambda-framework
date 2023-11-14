@@ -18,6 +18,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.Date;
 
+import static org.lambda.framework.security.contract.SecurityContract.AUTH_TOKEN_NAMING;
 import static org.lambda.framework.security.enums.SecurityExceptionEnum.*;
 
 /**
@@ -33,7 +34,7 @@ public class SecurityPrincipalUtil {
 
     public Mono<String> getPrincipal() {
         return getServerHttpRequest().flatMap(e -> {
-            return Mono.just(e.getHeaders().get("Auth-Token").get(0));
+            return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e-> {
             return securityAuthRedisOperation.get(e);
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004))).flatMap(e->{
@@ -43,7 +44,7 @@ public class SecurityPrincipalUtil {
 
     public <T>Mono<T> getPrincipal2Object(Class<T> valueType) {
         return getServerHttpRequest().flatMap(e -> {
-            return Mono.just(e.getHeaders().get("Auth-Token").get(0));
+            return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e-> {
             return securityAuthRedisOperation.get(e);
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004))).flatMap(e->{
@@ -63,7 +64,7 @@ public class SecurityPrincipalUtil {
 
     public Mono<Void> deletePrincipal(){
         return getServerHttpRequest().flatMap(e->{
-            return Mono.just(e.getHeaders().get("Auth-Token").get(0));
+            return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e->{
                 return securityAuthRedisOperation.delete(e);
             }).then(Mono.empty());

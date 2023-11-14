@@ -16,18 +16,18 @@ public abstract class AbstractOpenAiRedisRepositoryConfig extends AbstractReacti
     protected String password;
 
     //# 连接池最大连接数
-    @Value("${lambda.openai.redis.lettuce.pool.max_active:8}")
+    @Value("${lambda.openai.redis.lettuce.pool.max-active:8}")
     protected Integer maxActive;
     //# 连接池最大阻塞等待时间（使用负值表示没有限制）
-    @Value("${lambda.openai.redis.lettuce.pool.max_wait_seconds:50}")
+    @Value("${lambda.openai.redis.lettuce.pool.max_wait-seconds:50}")
     protected Integer maxWaitSeconds;
 
     //# 连接池中的最大空闲连接
-    @Value("${lambda.openai.redis.lettuce.pool.max_idle:8}")
+    @Value("${lambda.openai.redis.lettuce.pool.max-idle:8}")
     protected Integer maxIdle;
 
     //# 连接池中的最小空闲连接
-    @Value("${lambda.openai.redis.lettuce.pool.min_idle:0}")
+    @Value("${lambda.openai.redis.lettuce.pool.min-idle:0}")
     protected Integer minIdle;
 
 
