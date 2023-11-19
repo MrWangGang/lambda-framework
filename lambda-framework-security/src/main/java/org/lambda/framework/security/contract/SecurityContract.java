@@ -14,10 +14,10 @@ public class SecurityContract {
     public static final String LAMBDA_SECURITY_EMPTY_STR = "";
 
     //所有经过认证的URL都需要经过授权
-    public static final String LAMBDA_SECURITY_URL_AUTZ_ALL="ALL";
+    public static final String LAMBDA_SECURITY_URL_AUTZ_MODEL_ALL="ALL";
 
     //只有配置映射的认证的URL都需要授权
-    public static final String LAMBDA_SECURITY_URL_AUTZ_MAPPING="MAPPING";
+    public static final String LAMBDA_SECURITY_URL_AUTZ_MODEL_MAPPING="MAPPING";
 
     public static String AUTH_TOKEN_NAMING = "Auth-Token";
 

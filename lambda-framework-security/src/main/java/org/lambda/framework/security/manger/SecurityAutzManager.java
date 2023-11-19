@@ -14,6 +14,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import reactor.core.publisher.Mono;
 
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_010;
+
 
 /**
  * @description: AuthToken认证管理器
@@ -31,6 +33,16 @@ public abstract class SecurityAutzManager implements ReactiveAuthorizationManage
     @Resource(name = "securityAutzRedisOperation")
     private ReactiveRedisOperation securityAutzRedisOperation;
 
+    private String urlAutzModel;
+    @Value("${lambda.security.url-autz-model:"+ SecurityContract.LAMBDA_SECURITY_URL_AUTZ_MODEL_ALL+"}")
+    public void setUrlAutz(String urlAutzModel) {
+        if(SecurityContract.LAMBDA_SECURITY_URL_AUTZ_MODEL_ALL.equals(urlAutzModel) || SecurityContract.LAMBDA_SECURITY_URL_AUTZ_MODEL_MAPPING.equals(urlAutzModel)) {
+            this.urlAutzModel = urlAutzModel;
+        }else {
+            throw new EventException(ES_SECURITY_010);
+        }
+    }
+
     @Override
     public Mono<AuthorizationDecision> check(Mono<Authentication> authentication, AuthorizationContext authorizationContext) {
 
@@ -42,7 +54,21 @@ public abstract class SecurityAutzManager implements ReactiveAuthorizationManage
                         .onErrorResume(e->Mono.just(SecurityContract.LAMBDA_SECURITY_EMPTY_STR))
                         .defaultIfEmpty(SecurityContract.LAMBDA_SECURITY_EMPTY_STR)
                         .flatMap(currentPathAutzTree->{
-                            if(!verify(currentPathAutzTree.toString(),auth.getPrincipal().toString()))return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_001));
+                            if(StringUtils.isBlank(currentPathAutzTree.toString())){
+                                //如果路径权限树为空
+                                if(SecurityContract.LAMBDA_SECURITY_URL_AUTZ_MODEL_ALL.equals(urlAutzModel)){
+                                    //配置了所有的经过认证都需要授权
+                                    return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_001));
+                                }
+                                if(SecurityContract.LAMBDA_SECURITY_URL_AUTZ_MODEL_MAPPING.equals(urlAutzModel)){
+                                    //配置了只有映射的URL经过认证才需要授权
+                                    return Mono.just(currentPathAutzTree.toString());
+                                }
+                                return Mono.error(new EventException(ES_SECURITY_010));
+                            }
+                            return Mono.just(currentPathAutzTree.toString());
+                        }).flatMap(currentPathAutzTree->{
+                            if(!verify(currentPathAutzTree,auth.getPrincipal().toString()))return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_001));
                             return Mono.just(new AuthorizationDecision(true));
                     });
          });
