@@ -8,6 +8,7 @@ import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.common.util.sample.MD5Util;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.container.SecurityAuthToken;
+import org.lambda.framework.security.container.SecurityLoginUser;
 import org.lambda.framework.security.contract.SecurityContract;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -32,17 +33,7 @@ public class SecurityPrincipalUtil {
     @Resource(name = "securityAuthRedisOperation")
     private ReactiveRedisOperation securityAuthRedisOperation;
 
-    public Mono<String> getPrincipal() {
-        return getServerHttpRequest().flatMap(e -> {
-            return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
-        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e-> {
-            return securityAuthRedisOperation.get(e);
-        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004))).flatMap(e->{
-            return Mono.just(e.toString());
-        });
-    }
-
-    public <T>Mono<T> getPrincipal2Object(Class<T> valueType) {
+    public <T extends SecurityLoginUser>Mono<T> getPrincipal2Object(Class<T> valueType) {
         return getServerHttpRequest().flatMap(e -> {
             return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e-> {
@@ -54,10 +45,11 @@ public class SecurityPrincipalUtil {
         });
     };
 
-    public Mono<String> setPrincipal(String principal){
-        if(StringUtils.isBlank(principal)){
+    public <T extends SecurityLoginUser>Mono<String> setPrincipal(T t){
+        if(t == null){
             throw new EventException(SecurityExceptionEnum.ES_SECURITY_002);
         }
+        String principal = JsonUtil.objToString(t);
         String key = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY+ MD5Util.hash(principal+"."+ SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT+"."+String.valueOf(new Date().getTime()));
         return securityAuthRedisOperation.set(key,principal, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(key));
     }
