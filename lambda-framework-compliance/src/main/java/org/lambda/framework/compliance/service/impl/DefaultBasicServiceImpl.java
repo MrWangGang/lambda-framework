@@ -120,6 +120,13 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
         if(ids == null)throw new EventException(ES_COMPLIANCE_000);
         return repository.deleteAllById(Flux.from(ids).toIterable());
     }
+
+    @Override
+    public Mono<Void> delete(Iterable<? extends PO> entities) {
+        if(entities == null)throw new EventException(ES_COMPLIANCE_000);
+        return repository.deleteAll(entities);
+    }
+
     @Override
     public Flux<PO> find(PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
