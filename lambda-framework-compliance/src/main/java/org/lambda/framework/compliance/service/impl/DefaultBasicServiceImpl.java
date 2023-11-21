@@ -2,6 +2,7 @@ package org.lambda.framework.compliance.service.impl;
 
 import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.compliance.repository.po.AbstractLoginUser;
 import org.lambda.framework.compliance.repository.po.UnifyPO;
 import org.lambda.framework.compliance.service.IDefaultBaseService;
 import org.lambda.framework.repository.operation.Paged;
@@ -42,7 +43,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
 
     @Override
     public Mono<PO> update(PO po) {
-        return securityPrincipalUtil.getPrincipal2Object(SecurityLoginUser.class)
+        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
                 .flatMap(e->{
                     if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
@@ -55,7 +56,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
 
     @Override
     public Mono<PO> insert(PO po) {
-        return securityPrincipalUtil.getPrincipal2Object(SecurityLoginUser.class)
+        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
                 .flatMap(e->{
                     if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
@@ -72,7 +73,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
 
     @Override
     public Flux<PO> update(Publisher<PO> pos) {
-            return securityPrincipalUtil.getPrincipal2Object(SecurityLoginUser.class)
+            return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
                 .flatMapMany(e->{
                     if(pos == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
@@ -90,7 +91,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
 
     @Override
     public Flux<PO> insert(Publisher<PO> pos) {
-        return securityPrincipalUtil.getPrincipal2Object(SecurityLoginUser.class)
+        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
                 .flatMapMany(e->{
                     if(pos == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
