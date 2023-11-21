@@ -171,7 +171,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         po.setOrganizationId(dto.getNode().getOrganizationId());
         //有数据则表示已经存在根节点了，不能创建根节点
         return super.find(po).hasElements().flatMap(e->{
-                    if(!e)return Mono.error(new EventException(ES_COMPLIANCE_003));
+                    if(e)return Mono.error(new EventException(ES_COMPLIANCE_003));
                     dto.getNode().setParentId(ROOT_NODE_DEFAULT);
                     return super.insert(dto.getNode());
                 }).then();
