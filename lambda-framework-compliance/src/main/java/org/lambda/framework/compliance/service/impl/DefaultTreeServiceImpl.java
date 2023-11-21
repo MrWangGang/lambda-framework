@@ -172,11 +172,11 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         po.setOrganizationId(dto.getNode().getOrganizationId());
         Example<PO> _nodeByOrgId = Example.of(po);
         //有数据则表示已经存在根节点了，不能创建根节点
-        return repository.findAll(_nodeByOrgId).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_003))).flatMap(e->{
-            //没有，则创建一个根节点
-            e.setParentId(ROOT_NODE_DEFAULT);
-            return repository.save(e);
-        }).then();
+        return repository.findAll(_nodeByOrgId).hasElements().flatMap(e->{
+                    if(!e)return Mono.error(new EventException(ES_COMPLIANCE_003));
+                    dto.getNode().setParentId(ROOT_NODE_DEFAULT);
+                    return repository.save(dto.getNode());
+                }).then();
     }
 
     @Override
