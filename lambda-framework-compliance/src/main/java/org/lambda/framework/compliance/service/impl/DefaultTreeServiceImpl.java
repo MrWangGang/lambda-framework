@@ -37,8 +37,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         PO po = this.instance(clazz);
         po.setOrganizationId(dto.getOrganizationId());
-        Example<PO> example = Example.of(po);
-        return repository.findAll(example).collectList().flatMap(e->{
+        return super.find(po).collectList().flatMap(e->{
             return Mono.just(process(e, ROOT_NODE_DEFAULT));
         });
     }
@@ -170,12 +169,11 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         //要创建一个根节点,先检查之前有无根节点
         PO po = instance(clazz);
         po.setOrganizationId(dto.getNode().getOrganizationId());
-        Example<PO> _nodeByOrgId = Example.of(po);
         //有数据则表示已经存在根节点了，不能创建根节点
-        return repository.findAll(_nodeByOrgId).hasElements().flatMap(e->{
+        return super.find(po).hasElements().flatMap(e->{
                     if(!e)return Mono.error(new EventException(ES_COMPLIANCE_003));
                     dto.getNode().setParentId(ROOT_NODE_DEFAULT);
-                    return repository.save(dto.getNode());
+                    return super.insert(dto.getNode());
                 }).then();
     }
 
@@ -189,14 +187,13 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         PO po = instance(clazz);
         po.setId(dto.getTargetNodeId());
         po.setOrganizationId(dto.getNode().getOrganizationId());
-        Example<PO> _targetNode = Example.of(po);
-        return repository.findOne(_targetNode)
+        return super.find(po)
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                 .flatMap(e->{
                     PO _buildNodeEntity = dto.getNode();
                     //设置目标节点为父节点
                     _buildNodeEntity.setParentId(e.getId());
-                    return repository.save(_buildNodeEntity);
+                    return super.insert(_buildNodeEntity);
                 }).then();
     }
 
@@ -208,14 +205,13 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         PO po = instance(clazz);
         po.setId(dto.getNode().getId());
         po.setOrganizationId(dto.getNode().getOrganizationId());
-        Example<PO> _targetNode = Example.of(po);
         //先检查当前节点是否存在
-        return repository.findOne(_targetNode)
+        return super.find(po)
                  //不存在则抛出异常
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                 .flatMap(e->{
                     //存在则更新
-                    return repository.save(e);
+                    return super.update(e);
                 }).then();
     }
     @Override
@@ -227,8 +223,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         PO po = instance(clazz);
         po.setId(dto.getTargetNodeId());
         po.setOrganizationId(dto.getOrganizationId());
-        Example<PO> _targetNode = Example.of(po);
-        return repository.findOne(_targetNode)
+        return super.find(po)
                 //不存在则抛出异常
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                 .flatMap(e->{
@@ -251,7 +246,8 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                         x.setParentId(e.getParentId());
                         return Flux.just(x);
                     });
-                    return Flux.concat(childrenUpdate,deleteSelf).then();
+                    Flux<PO> update = super.update(childrenUpdate);
+                    return Flux.concat(update,deleteSelf).then();
                 }).then();
     }
 }
