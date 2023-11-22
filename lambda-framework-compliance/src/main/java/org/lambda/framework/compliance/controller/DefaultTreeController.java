@@ -1,15 +1,21 @@
 package org.lambda.framework.compliance.controller;
 
+import jakarta.annotation.Resource;
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.compliance.repository.po.AbstractLoginUser;
 import org.lambda.framework.compliance.repository.po.IFlattenTreePO;
 import org.lambda.framework.compliance.repository.po.UnifyPO;
 import org.lambda.framework.compliance.service.IDefaultTreeService;
 import org.lambda.framework.compliance.service.dto.*;
+import org.lambda.framework.security.SecurityPrincipalUtil;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+
+import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_012;
 
 
 public abstract class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Service extends IDefaultTreeService<PO,ID>> extends DefaultBasicController<PO,ID,Service>{
@@ -23,6 +29,11 @@ public abstract class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,
         super(service);
         this.clazz = clazz;
     }
+
+    @Resource
+    private SecurityPrincipalUtil securityPrincipalUtil;
+
+
     //根据org_id 开放不同权限操作的接口
     @GetMapping("/super/findTree")
     public Mono<List<PO>> superFindTree(@RequestBody FindTreeDTO dto){
@@ -56,27 +67,57 @@ public abstract class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,
 
     @GetMapping("/principal/findTree")
     public Mono<List<PO>> principalFindTree(@RequestBody FindTreeDTO dto){
-        return service.findTree(clazz,dto);
+        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
+                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
+                .flatMap(e->{
+                dto.setOrganizationId(e.getOrganizationId());
+            return service.findTree(clazz,dto);
+        });
     }
     @PostMapping("/principal/moveNode")
     public Mono<Void> principalMoveNode(@RequestBody MoveNodeDTO dto){
-        return service.moveNode(clazz,dto);
+        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
+                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
+                .flatMap(e->{
+                    dto.setOrganizationId(e.getOrganizationId());
+                    return service.moveNode(clazz,dto);
+                });
     }
     @PostMapping("/principal/buildRoot")
     public Mono<Void> principalBuildRoot(@RequestBody BuildRootDTO<PO> dto){
-        return service.buildRoot(clazz,dto);
+        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
+                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
+                .flatMap(e->{
+                    dto.setOrganizationId(e.getOrganizationId());
+                    return service.buildRoot(clazz,dto);
+                });
     }
     @PostMapping("/principal/buildNode")
     public Mono<Void> principalBuildNode(@RequestBody BuildNodeDTO<PO> dto){
-        return service.buildNode(clazz,dto);
+        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
+                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
+                .flatMap(e->{
+                    dto.setOrganizationId(e.getOrganizationId());
+                    return service.buildNode(clazz,dto);
+                });
     }
     @PostMapping("/principal/editNode")
     public Mono<Void> principalEditNode(@RequestBody EditNodeDTO<PO> dto){
-        return service.editNode(clazz,dto);
+        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
+                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
+                .flatMap(e->{
+                    dto.setOrganizationId(e.getOrganizationId());
+                    return service.editNode(clazz,dto);
+                });
     }
     @PostMapping("/principal/removeNode")
     public Mono<Void> principalRemoveNode(@RequestBody RemoveNodeDTO dto){
-        return service.removeNode(clazz,dto);
+        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
+                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
+                .flatMap(e->{
+                    dto.setOrganizationId(e.getOrganizationId());
+                    return service.removeNode(clazz,dto);
+                });
     }
 
 

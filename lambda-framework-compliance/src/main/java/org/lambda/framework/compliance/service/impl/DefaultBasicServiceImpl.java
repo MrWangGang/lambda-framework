@@ -4,7 +4,7 @@ import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.compliance.repository.po.AbstractLoginUser;
 import org.lambda.framework.compliance.repository.po.UnifyPO;
-import org.lambda.framework.compliance.service.IDefaultBaseService;
+import org.lambda.framework.compliance.service.IDefaultBasicService;
 import org.lambda.framework.repository.operation.Paged;
 import org.lambda.framework.repository.operation.UnifyPagingOperation;
 import org.lambda.framework.repository.operation.mysql.ReactiveMySqlCrudRepositoryOperation;
@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_012;
 
-public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  implements IDefaultBaseService<PO,ID> {
+public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  implements IDefaultBasicService<PO,ID> {
 
 
     public DefaultBasicServiceImpl(@Autowired Repository repository){
@@ -34,12 +34,6 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
 
     @Resource
     private SecurityPrincipalUtil securityPrincipalUtil;
-
-
-
-    protected <T extends SecurityLoginUser>Mono<T> getLoginUser(Class<T> valueType){
-        return securityPrincipalUtil.getPrincipal2Object(valueType);
-    }
 
     @Override
     public Mono<PO> update(PO po) {
