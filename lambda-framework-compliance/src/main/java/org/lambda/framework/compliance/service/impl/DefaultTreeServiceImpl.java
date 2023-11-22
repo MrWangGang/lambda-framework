@@ -243,7 +243,6 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                             PO _rootDelete = instance(clazz);
                             _rootDelete.setId(e.getId());
                             _rootDelete.setOrganizationId(e.getOrganizationId());
-                            _rootDelete.setParentId(e.getParentId());
                             Iterable<? extends PO> rootDeleteIterable = Collections.singletonList(_rootDelete);
                             return super.delete(rootDeleteIterable);
                         });
@@ -256,7 +255,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
 
                     //删除当前节点,并将他们的子节点向前移动，挂靠在之前的parentId上
                     PO _childrenUpdate = instance(clazz);
-                    _childrenUpdate.setParentId(e.getParentId());
+                    _childrenUpdate.setParentId(e.getId());
                     _childrenUpdate.setOrganizationId(e.getOrganizationId());
                     Flux<PO> childrenUpdate =  super.find(_childrenUpdate).flatMap(x->{
                         x.setParentId(e.getParentId());

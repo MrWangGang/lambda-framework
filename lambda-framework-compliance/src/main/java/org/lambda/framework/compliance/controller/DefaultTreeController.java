@@ -43,12 +43,12 @@ public abstract class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,
         return service.buildNode(clazz,dto);
     }
 
-    @PostMapping("/super/EditNode")
+    @PostMapping("/super/editNode")
     public Mono<Void> superEditNode(@RequestBody EditNodeDTO<PO> dto){
         return service.editNode(clazz,dto);
     }
 
-    @PostMapping("/super/RemoveNode")
+    @PostMapping("/super/removeNode")
     public Mono<Void> superRemoveNode(@RequestBody RemoveNodeDTO dto){
         return service.removeNode(clazz,dto);
     }
@@ -70,11 +70,11 @@ public abstract class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,
     public Mono<Void> principalBuildNode(@RequestBody BuildNodeDTO<PO> dto){
         return service.buildNode(clazz,dto);
     }
-    @PostMapping("/principal/EditNode")
+    @PostMapping("/principal/editNode")
     public Mono<Void> principalEditNode(@RequestBody EditNodeDTO<PO> dto){
         return service.editNode(clazz,dto);
     }
-    @PostMapping("/principal/RemoveNode")
+    @PostMapping("/principal/removeNode")
     public Mono<Void> principalRemoveNode(@RequestBody RemoveNodeDTO dto){
         return service.removeNode(clazz,dto);
     }
