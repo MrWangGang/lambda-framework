@@ -34,7 +34,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     //使用递归构建树
     //使用po参数是为了校验机构号这个必要的参数
     public Mono<List<PO>> findTree(Class<PO> clazz, FindTreeDTO dto) {
-        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
+        if(dto == null || dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         PO po = this.instance(clazz);
         po.setOrganizationId(dto.getOrganizationId());
         return super.find(po).collectList().flatMap(e->{
@@ -162,56 +162,59 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     }
 
     @Override
-    public Mono<Void> buildRoot(Class<PO> clazz, BuildRootDTO<PO> dto) {
-        if(dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
-        if(dto.getNode().getId() != null)throw new EventException(ES_COMPLIANCE_002);
-        if(dto.getNode().getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
+    public Mono<Void> buildRoot(Class<PO> clazz,BuildRootDTO<PO> dto) {
+        if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
+        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         //要创建一个根节点,先检查之前有无根节点
         PO po = instance(clazz);
-        po.setOrganizationId(dto.getNode().getOrganizationId());
+        po.setOrganizationId(dto.getOrganizationId());
         //有数据则表示已经存在根节点了，不能创建根节点
         return super.find(po).hasElements().flatMap(e->{
                     if(e)return Mono.error(new EventException(ES_COMPLIANCE_003));
+                    //设置项
                     dto.getNode().setParentId(ROOT_NODE_DEFAULT);
+                    dto.getNode().setOrganizationId(dto.getOrganizationId());
                     return super.insert(dto.getNode());
                 }).then();
     }
 
     @Override
     public Mono<Void> buildNode(Class<PO> clazz,BuildNodeDTO<PO> dto) {
+        if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
         if(dto.getTargetNodeId() == null || dto.getTargetNodeId().longValue() < ROOT_NODE_DEFAULT)throw new EventException(ES_COMPLIANCE_010);
-        if(dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
-        if(dto.getNode().getId() != null)throw new EventException(ES_COMPLIANCE_002);
-        if(dto.getNode().getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
+        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         //先检查 targetNodeId 代表的节点有无存在
         PO po = instance(clazz);
         po.setId(dto.getTargetNodeId());
-        po.setOrganizationId(dto.getNode().getOrganizationId());
+        po.setOrganizationId(dto.getOrganizationId());
         return super.find(po)
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                 .flatMap(e->{
-                    PO _buildNodeEntity = dto.getNode();
                     //设置目标节点为父节点
-                    _buildNodeEntity.setParentId(e.getId());
-                    return super.insert(_buildNodeEntity);
+                    dto.getNode().setParentId(e.getId());
+                    dto.getNode().setOrganizationId(e.getOrganizationId());
+                    return super.insert(dto.getNode());
                 }).then();
     }
 
     @Override
     public Mono<Void> editNode(Class<PO> clazz,EditNodeDTO<PO> dto) {
-        if(dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
-        if(dto.getNode().getId() == null)throw new EventException(ES_COMPLIANCE_015);
-        if(dto.getNode().getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
+        if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
+        if(dto.getTargetNodeId() == null || dto.getTargetNodeId().longValue() < ROOT_NODE_DEFAULT)throw new EventException(ES_COMPLIANCE_010);
+        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         PO po = instance(clazz);
-        po.setId(dto.getNode().getId());
-        po.setOrganizationId(dto.getNode().getOrganizationId());
+        po.setId(dto.getTargetNodeId());
+        po.setOrganizationId(dto.getOrganizationId());
         //先检查当前节点是否存在
         return super.find(po)
                  //不存在则抛出异常
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                 .flatMap(e->{
                     //存在则更新
-                    return super.update(e);
+                    dto.getNode().setId(e.getId());
+                    dto.getNode().setOrganizationId(e.getOrganizationId());
+                    dto.getNode().setParentId(e.getParentId());
+                    return super.update(dto.getNode());
                 }).then();
     }
     @Override

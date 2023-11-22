@@ -10,5 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class BuildRootDTO<PO> {
+    private Long organizationId;
     private PO node;
 }

@@ -13,5 +13,6 @@ import org.lambda.framework.compliance.repository.po.UnifyPO;
 @NoArgsConstructor
 public class BuildNodeDTO<PO extends UnifyPO & IFlattenTreePO>{
     private Long targetNodeId;
+    private Long organizationId;
     private PO node;
 }

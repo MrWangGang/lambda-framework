@@ -10,5 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class EditNodeDTO<PO> {
+    private Long targetNodeId;
+    private Long organizationId;
     private PO node;
 }

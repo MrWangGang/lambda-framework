@@ -21,7 +21,8 @@ public enum ComplianceExceptionEnum implements ExceptionEnumFunction {
     ES_COMPLIANCE_013("ES_COMPLIANCE_013","节点所属机构ID不能为空"),
     ES_COMPLIANCE_014("ES_COMPLIANCE_014","实例化tree对象失败"),
     ES_COMPLIANCE_015("ES_COMPLIANCE_015","修改节点时，目标id必须有效"),
-    ES_COMPLIANCE_016("ES_COMPLIANCE_016","根节点不允许删除");
+    ES_COMPLIANCE_016("ES_COMPLIANCE_016","根节点不允许删除"),
+    ES_COMPLIANCE_017("ES_COMPLIANCE_017","创建此节点，不需要指定parentId");
 
 
 
