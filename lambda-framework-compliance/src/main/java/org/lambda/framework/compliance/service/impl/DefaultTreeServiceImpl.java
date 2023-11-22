@@ -211,9 +211,18 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                 .flatMap(e->{
                     //存在则更新
+                    //组装3要素
                     dto.getNode().setId(e.getId());
                     dto.getNode().setOrganizationId(e.getOrganizationId());
                     dto.getNode().setParentId(e.getParentId());
+                    //将统一的信息复制过去
+                    dto.getNode().setCreatorId(e.getCreatorId());
+                    dto.getNode().setUpdaterId(e.getUpdaterId());
+                    dto.getNode().setCreatorName(e.getCreatorName());
+                    dto.getNode().setUpdaterName(e.getUpdaterName());
+                    dto.getNode().setCreateTime(e.getCreateTime());
+                    dto.getNode().setUpdateTime(e.getUpdateTime());
+
                     return super.update(dto.getNode());
                 }).then();
     }
