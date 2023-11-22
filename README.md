@@ -8,7 +8,7 @@ Welcome to lambda-framework,I hope more practitioners can join me in improving t
 lambda-framework，使框架变得更加简单和易用。这将使程序员能够专注于业务代码，而无需担心每个组件的复杂配置
 
 ***每个组件用lambda-framework-xxxx命名形式***
-***每个properties 使用 lambda.组件name.xxx  or  xxx_xxx命名形式***
+***每个properties 使用 lambda.组件name.xxx  or  xxx-xxx命名形式***
 ***对外暴露bean 使用 模块名+功能命名形式 类似securityAuthRedisConfig***
 | 组件名称               | 说明         |
 | ----------        	| ----------- |
@@ -19,20 +19,22 @@ lambda-framework，使框架变得更加简单和易用。这将使程序员能�
 | lambda-framework-redis   		| 抽象redis组件        |
 | lambda-framework-repository   	| 持久层框架        |
 | lambda-framework-web   		| reactor web核心 基于reactive webflux        |
-| lambda-framework-security   	| 权限框架        |
+| lambda-framework-security   	| 权限组件        |
+| lambda-framework-compliance  	| 合规组件        |
 
 ***微服务建议:***
 ***每个微服务得有独特的异常命名，命名规范为 微服务名+ExceptionEnums***
 ***异常枚举必须实现ExceptionEnumFunction接口***
+***ES_XXXXX_XXX ES开头代表这是框架底层抛出的异常***
 
 新建一个工程的pom准备
 ```
-<parent>
-    <groupId>org.lambda.framework</groupId>
-    <artifactId>lambda-framework</artifactId>
-    <version>1.0.0</version>
-    <!--<relativePath/>--> <!-- lookup parent from repository -->
-</parent>
+    <parent>
+        <groupId>org.lambda.framework</groupId>
+        <artifactId>lambda-framework</artifactId>
+        <version>1.0.0</version>
+        <!--<relativePath/>--> <!-- lookup parent from repository -->
+    </parent>
 ```
 
 使用你想用的组件，不需要填写版本号，版本号与parent version同步 例如:
@@ -67,7 +69,7 @@ public enum SecurityExceptionEnum implements ExceptionEnumFunction {
 }	
 ```
 
-如果在flatmap中使用，可以使用
+如果在reactor流中使用，可以使用
 ```
 return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004));
 ```
@@ -75,36 +77,73 @@ return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004));
 ```
 throw new EventException(SecurityExceptionEnum.ES_SECURITY_004);
 ```
-## lambda-framework-openai
-在pom文件中引用下面代码块
+## lambda-framework-compliance
+合规组件，有2个核心的设计理念，统一规范 和 敏捷开发
+我们从mvc去理解，
+先看controller层
+
+1.DefaultBasicController
+2.DefaultTreeController
 ```
-  <dependency>
-    <groupId>org.lambda.framework</groupId>
-    <artifactId>lambda-framework-openai</artifactId>
-  </dependency>
+public  class DefaultBasicController<PO extends UnifyPO,ID,Service extends IDefaultBasicService<PO,ID>> {
+
+public class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Service extends IDefaultTreeService<PO,ID>> extends DefaultBasicController<PO,ID,Service>{
 ```
-使用下面的示例来调用
+其中 Basic是基础的 包含了增删改查的基础接口，类似于自动生产代码的controller，直接继承就能实现。
+而Tree是树的构建，比如这张表的结构是 id parentId orgId 这是一颗树的类型。 继承了这个controller后就能实现对树的增删改查的操作接口
+
+service层
+1.DefaultBasicServiceImpl
+2.DefaultTreeServiceImpl
 ```
-UniqueParam openAiUniqueParam = UniqueParam.builder().uniqueId(req.getUniqueId()).uniqueTime(req.getUniqueTime()).build();
-        ImageParam param =  ImageParam.builder()
-                .prompt(req.getPrompt())
-                .uniqueParam(uniqueParam)
-                .userId(userId)
-                .apiKey(apiKey)
-                .n(4)
-                .size(Contract.image_size_512)
-                .responseFormat(Contract.responseFormat)
-                .timeOut(Contract.clientTimeOut)
-                .quota(quato)
-                .maxTokens(imageTokens(Contract.image_size_512,4) + encoding(req.getPrompt()))
-                .build();
-        return returning(openAiImageService.execute(param).flatMap(e->{
-            //模拟扣减配额
-            quato = quato-e.getTotalTokens();
-            return Mono.just(e);
-        }));
+public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  implements IDefaultBasicService<PO,ID> {
+
+public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
+```
+其中UnifyPO 是每个数据库表的
+private LocalDateTime createTime;
+```
+    private LocalDateTime updateTime;
+
+    private Long creatorId;
+
+    private Long updaterId;
+
+    private String creatorName;
+
+    private String updaterName;
+```
+都有的字段，IFlattenTreePO 是这棵树的扁平化展示 他是一个接口，代表了这颗树的核心结构
+```
+    public Long getId();
+
+    public void setId(Long id);
+
+    public Long getParentId();
+
+    public void setParentId(Long parentId);
+
+    public Long getOrganizationId();
+
+    public void setOrganizationId(Long organizationId);
+
+    public <PO extends IFlattenTreePO>List<PO> getChildrens();
+
+    public <PO extends IFlattenTreePO>void setChildrens(List<PO> childrens);
 ```
 
+登录用户模型，SecurityLoginUser和AbstractLoginUser
+```
+public interface SecurityLoginUser {
+
+    public Long getId();
+    public Long getOrganizationId();
+    public String getName();
+}
+```
+SecurityLoginUser是security模块里的，他是security抽象出来的一种用户模型。
+AbstractLoginUser是compliance抽象出来的，实现了SecurityLoginUser的方法，他是用户模型的基础类也是父类。
+通过他，我才能用范型去写抽象的方法。
 ## lambda-framework-redis
 在pom文件中引用下面代码块
 ```		
@@ -388,6 +427,15 @@ currentPathAutzTree代表当前路径的权限树
 principal代表当前用户信息
 你可以在verify接口中去校验currentPathAutzTree中的角色和权限是否存在于principal
 
+
+lambda.security.url-autz-model=MAPPING or ALL
+当你没有配置路径树 ，当检查路径树为空的时候 
+当值为ALL的时候，会拒绝访问 ，方便于生产环境，所有的路径都需要在路径树中
+
+当你没有配置路径树，当检查路径树为空的时候,当值为mapping的时候，会放过请求，方便开发环境
+
+当路径树不为空的时候，都会经过SecurityAutzManager.verify方法进行校验(此时，url-autz-model将会失效)
+
 ## lambda-framework-web
 web框架的核心 lambda框架采用了springboot3.x并使用了spring boot web-flux响应式web框架,详情见lambda-framework-demo
 因为采用的web-flux，请不要提前订阅你的mono or flux 框架会帮你自动处理 否则无法response给api调用者
@@ -438,50 +486,68 @@ public Mono testSecurity1(){
     return returning();
 }    
 ```
+我用了全局返回信息的转换，所以不需要特定的模版了。只需要这样返回 便能得到统一的格式 
 
-你可以使用下面的方法返回你的信息保持返回信息的格式一致性
 
 ```
-protected Mono<ServerResponse> routing(Collection data)
 
-    protected Mono<ServerResponse> routing(Object data)
-
-    protected Mono<ServerResponse> routing(Mono data) 
-
-    protected Mono<ServerResponse> routing(Flux data)
-
-    protected Mono<ServerResponse> routing() 
-
-    protected Mono<ResponseTemplete> returning(Collection data) {
-        return this.handlerFlux(Flux.just(data));
+    @PostMapping("/login")
+    public Mono<String> login(@RequestBody LoginDTO loginDTO){
+        return service.login(loginDTO);
     }
 
-    protected Mono<ResponseTemplete> returning(Object data)
-
-    protected Mono<ResponseTemplete> returning(Mono data)
-
-    protected Mono<ResponseTemplete> returning(Flux data)
-
-    protected Mono<ResponseTemplete> returning()
 ```
-routing是针对路由形式的返回
-returning是针对标准形式的返回
-下面是路由形式的写法
-```
-   @Bean
-    RouterFunction<ServerResponse> userRouterFunction(UserHandler userHandler) {
-        return RouterFunctions.nest(RequestPredicates.path("/test")
-                ,RouterFunctions.route(RequestPredicates.GET("/testSecurity2"), userHandler::testSecurity2)
-        );
-    }
 
-    //路由写法
-    @Component
-    class UserHandler{
-        public Mono<ServerResponse> testSecurity2(ServerRequest serverRequest) {
-            return routing();
-        }
+如果是返回mono 便会返回统一的格式
+```
+{
+"serviceCode": "E00000000",
+"serviceMessage": "操作成功",
+"data": "lambda.security.auth-token.57283d40bd38cf3936c2b79b4314433a"
+}
+```
+
+如果是返回Stirng 便会返回统一的格式
+```
+    @PostMapping("/login")
+    public String login(@RequestBody LoginDTO loginDTO){
+        return service.login(loginDTO);
     }
 ```
+那便直接返回值，不具备统一格式的返回
+```
+hello word
+```
+
+## lambda-framework-openai
+在pom文件中引用下面代码块
+```
+  <dependency>
+    <groupId>org.lambda.framework</groupId>
+    <artifactId>lambda-framework-openai</artifactId>
+  </dependency>
+```
+使用下面的示例来调用
+```
+UniqueParam openAiUniqueParam = UniqueParam.builder().uniqueId(req.getUniqueId()).uniqueTime(req.getUniqueTime()).build();
+        ImageParam param =  ImageParam.builder()
+                .prompt(req.getPrompt())
+                .uniqueParam(uniqueParam)
+                .userId(userId)
+                .apiKey(apiKey)
+                .n(4)
+                .size(Contract.image_size_512)
+                .responseFormat(Contract.responseFormat)
+                .timeOut(Contract.clientTimeOut)
+                .quota(quato)
+                .maxTokens(imageTokens(Contract.image_size_512,4) + encoding(req.getPrompt()))
+                .build();
+        return returning(openAiImageService.execute(param).flatMap(e->{
+            //模拟扣减配额
+            quato = quato-e.getTotalTokens();
+            return Mono.just(e);
+        }));
+```
+
 
 

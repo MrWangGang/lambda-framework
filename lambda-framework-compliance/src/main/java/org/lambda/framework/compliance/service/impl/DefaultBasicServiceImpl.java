@@ -9,7 +9,6 @@ import org.lambda.framework.repository.operation.Paged;
 import org.lambda.framework.repository.operation.UnifyPagingOperation;
 import org.lambda.framework.repository.operation.mysql.ReactiveMySqlCrudRepositoryOperation;
 import org.lambda.framework.security.SecurityPrincipalUtil;
-import org.lambda.framework.security.container.SecurityLoginUser;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
