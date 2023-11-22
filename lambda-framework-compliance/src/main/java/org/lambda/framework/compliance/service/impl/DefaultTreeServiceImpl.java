@@ -232,19 +232,32 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                 .flatMap(e->{
                     //存在则判断是否为根节点
                     if(ROOT_NODE_DEFAULT.equals(e.getParentId())){
-                     //根节点不允许删除
-                        return Mono.error(new EventException(ES_COMPLIANCE_016));
+                     //根节点要先判断他有无子节点，才能删除
+                        PO _rootChildren = instance(clazz);
+                        _rootChildren.setParentId(e.getId());
+                        _rootChildren.setOrganizationId(e.getOrganizationId());
+                        return super.find(_rootChildren).hasElements().flatMap(hasChildren->{
+                            //有子节点，不让删除
+                            if(hasChildren)return Mono.error(new EventException(ES_COMPLIANCE_016));
+                            //没有可以删除
+                            PO _rootDelete = instance(clazz);
+                            _rootDelete.setId(e.getId());
+                            _rootDelete.setOrganizationId(e.getOrganizationId());
+                            _rootDelete.setParentId(e.getParentId());
+                            Iterable<? extends PO> rootDeleteIterable = Collections.singletonList(_rootDelete);
+                            return super.delete(rootDeleteIterable);
+                        });
                     }
                     PO _childrenDelete = instance(clazz);
                     _childrenDelete.setId(e.getId());
-                    _childrenDelete.setOrganizationId(dto.getOrganizationId());
+                    _childrenDelete.setOrganizationId(e.getOrganizationId());
                     Iterable<? extends PO> childDeleteIterable = Collections.singletonList(_childrenDelete);
                     Mono<Void> deleteSelf = super.delete(childDeleteIterable);
 
                     //删除当前节点,并将他们的子节点向前移动，挂靠在之前的parentId上
                     PO _childrenUpdate = instance(clazz);
                     _childrenUpdate.setParentId(e.getParentId());
-                    _childrenUpdate.setOrganizationId(dto.getOrganizationId());
+                    _childrenUpdate.setOrganizationId(e.getOrganizationId());
                     Flux<PO> childrenUpdate =  super.find(_childrenUpdate).flatMap(x->{
                         x.setParentId(e.getParentId());
                         return Flux.just(x);
