@@ -1,5 +1,6 @@
 package org.lambda.framework.rpc;
 
+import cn.hutool.core.collection.ListUtil;
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
@@ -7,16 +8,27 @@ import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.cloud.client.loadbalancer.reactive.ReactorLoadBalancerExchangeFilterFunction;
 import org.springframework.context.ResourceLoaderAware;
+import org.springframework.core.annotation.AnnotationAttributes;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.ResourcePatternUtils;
 import org.springframework.core.type.classreading.CachingMetadataReaderFactory;
 import org.springframework.core.type.classreading.MetadataReader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.support.WebClientAdapter;
 import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static org.lambda.framework.rpc.enums.RpcExceptionEnum.ES_RPC_000;
 
@@ -47,9 +59,52 @@ public class RpcPostProcessor implements ResourceLoaderAware, SmartInitializingS
                 //获取元数据
                 MetadataReader metadataReader = metaReader.getMetadataReader(resource);
                 //判断是否存在HttpExchange注解(是否为http interface的接口调用)
-                if (metadataReader.getAnnotationMetadata().hasAnnotation(HttpExchange.class.getName())) {
+                if (metadataReader.getAnnotationMetadata().hasAnnotation(Rpc.class.getName())) {
                     //构建一个web客户端
-                    WebClient webClient = WebClient.builder().filter(reactorLoadBalancerExchangeFilterFunction).build();
+                    Map rpcAttributes = metadataReader.getAnnotationMetadata().getAnnotationAttributes(Rpc.class.getName());
+                    WebClient webClient = WebClient.builder().build();
+                    if(rpcAttributes!=null){
+                        List<ExchangeFilterFunction> customerConsumer = null;
+                        List<ExchangeFilterFunction> loadnBlanceConsumer = null;
+                        List<ExchangeFilterFunction> allConsumer = new ArrayList<>();
+                       if(rpcAttributes.get("filter") !=null){
+                           Class<ExchangeFilterFunction>[] filterClasses =  (Class<ExchangeFilterFunction>[])rpcAttributes.get("filter");
+                           if(filterClasses!=null){
+                                if(filterClasses.length>0){
+                                    customerConsumer = Arrays.stream(filterClasses).toList().stream()
+                                            .map(clazz -> {
+                                                try {
+                                                    return clazz.newInstance();
+                                                } catch (InstantiationException | IllegalAccessException e) {
+                                                    throw new EventException(ES_RPC_000,"ExchangeFilterFunction实例化失败");
+                                                }
+                                            })
+                                            .collect(Collectors.toList());
+                                }
+                            }
+                       }
+                        if (rpcAttributes.get("balance") != null) {
+                            boolean blance = (Boolean) rpcAttributes.get("balance");
+                            if(blance){
+                                loadnBlanceConsumer = ListUtil.of(reactorLoadBalancerExchangeFilterFunction);
+                            }
+                        }
+                        if(customerConsumer!=null){
+                            allConsumer.addAll(customerConsumer);
+                        }
+                        if(loadnBlanceConsumer!=null){
+                            allConsumer.addAll(loadnBlanceConsumer);
+                        }
+                        if(allConsumer!=null)
+                            if(allConsumer.size()>0){
+                                if(allConsumer.get(0)!=null){
+                                    Consumer<List<ExchangeFilterFunction>> filterConsumer = exchangeFilterFunctions -> {
+                                        exchangeFilterFunctions.addAll(allConsumer);
+                                    };
+                                    webClient = WebClient.builder().filters(filterConsumer).build();
+                                }
+                            }
+                    }
                     //根据web客户端去构建服http服务的代理工厂
                     HttpServiceProxyFactory factory = HttpServiceProxyFactory.builder(WebClientAdapter.forClient(webClient)).build();
                     //利用类的全限定名通过Class.forName获取class对象并利用http服务的代理工厂创建出代理对象
