@@ -13,23 +13,18 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import reactor.core.publisher.Mono;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.List;
 
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_012;
+import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_018;
 
 
 public class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Service extends IDefaultTreeService<PO,ID>> extends DefaultBasicController<PO,ID,Service>{
-
-    protected Class<PO> clazz;
     public DefaultTreeController(Service service) {
         super(service);
     }
-
-    public DefaultTreeController(Service service,Class<PO> clazz) {
-        super(service);
-        this.clazz = clazz;
-    }
-
     @Resource
     private SecurityPrincipalUtil securityPrincipalUtil;
 
@@ -37,31 +32,31 @@ public class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Servic
     //根据org_id 开放不同权限操作的接口
     @GetMapping("/super/findTree")
     public Mono<List<PO>> superFindTree(@RequestBody FindTreeDTO dto){
-        return service.findTree(clazz,dto);
+        return service.findTree(dto);
     }
     @PostMapping("/super/moveNode")
     public Mono<Void> superMoveNode(@RequestBody MoveNodeDTO dto){
-        return service.moveNode(clazz,dto);
+        return service.moveNode(dto);
     }
 
     @PostMapping("/super/buildRoot")
     public Mono<Void> superBuildRoot(@RequestBody BuildRootDTO<PO> dto){
-        return service.buildRoot(clazz,dto);
+        return service.buildRoot(dto);
     }
 
     @PostMapping("/super/buildNode")
     public Mono<Void> superBuildNode(@RequestBody BuildNodeDTO<PO> dto){
-        return service.buildNode(clazz,dto);
+        return service.buildNode(dto);
     }
 
     @PostMapping("/super/editNode")
     public Mono<Void> superEditNode(@RequestBody EditNodeDTO<PO> dto){
-        return service.editNode(clazz,dto);
+        return service.editNode(dto);
     }
 
     @PostMapping("/super/removeNode")
     public Mono<Void> superRemoveNode(@RequestBody RemoveNodeDTO dto){
-        return service.removeNode(clazz,dto);
+        return service.removeNode(dto);
     }
 
 
@@ -71,7 +66,7 @@ public class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Servic
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
                 .flatMap(e->{
                 dto.setOrganizationId(e.getOrganizationId());
-            return service.findTree(clazz,dto);
+            return service.findTree(dto);
         });
     }
     @PostMapping("/principal/moveNode")
@@ -80,7 +75,7 @@ public class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Servic
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
                 .flatMap(e->{
                     dto.setOrganizationId(e.getOrganizationId());
-                    return service.moveNode(clazz,dto);
+                    return service.moveNode(dto);
                 });
     }
     @PostMapping("/principal/buildRoot")
@@ -89,7 +84,7 @@ public class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Servic
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
                 .flatMap(e->{
                     dto.setOrganizationId(e.getOrganizationId());
-                    return service.buildRoot(clazz,dto);
+                    return service.buildRoot(dto);
                 });
     }
     @PostMapping("/principal/buildNode")
@@ -98,7 +93,7 @@ public class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Servic
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
                 .flatMap(e->{
                     dto.setOrganizationId(e.getOrganizationId());
-                    return service.buildNode(clazz,dto);
+                    return service.buildNode(dto);
                 });
     }
     @PostMapping("/principal/editNode")
@@ -107,7 +102,7 @@ public class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Servic
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
                 .flatMap(e->{
                     dto.setOrganizationId(e.getOrganizationId());
-                    return service.editNode(clazz,dto);
+                    return service.editNode(dto);
                 });
     }
     @PostMapping("/principal/removeNode")
@@ -116,7 +111,7 @@ public class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Servic
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
                 .flatMap(e->{
                     dto.setOrganizationId(e.getOrganizationId());
-                    return service.removeNode(clazz,dto);
+                    return service.removeNode(dto);
                 });
     }
 

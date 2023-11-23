@@ -17,6 +17,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
+import static org.lambda.framework.compliance.enums.ComplianceConstant.*;
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_012;
 
@@ -34,10 +35,18 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
     @Resource
     private SecurityPrincipalUtil securityPrincipalUtil;
 
+    public AbstractLoginUser getGuest(){
+        AbstractLoginUser loginUser = new AbstractLoginUser();
+        loginUser.setId(GUEST_LOGIN_USER_ID);
+        loginUser.setName(GUEST_LOGIN_USER_NAME);
+        loginUser.setOrganizationId(GUEST_LOGIN_USER_ORGANIZATIONID);
+        return loginUser;
+    }
+
     @Override
     public Mono<PO> update(PO po) {
         return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
-                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
+                .onErrorReturn(getGuest())
                 .flatMap(e->{
                     if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
                     po.setUpdateTime(LocalDateTime.now());
@@ -50,7 +59,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
     @Override
     public Mono<PO> insert(PO po) {
         return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
-                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
+                .onErrorReturn(getGuest())
                 .flatMap(e->{
                     if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
                     LocalDateTime now = LocalDateTime.now();
@@ -67,7 +76,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
     @Override
     public Flux<PO> update(Publisher<PO> pos) {
             return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
-                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
+                .onErrorReturn(getGuest())
                 .flatMapMany(e->{
                     if(pos == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
                     LocalDateTime now = LocalDateTime.now();
@@ -85,7 +94,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
     @Override
     public Flux<PO> insert(Publisher<PO> pos) {
         return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
-                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_012)))
+                .onErrorReturn(getGuest())
                 .flatMapMany(e->{
                     if(pos == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
                     LocalDateTime now = LocalDateTime.now();

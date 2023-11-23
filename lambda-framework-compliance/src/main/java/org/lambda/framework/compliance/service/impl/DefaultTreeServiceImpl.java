@@ -12,6 +12,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,16 +25,29 @@ import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
 
 public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
 
+    private Class<PO> clazz;
     @Resource
     private SecurityPrincipalUtil securityPrincipalUtil;
 
     public DefaultTreeServiceImpl(Repository repository) {
         super(repository);
+        Type genericSuperclass = getClass().getGenericSuperclass();
+        if (genericSuperclass instanceof ParameterizedType) {
+            Type[] typeArguments = ((ParameterizedType) genericSuperclass).getActualTypeArguments();
+            if (typeArguments.length >= 1 && typeArguments[0] instanceof Class) {
+                this.clazz = (Class<PO>) typeArguments[0];
+            } else {
+                throw new EventException(ES_COMPLIANCE_018);
+            }
+        } else {
+            throw new EventException(ES_COMPLIANCE_018);
+        }
     }
+
 
     //使用递归构建树
     //使用po参数是为了校验机构号这个必要的参数
-    public Mono<List<PO>> findTree(Class<PO> clazz, FindTreeDTO dto) {
+    public Mono<List<PO>> findTree(FindTreeDTO dto) {
         if(dto == null || dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         PO po = this.instance(clazz);
         po.setOrganizationId(dto.getOrganizationId());
@@ -93,7 +108,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
           全部有关节点查询都需要带上机构id
           全部的更新都是用批处理
          */
-    public Mono<Void> moveNode(Class<PO> clazz, MoveNodeDTO dto) {
+    public Mono<Void> moveNode(MoveNodeDTO dto) {
         if(dto.getTargetNodeId() == null || dto.getTargetNodeId().longValue() < ROOT_NODE_DEFAULT)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getCurrentNodeId() == null)throw new EventException(ES_COMPLIANCE_011);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
@@ -161,7 +176,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     }
 
     @Override
-    public Mono<Void> buildRoot(Class<PO> clazz,BuildRootDTO<PO> dto) {
+    public Mono<Void> buildRoot(BuildRootDTO<PO> dto) {
         if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         //要创建一个根节点,先检查之前有无根节点
@@ -178,7 +193,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     }
 
     @Override
-    public Mono<Void> buildNode(Class<PO> clazz,BuildNodeDTO<PO> dto) {
+    public Mono<Void> buildNode(BuildNodeDTO<PO> dto) {
         if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
         if(dto.getTargetNodeId() == null || dto.getTargetNodeId().longValue() < ROOT_NODE_DEFAULT)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
@@ -197,7 +212,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     }
 
     @Override
-    public Mono<Void> editNode(Class<PO> clazz,EditNodeDTO<PO> dto) {
+    public Mono<Void> editNode(EditNodeDTO<PO> dto) {
         if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
         if(dto.getTargetNodeId() == null || dto.getTargetNodeId().longValue() < ROOT_NODE_DEFAULT)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
@@ -226,7 +241,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                 }).then();
     }
     @Override
-    public Mono<Void> removeNode(Class<PO> clazz,RemoveNodeDTO dto) {
+    public Mono<Void> removeNode(RemoveNodeDTO dto) {
         if(dto == null)throw new EventException(ES_COMPLIANCE_001);
         if(dto.getTargetNodeId() == null || dto.getTargetNodeId().longValue() < ROOT_NODE_DEFAULT)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
