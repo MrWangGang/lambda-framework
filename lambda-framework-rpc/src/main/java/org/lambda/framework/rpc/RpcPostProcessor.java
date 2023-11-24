@@ -4,9 +4,12 @@ import cn.hutool.core.collection.ListUtil;
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.cloud.client.loadbalancer.reactive.ReactorLoadBalancerExchangeFilterFunction;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ResourceLoaderAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.AnnotationAttributes;
@@ -35,20 +38,23 @@ import java.util.stream.Collectors;
 import static org.lambda.framework.rpc.enums.RpcExceptionEnum.ES_RPC_000;
 
 @Component
-public class RpcPostProcessor implements ResourceLoaderAware, SmartInitializingSingleton {
+public class RpcPostProcessor implements ResourceLoaderAware, SmartInitializingSingleton, ApplicationContextAware {
     private ResourceLoader resourceLoader;
 
     @Override
     public void setResourceLoader(ResourceLoader resourceLoader) {
         this.resourceLoader = resourceLoader;
     }
-
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
+    }
     @Resource
     private ConfigurableListableBeanFactory beanFactory;
 
     @Resource
     private ReactorLoadBalancerExchangeFilterFunction reactorLoadBalancerExchangeFilterFunction;
-
+    private ApplicationContext applicationContext;
     @Override
     public void afterSingletonsInstantiated() {
         try {
@@ -75,11 +81,7 @@ public class RpcPostProcessor implements ResourceLoaderAware, SmartInitializingS
                                 if(filterClasses.length>0){
                                     customerConsumer = Arrays.stream(filterClasses).toList().stream()
                                             .map(clazz -> {
-                                                try {
-                                                    return clazz.newInstance();
-                                                } catch (InstantiationException | IllegalAccessException e) {
-                                                    throw new EventException(ES_RPC_000,"ExchangeFilterFunction实例化失败");
-                                                }
+                                             return applicationContext.getBean(clazz);
                                             })
                                             .collect(Collectors.toList());
                                 }
@@ -121,4 +123,5 @@ public class RpcPostProcessor implements ResourceLoaderAware, SmartInitializingS
         }
 
     }
+
 }
