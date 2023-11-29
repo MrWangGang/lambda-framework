@@ -1,6 +1,7 @@
 package org.lambda.framework.security.config;
 
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.security.container.SecurityLoginUser;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.lambda.framework.security.manger.SecurityAuthManager;
 import org.lambda.framework.security.manger.SecurityAutzManager;
@@ -38,6 +39,7 @@ import java.util.List;
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
 @Configuration
+@SuppressWarnings("unchecked")
 public class SecurityConfig {
 
     @Value("#{'${lambda.security.permit-urls:}'.empty ?new String[]{''} :'${lambda.security.permit-urls:}'.split(',')}")

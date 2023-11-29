@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 
 import static org.lambda.framework.compliance.enums.ComplianceConstant.*;
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
-import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_012;
 
 public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  implements IDefaultBasicService<PO,ID> {
 

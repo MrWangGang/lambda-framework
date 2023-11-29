@@ -1,11 +1,12 @@
 package org.lambda.framework.security.manger;
 
-import org.springframework.security.core.Authentication;
+import org.lambda.framework.security.container.SecurityAuthToken;
+import org.lambda.framework.security.container.SecurityLoginUser;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import reactor.core.publisher.Mono;
 
 public interface SecurityAuthVerify {
     public boolean verify(String principal);
 
-    public Mono<Authentication> authenticate(AuthorizationContext authorizationContext);
+    public Mono<SecurityAuthToken> authenticate(AuthorizationContext authorizationContext);
 }

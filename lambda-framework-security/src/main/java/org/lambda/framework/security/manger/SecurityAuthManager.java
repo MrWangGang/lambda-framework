@@ -5,15 +5,17 @@ import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
+import org.lambda.framework.security.SecurityPrincipalUtil;
 import org.lambda.framework.security.container.SecurityAuthToken;
 import org.lambda.framework.security.contract.SecurityContract;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.util.regex.Pattern;
+import static org.lambda.framework.security.contract.SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND;
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_000;
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_004;
 
 
 /**
@@ -25,29 +27,24 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
     @Resource(name = "securityAuthRedisOperation")
     private ReactiveRedisOperation securityAuthRedisOperation;
 
+    @Resource
+    private SecurityPrincipalUtil securityPrincipalUtil;
+
     @Override
-    public Mono<Authentication> authenticate(AuthorizationContext authorizationContext) {
+    public Mono<SecurityAuthToken> authenticate(AuthorizationContext authorizationContext) {
         //converter
         ServerWebExchange exchange = authorizationContext.getExchange();
         String authToken = exchange.getRequest().getHeaders().getFirst(SecurityContract.AUTH_TOKEN_NAMING);
         if(StringUtils.isBlank(authToken))throw new EventException(SecurityExceptionEnum.ES_SECURITY_003);
-        if(!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGX).matcher(authToken).matches()))throw new EventException(SecurityExceptionEnum.ES_SECURITY_007);
         //authentication
         //令牌与库中不匹配
-        return securityAuthRedisOperation.existKey(authToken).onErrorResume(e1->Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_003))).flatMap(e -> {
-            if (e == null || !e) return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_003));
-            return Mono.just(true);
-        }).flatMap(e -> {
-            //添加默认值防止nullpoint
-            return securityAuthRedisOperation.get(authToken).onErrorResume(e1->Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004)));
-        }).flatMap(principal -> {
-            if (principal == null )return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004));
-            if(StringUtils.isBlank(principal.toString()))return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004));
+        return securityPrincipalUtil.getPrincipal().flatMap(principal -> {
+            if(StringUtils.isBlank(principal.toString()))return Mono.error(new EventException(ES_SECURITY_004));
             //刷新TOKEN存活时间 保持登陆
             //更新SecurityContext中的Authentication信息
-            if(!verify(principal.toString())) return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_000));
-            return securityAuthRedisOperation.expire(authToken, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND)
+            if(!verify(principal)) return Mono.error(new EventException(ES_SECURITY_000));
+            return securityAuthRedisOperation.expire(authToken, LAMBDA_SECURITY_TOKEN_TIME_SECOND)
                     .then(Mono.just(SecurityAuthToken.builder().principal(principal.toString()).credentials(authToken).authenticated(true).build()));
-       });
+       }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004)));
     }
 }

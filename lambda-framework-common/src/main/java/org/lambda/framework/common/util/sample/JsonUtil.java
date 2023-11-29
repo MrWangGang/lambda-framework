@@ -11,6 +11,7 @@ import org.lambda.framework.common.exception.EventException;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
@@ -44,6 +45,16 @@ public class JsonUtil {
         } catch (JsonProcessingException e) {
             throw new EventException(ES_COMMON_019);
         }
+    }
+
+    public static <T>Optional<T> mapToObj(Map data, Class<T> clazz){
+        ObjectMapper objectMapper = JsonMapper.builder()
+                .build();
+        JavaTimeModule javaTimeModule = new JavaTimeModule();
+        javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        objectMapper.registerModule(javaTimeModule);
+        return Optional.ofNullable(objectMapper.convertValue(data,clazz));
     }
 
     public static <T>Optional<T> stringToObj(String data,Class<T> clazz){

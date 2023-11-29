@@ -7,9 +7,9 @@ package org.lambda.framework.security.contract;
  **/
 public class SecurityContract {
     public static final String LAMBDA_SECURITY_AUTH_TOKEN_SALT  = "QWERTYUIOPasdfghjklZXCVBNM<>?";
-    public static final String LAMBDA_SECURITY_AUTH_TOKEN_KEY = "lambda.security.auth-token.";
     public static final Long LAMBDA_SECURITY_TOKEN_TIME_SECOND = Long.valueOf(600);
-    public static final String LAMBDA_SECURITY_AUTH_TOKEN_REGX = "^"+LAMBDA_SECURITY_AUTH_TOKEN_KEY+"[a-zA-Z\\d]{1,}";
+    public static final String LAMBDA_SECURITY_AUTH_TOKEN_KEY = "lambda.security.auth-token.";
+    public static final String LAMBDA_SECURITY_AUTH_TOKEN_REGEX = LAMBDA_SECURITY_AUTH_TOKEN_KEY+"[a-zA-Z\\d]+\\.[a-zA-Z\\d]+";
 
     public static final String LAMBDA_SECURITY_EMPTY_STR = "";
 
