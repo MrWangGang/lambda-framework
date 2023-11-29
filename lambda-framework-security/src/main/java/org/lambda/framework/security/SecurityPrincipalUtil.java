@@ -68,7 +68,7 @@ public class SecurityPrincipalUtil {
                 if (!lambdaSecurityAuthToken.getToken().equals(realToken))
                     return Mono.error(new EventException(ES_SECURITY_003));
                 return Mono.just(lambdaSecurityAuthToken.getPrincipal());
-            }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004)));
+            }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003)));
         });
     }
     public <T extends SecurityLoginUser>Mono<T> getPrincipal2Object(Class<T> clazz) {
