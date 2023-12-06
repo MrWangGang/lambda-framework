@@ -38,12 +38,7 @@ public class JsonUtil {
     }
     public static String objToString(Object data){
         try {
-            ObjectMapper objectMapper = JsonMapper.builder()
-                    .build();
-            JavaTimeModule javaTimeModule = new JavaTimeModule();
-            javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            objectMapper.registerModule(javaTimeModule);
+            ObjectMapper objectMapper = getJsonFactory();
             return objectMapper.writeValueAsString(data);
         } catch (JsonProcessingException e) {
             throw new EventException(ES_COMMON_019);
@@ -51,23 +46,13 @@ public class JsonUtil {
     }
 
     public static <T>Optional<T> mapToObj(Map data, Class<T> clazz){
-        ObjectMapper objectMapper = JsonMapper.builder()
-                .build();
-        JavaTimeModule javaTimeModule = new JavaTimeModule();
-        javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        objectMapper.registerModule(javaTimeModule);
+        ObjectMapper objectMapper = getJsonFactory();
         return Optional.ofNullable(objectMapper.convertValue(data,clazz));
     }
 
     public static <T>Optional<T> stringToObj(String data,Class<T> clazz){
         try {
-            ObjectMapper objectMapper = JsonMapper.builder()
-                    .build();
-            JavaTimeModule javaTimeModule = new JavaTimeModule();
-            javaTimeModule.addSerializer(LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            objectMapper.registerModule(javaTimeModule);
+            ObjectMapper objectMapper = getJsonFactory();
             return Optional.ofNullable(objectMapper.readValue(data,clazz));
         } catch (JsonProcessingException e) {
             throw new EventException(ES_COMMON_018);
