@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -41,6 +42,10 @@ public class SecurityPrincipalUtil {
 
     public Mono<String> getPrincipal() {
         return getServerHttpRequest().flatMap(e -> {
+            List headers = e.getHeaders().get(SecurityContract.AUTH_TOKEN_NAMING);
+            if(headers == null || headers.size() == 0 || headers.get(0) == null){
+                return Mono.error(new EventException(ES_SECURITY_003));
+            }
             return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e -> {
             if (!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(e).matches()))
