@@ -97,31 +97,21 @@ public class SecurityConfig {
     }
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http,ReactiveAuthorizationManager autzManager) {
-        http.httpBasic().disable();
-        http.formLogin().disable();
-        http.logout().disable();
-        http.headers().disable();
-        http.csrf().disable();
-        http.requestCache().disable();
-        http.cors().configurationSource(corsConfigurationSource()); // 启用CORS支持，并使用上述配置
+        http.httpBasic(e->e.disable());
+        http.formLogin(e->e.disable());
+        http.logout(e->e.disable());
+        http.headers(e->e.disable());
+        http.csrf(e->e.disable());
+        http.requestCache(e->e.disable());
+        http.cors(e->e.configurationSource(corsConfigurationSource())); // 启用CORS支持，并使用上述配置
         //禁用请求换成，禁用session
-        http.requestCache().requestCache(NoOpServerRequestCache.getInstance());
+        http.requestCache(e->e.requestCache(NoOpServerRequestCache.getInstance()));
         http.securityContextRepository(NoOpServerSecurityContextRepository.getInstance());
-        http.exceptionHandling().authenticationEntryPoint(new ServerAuthenticationEntryPoint() {
-            @Override
-            public Mono<Void> commence(ServerWebExchange exchange, AuthenticationException ex) {
-                throw new EventException(SecurityExceptionEnum.ES_SECURITY_000);
-            }
-        });
-        http.exceptionHandling().accessDeniedHandler(new ServerAccessDeniedHandler() {
-            @Override
-            public Mono<Void> handle(ServerWebExchange exchange, AccessDeniedException denied) {
-                throw new EventException(SecurityExceptionEnum.ES_SECURITY_001);
-            }
-        });
-        http.authorizeExchange().pathMatchers(permitUrls).permitAll();
+        http.exceptionHandling(e->e.authenticationEntryPoint((a,b)->{throw new EventException(SecurityExceptionEnum.ES_SECURITY_000);}));
+        http.exceptionHandling(e->e.accessDeniedHandler((a,b)->{throw new EventException(SecurityExceptionEnum.ES_SECURITY_001);}));
+        http.authorizeExchange(e->e.pathMatchers(permitUrls).permitAll());
         //http.addFilterAt(authenticationWebFilter, SecurityWebFiltersOrder.AUTHENTICATION);
-        http.authorizeExchange().anyExchange().access(autzManager);
+        http.authorizeExchange(e->e.anyExchange().access(autzManager));
         return http.build();
     }
 
