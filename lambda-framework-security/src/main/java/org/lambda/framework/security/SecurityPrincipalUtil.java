@@ -3,6 +3,7 @@ package org.lambda.framework.security;
 import jakarta.annotation.Resource;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
+import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.util.sample.JsonUtil;
@@ -41,39 +42,10 @@ public class SecurityPrincipalUtil {
     private ReactiveRedisOperation securityAuthRedisOperation;
 
     public Mono<String> getPrincipal() {
-        return getServerHttpRequest().flatMap(e -> {
-            List headers = e.getHeaders().get(SecurityContract.AUTH_TOKEN_NAMING);
-            if(headers == null || headers.size() == 0 || headers.get(0) == null){
-                return Mono.error(new EventException(ES_SECURITY_003));
-            }
-            return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
-        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e -> {
-            if (!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(e).matches()))
-                throw new EventException(SecurityExceptionEnum.ES_SECURITY_007);
-            //对token进行解析
-            // 在字符串中查找最后一个点的位置
-            int lastDotIndex = e.lastIndexOf('.');
-            // 如果找到了点，则返回点之前的子字符串，否则返回原始字符串
-            String token = lastDotIndex != -1 ? e.substring(0, lastDotIndex + 1) : null;
-            if (StringUtils.isBlank(token)) {
-                return Mono.error(new EventException(ES_SECURITY_003));
-            }
-            token = token + TOKEN_SUFFIX;
-            return securityAuthRedisOperation.get(token).flatMap(tokenBean -> {
-                LambdaSecurityAuthToken lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_SECURITY_003));
-                if (StringUtils.isBlank(lambdaSecurityAuthToken.getToken())) {
-                    return Mono.error(new EventException(ES_SECURITY_003));
-                }
-                // 查找最后一个点的位置
-                int lastIndex = e.lastIndexOf('.');
-                // 如果找到了点，则返回点之后的子字符串，否则返回空字符串或其他适当的默认值
-                String realToken = lastIndex != -1 ? e.substring(lastIndex + 1) : null;
-                if (StringUtils.isBlank(realToken)) return Mono.error(new EventException(ES_SECURITY_003));
-                //比较token
-                if (!lambdaSecurityAuthToken.getToken().equals(realToken))
-                    return Mono.error(new EventException(ES_SECURITY_003));
-                return Mono.just(lambdaSecurityAuthToken.getPrincipal());
-            }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003)));
+        return this.getSecurityAuthTokenKey().flatMap(key->{
+            return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
+                return Mono.just(securityAuthToken.getPrincipal());
+            });
         });
     }
     public <T extends SecurityLoginUser>Mono<T> getPrincipal2Object(Class<T> clazz) {
@@ -92,68 +64,89 @@ public class SecurityPrincipalUtil {
             throw new EventException(SecurityExceptionEnum.ES_SECURITY_002);
         }
         String principal = JsonUtil.objToString(t);
+        //为了保证一个用户只会生成一个token,token唯一性
         String keyHead = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY + MD5Util.hash(t.getId().toString()) + ".";
-        String keySuffix = MD5Util.hash(principal + "." + SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT + "." + UUIDUtil.get());
+        String keySuffix = MD5Util.hash(t.getId().toString()+"."+SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT + "." + UUIDUtil.get());
         LambdaSecurityAuthToken lambdaSecurityAuthToken = new LambdaSecurityAuthToken();
-        lambdaSecurityAuthToken.setPrincipal(JsonUtil.objToString(t));
+        lambdaSecurityAuthToken.setPrincipal(principal);
         lambdaSecurityAuthToken.setToken(keySuffix);
         return securityAuthRedisOperation.set(keyHead + TOKEN_SUFFIX, lambdaSecurityAuthToken, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(keyHead + keySuffix));
     }
 
-    public Mono<Void> deletePrincipal() {
-        return getServerHttpRequest().flatMap(e -> {
-            return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
-        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003))).flatMap(e -> {
-            return securityAuthRedisOperation.delete(e);
-        }).then(Mono.empty());
+    public <T extends SecurityLoginUser> Mono<Void> updatePrincipal(T t) {
+        return this.getSecurityAuthTokenKey().flatMap(key->{
+            return this.getSecurityAuthToken(key).flatMap(token->{
+                token.setPrincipal(JsonUtil.objToString(t));
+                return securityAuthRedisOperation.update(key,token)
+                        .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_011)))
+                        .flatMap(flag->{
+                            if(!flag)return Mono.error(new EventException(ES_SECURITY_011));
+                            return Mono.just(token.getPrincipal());
+                        });
+            });
+        }).then();
     }
+
+    /*public Mono<Void> deletePrincipal() {
+        return this.getSecurityAuthToken().flatMap(token->{
+            token.setPrincipal(JsonUtil.objToString(t));
+            return securityAuthRedisOperation.update(token,t)
+                    .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_011)))
+                    .flatMap(flag->{
+                        if(!flag)return Mono.error(new EventException(ES_SECURITY_011));
+                        return Mono.just(token.getPrincipal());
+                    });
+        }).then();
+    }*/
 
     public static Mono<ServerHttpRequest> getServerHttpRequest() {
         return Mono.deferContextual(Mono::just)
                 .map(contextView -> contextView.get(ServerWebExchange.class).getRequest());
     }
 
-
-    //这些方法不是响应式的可能会出问题，不要使用
-    @Deprecated
-    public static String getCredentials() {
-        SecurityAuthToken authentication = getAuthentication();
-        String credentials = authentication.getCredentials();
-        if (StringUtils.isBlank(credentials)) throw new EventException(ES_SECURITY_003);
-        return credentials;
-    }
-
-    @Deprecated
-    public static <T> T getPrincipal(Class<T> clazz) {
-        if (clazz == null) throw new EventException(ES_SECURITY_006);
-        SecurityAuthToken authentication = getAuthentication();
-        String principal = authentication.getPrincipal();
-        if (StringUtils.isBlank(principal)) throw new EventException(ES_SECURITY_004);
-        try {
-            return (T) (JsonUtil.stringToObj(principal, clazz).orElseThrow(() -> new EventException(SecurityExceptionEnum.ES_SECURITY_009)));
-        } catch (EventException e) {
-            if (e == null) {
-                throw new EventException(SecurityExceptionEnum.ES_SECURITY_009);
+    private Mono<String> getServerRequestToken(){
+        return this.getServerHttpRequest().flatMap(e -> {
+            List headers = e.getHeaders().get(SecurityContract.AUTH_TOKEN_NAMING);
+            if(headers == null || headers.size() == 0 || headers.get(0) == null){
+                return Mono.error(new EventException(ES_SECURITY_003));
             }
-            throw new GlobalException(e.getCode(), e.getMessage());
-        } catch (ClassCastException e) {
-            throw new EventException(SecurityExceptionEnum.ES_SECURITY_009);
-        } catch (Throwable throwable) {
-            throw new EventException(SecurityExceptionEnum.ES_SECURITY_009);
-        }
-
+            return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
+        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003)));
     }
-
-    @Deprecated
-    public static SecurityAuthToken getAuthentication() {
-        if (SecurityContextHolder.getContext() == null) throw new EventException(SecurityExceptionEnum.ES_SECURITY_008);
-        if (SecurityContextHolder.getContext().getAuthentication() == null)
-            throw new EventException(SecurityExceptionEnum.ES_SECURITY_000);
-        try {
-            SecurityAuthToken authentication = (SecurityAuthToken) SecurityContextHolder.getContext().getAuthentication();
-            return authentication;
-        } catch (Exception e) {
-            throw new EventException(SecurityExceptionEnum.ES_SECURITY_009);
-        }
+    private Mono<String> getSecurityAuthTokenKey() {
+        return this.getServerRequestToken().flatMap(e -> {
+            if (!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(e).matches()))
+                throw new EventException(SecurityExceptionEnum.ES_SECURITY_007);
+            //对token进行解析
+            // 在字符串中查找最后一个点的位置
+            int lastDotIndex = e.lastIndexOf('.');
+            // 如果找到了点，则返回点之前的子字符串，否则返回原始字符串
+            String token = lastDotIndex != -1 ? e.substring(0, lastDotIndex + 1) : null;
+            if (StringUtils.isBlank(token)) {
+                return Mono.error(new EventException(ES_SECURITY_003));
+            }
+            token = token + TOKEN_SUFFIX;
+            return Mono.just(token);
+        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003)));
+    }
+    private Mono<LambdaSecurityAuthToken> getSecurityAuthToken(String key) {
+        Assert.verify(key,ES_SECURITY_003);
+        return this.getServerRequestToken().flatMap(rqtoken->{
+            return securityAuthRedisOperation.get(key).flatMap(tokenBean -> {
+                LambdaSecurityAuthToken lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_SECURITY_003));
+                if (StringUtils.isBlank(lambdaSecurityAuthToken.getToken())) {
+                    return Mono.error(new EventException(ES_SECURITY_003));
+                }
+                // 查找最后一个点的位置
+                int lastIndex = rqtoken.lastIndexOf('.');
+                // 如果找到了点，则返回点之后的子字符串，否则返回空字符串或其他适当的默认值
+                String realToken = lastIndex != -1 ? rqtoken.substring(lastIndex + 1) : null;
+                if (StringUtils.isBlank(realToken)) return Mono.error(new EventException(ES_SECURITY_003));
+                //比较token
+                if (!lambdaSecurityAuthToken.getToken().equals(realToken))
+                    return Mono.error(new EventException(ES_SECURITY_003));
+                return Mono.just(lambdaSecurityAuthToken);
+            }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003)));
+        });
     }
 }

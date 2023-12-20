@@ -20,7 +20,8 @@ public enum SecurityExceptionEnum implements ExceptionEnumFunction {
     ES_SECURITY_007("ES_SECURITY_007","令牌格式不符合规范"),
     ES_SECURITY_008("ES_SECURITY_008","无法获取spring security全局上下文变量"),
     ES_SECURITY_009("ES_SECURITY_009","用户信息CAST失败"),
-    ES_SECURITY_010("ES_SECURITY_010","未知的lambda.security.url-autz-model");
+    ES_SECURITY_010("ES_SECURITY_010","未知的lambda.security.url-autz-model"),
+    ES_SECURITY_011("ES_SECURITY_011","用户信息缓存更新失败");
 
     // 成员变量
     private String code;

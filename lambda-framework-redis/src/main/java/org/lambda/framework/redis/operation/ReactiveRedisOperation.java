@@ -33,6 +33,13 @@ public class ReactiveRedisOperation extends ReactiveRedisTemplate{
         return super.opsForValue().set(k,t);
     }
 
+    public <K,V>Mono<Boolean> update(K k, V t){
+        return super.opsForValue().setIfPresent(k,t);
+    }
+
+    public <K,V>Mono<Boolean> update(K k, V t, Long timeout){
+        return super.opsForValue().setIfPresent(k,t,Duration.ofSeconds(timeout));
+    }
     public <K>Mono<Long> delete(K k){
          return super.delete(k);
     }
