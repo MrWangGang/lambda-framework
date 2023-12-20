@@ -42,9 +42,11 @@ public class SecurityPrincipalUtil {
     private ReactiveRedisOperation securityAuthRedisOperation;
 
     public Mono<String> getPrincipal() {
-        return this.getSecurityAuthTokenKey().flatMap(key->{
-            return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
-                return Mono.just(securityAuthToken.getPrincipal());
+        return this.getServerRequestToken().flatMap(reqKey->{
+            return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
+                return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
+                    return Mono.just(securityAuthToken.getPrincipal());
+                });
             });
         });
     }
@@ -74,32 +76,30 @@ public class SecurityPrincipalUtil {
     }
 
     public <T extends SecurityLoginUser> Mono<Void> updatePrincipal(T t) {
-        return this.getSecurityAuthTokenKey().flatMap(key->{
-            return this.getSecurityAuthToken(key).flatMap(token->{
-                token.setPrincipal(JsonUtil.objToString(t));
-                return securityAuthRedisOperation.update(key,token)
-                        .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_011)))
-                        .flatMap(flag->{
-                            if(!flag)return Mono.error(new EventException(ES_SECURITY_011));
-                            return Mono.just(token.getPrincipal());
-                        });
-            });
-        }).then();
+        return this.getServerRequestToken().flatMap(reqKey->{
+            return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
+                return this.getSecurityAuthToken(key).flatMap(token->{
+                    token.setPrincipal(JsonUtil.objToString(t));
+                    return securityAuthRedisOperation.update(key,token)
+                            .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_011)))
+                            .flatMap(flag->{
+                                if(!flag)return Mono.error(new EventException(ES_SECURITY_011));
+                                return Mono.just(token.getPrincipal());
+                            });
+                });
+            }).then();
+        });
     }
 
-    /*public Mono<Void> deletePrincipal() {
-        return this.getSecurityAuthToken().flatMap(token->{
-            token.setPrincipal(JsonUtil.objToString(t));
-            return securityAuthRedisOperation.update(token,t)
-                    .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_011)))
-                    .flatMap(flag->{
-                        if(!flag)return Mono.error(new EventException(ES_SECURITY_011));
-                        return Mono.just(token.getPrincipal());
-                    });
-        }).then();
-    }*/
+    public Mono<Void> deletePrincipal() {
+        return this.getServerRequestToken().flatMap(reqKey->{
+            return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
+                return securityAuthRedisOperation.delete(key);
+            }).then();
+        });
+    }
 
-    public static Mono<ServerHttpRequest> getServerHttpRequest() {
+    private static Mono<ServerHttpRequest> getServerHttpRequest() {
         return Mono.deferContextual(Mono::just)
                 .map(contextView -> contextView.get(ServerWebExchange.class).getRequest());
     }
@@ -113,21 +113,20 @@ public class SecurityPrincipalUtil {
             return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003)));
     }
-    private Mono<String> getSecurityAuthTokenKey() {
-        return this.getServerRequestToken().flatMap(e -> {
-            if (!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(e).matches()))
+    private Mono<String> getSecurityAuthTokenKey(String requestToken) {
+            Assert.verify(requestToken,ES_SECURITY_003);
+            if (!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(requestToken).matches()))
                 throw new EventException(SecurityExceptionEnum.ES_SECURITY_007);
             //对token进行解析
             // 在字符串中查找最后一个点的位置
-            int lastDotIndex = e.lastIndexOf('.');
+            int lastDotIndex = requestToken.lastIndexOf('.');
             // 如果找到了点，则返回点之前的子字符串，否则返回原始字符串
-            String token = lastDotIndex != -1 ? e.substring(0, lastDotIndex + 1) : null;
+            String token = lastDotIndex != -1 ? requestToken.substring(0, lastDotIndex + 1) : null;
             if (StringUtils.isBlank(token)) {
                 return Mono.error(new EventException(ES_SECURITY_003));
             }
             token = token + TOKEN_SUFFIX;
             return Mono.just(token);
-        }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_003)));
     }
     private Mono<LambdaSecurityAuthToken> getSecurityAuthToken(String key) {
         Assert.verify(key,ES_SECURITY_003);
