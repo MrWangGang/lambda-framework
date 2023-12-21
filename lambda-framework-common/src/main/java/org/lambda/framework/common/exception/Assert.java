@@ -25,4 +25,25 @@ public class Assert {
         }
         if(object == null)throw new EventException(exceptionEnumFunction);
     }
+
+    public static boolean verify(Object object){
+        if(object instanceof String){
+            if(StringUtils.isBlank((String) object)){
+                return false;
+            }
+        }
+        if(object instanceof List){
+            if(object == null){
+                return false;
+            }
+            if(((List)object).size() == 0){
+                return false;
+            }
+            if(((List)object).get(0) ==  null){
+                return false;
+            }
+        }
+        if(object == null)return false;
+        return true;
+    }
 }
