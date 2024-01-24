@@ -1,4 +1,4 @@
-package org.lambda.framework.repository.config;
+package org.lambda.framework.repository.config.mysql;
 
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;

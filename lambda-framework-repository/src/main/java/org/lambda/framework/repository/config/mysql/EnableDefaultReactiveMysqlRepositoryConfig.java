@@ -1,4 +1,4 @@
-package org.lambda.framework.repository.config;
+package org.lambda.framework.repository.config.mysql;
 
 import io.r2dbc.spi.ConnectionFactory;
 import org.springframework.context.annotation.Bean;

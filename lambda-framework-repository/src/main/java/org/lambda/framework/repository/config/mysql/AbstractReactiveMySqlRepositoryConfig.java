@@ -1,4 +1,4 @@
-package org.lambda.framework.repository.config;
+package org.lambda.framework.repository.config.mysql;
 
 import io.r2dbc.pool.ConnectionPool;
 import io.r2dbc.pool.ConnectionPoolConfiguration;
