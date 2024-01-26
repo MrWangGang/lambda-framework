@@ -2,19 +2,13 @@ package org.lambda.framework.repository.config.mongodb;
 
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
+import com.mongodb.MongoCredential;
 import com.mongodb.connection.ConnectionPoolSettings;
-import com.mongodb.reactivestreams.client.MongoClient;
-import com.mongodb.reactivestreams.client.MongoClients;
-import org.lambda.framework.common.exception.EventException;
+import org.springframework.data.mongodb.config.AbstractReactiveMongoConfiguration;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 
-import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.ES_REPOSITORY_101;
-
-public abstract class AbstractReactiveMongoRepositoryConfig {
+public abstract class AbstractReactiveMongoRepositoryConfig  extends AbstractReactiveMongoConfiguration {
     protected abstract String host();
     protected abstract String user();
     protected abstract String password();
@@ -23,27 +17,24 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
     protected abstract Integer connectTimeoutSeconds();
     protected abstract Integer maxIdleTimeSeconds();
     protected abstract Integer maxSize();
-    public MongoClient buildMongoClient() {
+
+    @Override
+    protected String getDatabaseName() {
+        return database();
+    }
+
+    @Override
+    protected MongoClientSettings mongoClientSettings() {
         ConnectionPoolSettings connectionPoolSettings = ConnectionPoolSettings.builder()
                 .maxSize(maxSize())
                 .maxConnectionIdleTime(maxIdleTimeSeconds(), TimeUnit.SECONDS)
                 .build();
-        String encodedPassword;
-        try {
-            encodedPassword = URLEncoder.encode(password(), StandardCharsets.UTF_8.toString());
-        } catch (UnsupportedEncodingException e) {
-            throw new EventException(ES_REPOSITORY_101);
-        }
-
-        String connectionString = String.format("mongodb://%s:%s@%s:%d/%s",
-                user(), encodedPassword, host(), port(), database());
-
-        MongoClientSettings settings =  MongoClientSettings.builder()
-                .applyConnectionString(new ConnectionString(connectionString))
+        MongoClientSettings settings = MongoClientSettings.builder()
+                .applyToClusterSettings(builder -> builder.serverSelectionTimeout(connectTimeoutSeconds(), TimeUnit.SECONDS))
                 .applyToConnectionPoolSettings(builder -> builder.applySettings(connectionPoolSettings))
-                .applyToClusterSettings(builder -> builder.serverSelectionTimeout(connectTimeoutSeconds(), TimeUnit.SECONDS)) // convert to milliseconds
+                .applyConnectionString(new ConnectionString("mongodb://" + host() + ":" + port()))
+                .credential(MongoCredential.createCredential(user(), database(), password().toCharArray()))
                 .build();
-        return MongoClients.create(settings);
+        return settings;
     }
-
 }

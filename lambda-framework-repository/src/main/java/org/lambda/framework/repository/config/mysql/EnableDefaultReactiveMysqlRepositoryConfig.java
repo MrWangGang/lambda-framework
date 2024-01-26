@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class EnableDefaultReactiveMysqlRepositoryConfig extends DefaultReactiveMySqlRepositoryConfig  {
     @Bean
-    public ConnectionFactory mysqlClient(){
+    public ConnectionFactory mysql(){
         return buildMysqlConnectionFactory();
     }
 

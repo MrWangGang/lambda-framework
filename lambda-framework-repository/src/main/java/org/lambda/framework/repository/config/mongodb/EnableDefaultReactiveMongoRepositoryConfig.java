@@ -7,8 +7,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class EnableDefaultReactiveMongoRepositoryConfig extends DefaultReactiveMongoRepositoryConfig {
     @Bean
-    public MongoClient mongoClient(){
-        return buildMongoClient();
+    public MongoClient mongo(){
+        return reactiveMongoClient();
     }
-
 }
