@@ -2,8 +2,8 @@ package org.lambda.framework.repository.operation.mangodb;
 
 
 import org.lambda.framework.repository.operation.ReactiveUnifyPagingRepositoryOperation;
-import org.springframework.data.r2dbc.repository.R2dbcRepository;
+import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 
-public interface ReactiveMongoCrudRepositoryOperation<Entity,IdType> extends ReactiveUnifyPagingRepositoryOperation, R2dbcRepository<Entity, IdType> {
+public interface ReactiveMongoCrudRepositoryOperation<Entity,IdType> extends ReactiveUnifyPagingRepositoryOperation, ReactiveMongoRepository<Entity, IdType> {
 
 }
