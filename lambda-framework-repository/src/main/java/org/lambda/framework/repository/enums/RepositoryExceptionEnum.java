@@ -9,7 +9,12 @@ public enum RepositoryExceptionEnum implements ExceptionEnumFunction {
     ES_REPOSITORY_MYSQL_002("ES_REPOSITORY_MYSQL_002","mysql缺少password配置"),
     ES_REPOSITORY_MYSQL_003("ES_REPOSITORY_MYSQL_003","mysql缺少database配置"),
 
-    ES_REPOSITORY_MYSQL_100("ES_REPOSITORY_MYSQL_100","分页参数不规范 page 必须 >0 size必须 >0 ");
+    ES_REPOSITORY_MONGO_004("ES_REPOSITORY_MONGO_004","mongo缺少host配置"),
+    ES_REPOSITORY_MONGO_005("ES_REPOSITORY_MONGO_005","mongo缺少user配置"),
+    ES_REPOSITORY_MONGO_006("ES_REPOSITORY_MONGO_006","mongo缺少password配置"),
+    ES_REPOSITORY_MONGO_007("ES_REPOSITORY_MONGO_007","mongo缺少database配置"),
+
+    ES_REPOSITORY_100("ES_REPOSITORY_100","分页参数不规范 page 必须 >0 size必须 >0 ");
 
 
     private String code;
