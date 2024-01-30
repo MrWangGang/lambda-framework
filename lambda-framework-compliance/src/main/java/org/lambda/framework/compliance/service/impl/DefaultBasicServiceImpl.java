@@ -6,12 +6,15 @@ import org.lambda.framework.compliance.repository.po.AbstractLoginUser;
 import org.lambda.framework.compliance.repository.po.UnifyPO;
 import org.lambda.framework.compliance.service.IDefaultBasicService;
 import org.lambda.framework.repository.operation.Paged;
+import org.lambda.framework.repository.operation.ReactiveUnifyPagingRepositoryOperation;
 import org.lambda.framework.repository.operation.UnifyPagingOperation;
-import org.lambda.framework.repository.operation.mysql.ReactiveMySqlCrudRepositoryOperation;
 import org.lambda.framework.security.SecurityPrincipalUtil;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
+import org.springframework.data.repository.query.ReactiveQueryByExampleExecutor;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -20,7 +23,7 @@ import java.time.LocalDateTime;
 import static org.lambda.framework.compliance.enums.ComplianceConstant.*;
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
 
-public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  implements IDefaultBasicService<PO,ID> {
+public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation>  implements IDefaultBasicService<PO,ID> {
 
 
     public DefaultBasicServiceImpl(@Autowired Repository repository){
