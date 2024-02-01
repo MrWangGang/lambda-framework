@@ -21,7 +21,9 @@ public interface IDefaultBasicService<PO extends UnifyPO,ID>{
     public Mono<Void> delete(Publisher<ID> ids);
 
     public Mono<Void> delete(Iterable<? extends PO> entities);
-    public Flux<PO> find(PO po);
+    public Flux<PO> findAll(PO po);
+
+    public Mono<PO> findOne(PO po);
 
     public Flux<PO> find();
 

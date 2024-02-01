@@ -133,10 +133,17 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
     }
 
     @Override
-    public Flux<PO> find(PO po) {
+    public Flux<PO> findAll(PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
         Example<PO> example = Example.<PO>of(po);
         return repository.findAll(example);
+    }
+
+    @Override
+    public Mono<PO> findOne(PO po) {
+        if(po == null)throw new EventException(ES_COMPLIANCE_000);
+        Example<PO> example = Example.<PO>of(po);
+        return repository.findOne(example);
     }
 
     @Override
