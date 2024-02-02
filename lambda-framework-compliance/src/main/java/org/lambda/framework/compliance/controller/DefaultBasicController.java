@@ -66,7 +66,7 @@ public  class DefaultBasicController<PO extends UnifyPO,ID,Service extends IDefa
     @PostMapping("/finds")
     public Flux<PO> find(PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
-        return service.findAll(po);
+        return service.find(po);
     }
 
     @PostMapping("/paging")

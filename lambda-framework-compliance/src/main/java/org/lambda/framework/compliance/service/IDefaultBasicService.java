@@ -22,7 +22,7 @@ public interface IDefaultBasicService<PO extends UnifyPO,ID>{
 
     public Mono<Void> delete(Iterable<? extends PO> entities);
 
-    public Mono<PO> find(PO po);
+    public Flux<PO> find(PO po);
 
     public Flux<PO> find();
 

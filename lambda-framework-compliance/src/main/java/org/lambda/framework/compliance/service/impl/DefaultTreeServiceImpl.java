@@ -51,7 +51,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         if(dto == null || dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         PO po = this.instance(clazz);
         po.setOrganizationId(dto.getOrganizationId());
-        return super.findAll(po).collectList().flatMap(e->{
+        return super.find(po).collectList().flatMap(e->{
             return Mono.just(process(e, ROOT_NODE_DEFAULT));
         });
     }
@@ -130,7 +130,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                         PO _current =  instance(clazz);
                         _current.setId(e.getParentId());
                         _current.setOrganizationId(dto.getOrganizationId());
-                        return super.findAll(_current).flatMap(root -> {
+                        return super.find(_current).flatMap(root -> {
                             //先记录之前的parentId,用来改变原先的子节点的挂靠
                             Long oldParentId = e.getParentId();
                             //将当前节点变成根节点
@@ -139,7 +139,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                             PO _children = instance(clazz);
                             _children.setParentId(e.getId());
                             _children.setOrganizationId(dto.getOrganizationId());
-                            Flux<PO> currentChildren = super.findAll(_children)
+                            Flux<PO> currentChildren = super.find(_children)
                                     .flatMap(x->{
                                         x.setParentId(oldParentId);
                                         return Flux.just(x);
@@ -164,7 +164,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                                 PO  _children = instance(clazz);
                                 _children.setParentId(x.getId());
                                 _children.setOrganizationId(dto.getOrganizationId());
-                                Flux<PO> currentChildren = super.findAll(_children)
+                                Flux<PO> currentChildren = super.find(_children)
                                         .flatMap(y->{
                                             y.setParentId(oldParentId);
                                             return Flux.just(y);
@@ -183,7 +183,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         PO po = instance(clazz);
         po.setOrganizationId(dto.getOrganizationId());
         //有数据则表示已经存在根节点了，不能创建根节点
-        return super.findAll(po).hasElements().flatMap(e->{
+        return super.find(po).hasElements().flatMap(e->{
                     if(e)return Mono.error(new EventException(ES_COMPLIANCE_003));
                     //设置项
                     dto.getNode().setParentId(ROOT_NODE_DEFAULT);
@@ -201,7 +201,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         PO po = instance(clazz);
         po.setId(dto.getTargetNodeId());
         po.setOrganizationId(dto.getOrganizationId());
-        return super.findAll(po)
+        return super.find(po)
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                 .flatMap(e->{
                     //设置目标节点为父节点
@@ -220,7 +220,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         po.setId(dto.getTargetNodeId());
         po.setOrganizationId(dto.getOrganizationId());
         //先检查当前节点是否存在
-        return super.findAll(po)
+        return super.find(po)
                  //不存在则抛出异常
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                 .flatMap(e->{
@@ -249,7 +249,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         PO po = instance(clazz);
         po.setId(dto.getTargetNodeId());
         po.setOrganizationId(dto.getOrganizationId());
-        return super.findAll(po)
+        return super.find(po)
                 //不存在则抛出异常
                 .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                 .flatMap(e->{
@@ -259,7 +259,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                         PO _rootChildren = instance(clazz);
                         _rootChildren.setParentId(e.getId());
                         _rootChildren.setOrganizationId(e.getOrganizationId());
-                        return super.findAll(_rootChildren).hasElements().flatMap(hasChildren->{
+                        return super.find(_rootChildren).hasElements().flatMap(hasChildren->{
                             //有子节点，不让删除
                             if(hasChildren)return Mono.error(new EventException(ES_COMPLIANCE_016));
                             //没有可以删除
@@ -280,7 +280,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                     PO _childrenUpdate = instance(clazz);
                     _childrenUpdate.setParentId(e.getId());
                     _childrenUpdate.setOrganizationId(e.getOrganizationId());
-                    Flux<PO> childrenUpdate =  super.findAll(_childrenUpdate).flatMap(x->{
+                    Flux<PO> childrenUpdate =  super.find(_childrenUpdate).flatMap(x->{
                         x.setParentId(e.getParentId());
                         return Flux.just(x);
                     });
