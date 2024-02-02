@@ -131,16 +131,8 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
         if(entities == null)throw new EventException(ES_COMPLIANCE_000);
         return repository.deleteAll(entities);
     }
-
     @Override
-    public Flux<PO> findAll(PO po) {
-        if(po == null)throw new EventException(ES_COMPLIANCE_000);
-        Example<PO> example = Example.<PO>of(po);
-        return repository.findAll(example);
-    }
-
-    @Override
-    public Mono<PO> findOne(PO po) {
+    public Mono<PO> find(PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
         Example<PO> example = Example.<PO>of(po);
         return repository.findOne(example);
