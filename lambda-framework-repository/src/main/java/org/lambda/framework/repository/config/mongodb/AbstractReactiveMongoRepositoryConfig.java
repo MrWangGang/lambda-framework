@@ -6,11 +6,13 @@ import com.mongodb.MongoCredential;
 import com.mongodb.connection.ConnectionPoolSettings;
 import com.mongodb.reactivestreams.client.MongoClient;
 import com.mongodb.reactivestreams.client.MongoClients;
-import org.lambda.framework.repository.config.ExcludeR2dbcAutoConfig;
+import org.springframework.boot.autoconfigure.mongo.MongoProperties;
+import org.springframework.boot.autoconfigure.mongo.PropertiesMongoConnectionDetails;
+import org.springframework.context.annotation.Bean;
 
 import java.util.concurrent.TimeUnit;
 
-public abstract class AbstractReactiveMongoRepositoryConfig extends ExcludeR2dbcAutoConfig {
+public abstract class AbstractReactiveMongoRepositoryConfig {
     protected abstract String host();
     protected abstract String user();
     protected abstract String password();
@@ -19,6 +21,7 @@ public abstract class AbstractReactiveMongoRepositoryConfig extends ExcludeR2dbc
     protected abstract Integer connectTimeoutSeconds();
     protected abstract Integer maxIdleTimeSeconds();
     protected abstract Integer maxSize();
+
     protected MongoClient buildMongoConnectionFactory() {
         ConnectionPoolSettings connectionPoolSettings = ConnectionPoolSettings.builder()
                 .maxSize(maxSize())
@@ -32,5 +35,17 @@ public abstract class AbstractReactiveMongoRepositoryConfig extends ExcludeR2dbc
                 .credential(MongoCredential.createCredential(user(), database(), password().toCharArray()))
                 .build();
         return MongoClients.create(settings);
+    }
+
+    @Bean
+    public PropertiesMongoConnectionDetails mongoConnectionDetails() {
+        MongoProperties mongoProperties = new MongoProperties();
+        mongoProperties.setHost(this.host());
+        mongoProperties.setUsername(this.user());
+        mongoProperties.setPassword(this.password().toCharArray());
+        mongoProperties.setDatabase(this.database());
+        mongoProperties.setPort(this.port());
+        mongoProperties.setAuthenticationDatabase(this.database());
+        return new PropertiesMongoConnectionDetails(mongoProperties);
     }
 }

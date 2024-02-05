@@ -94,4 +94,5 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
     protected Integer maxSize() {
         return this.maxSize;
     }
+
 }
