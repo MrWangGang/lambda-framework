@@ -1,3 +1,4 @@
+/*
 package org.lambda.framework.repository.config.mysql;
 
 import io.r2dbc.spi.ConnectionFactory;
@@ -12,3 +13,4 @@ public class EnableDefaultReactiveMysqlRepositoryConfig extends DefaultReactiveM
     }
 
 }
+*/

@@ -1,3 +1,4 @@
+/*
 package org.lambda.framework.repository.config.mongodb;
 
 import com.mongodb.reactivestreams.client.MongoClient;
@@ -11,3 +12,4 @@ public class EnableDefaultReactiveMongoRepositoryConfig extends DefaultReactiveM
         return reactiveMongoClient();
     }
 }
+*/
