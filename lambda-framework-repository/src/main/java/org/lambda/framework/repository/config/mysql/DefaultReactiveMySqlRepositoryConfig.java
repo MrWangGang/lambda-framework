@@ -3,9 +3,13 @@ package org.lambda.framework.repository.config.mysql;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.AutoConfigureBefore;
+import org.springframework.boot.autoconfigure.data.r2dbc.R2dbcDataAutoConfiguration;
+import org.springframework.boot.autoconfigure.r2dbc.R2dbcAutoConfiguration;
 
 import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.*;
 
+@AutoConfigureBefore({R2dbcAutoConfiguration.class, R2dbcDataAutoConfiguration.class})
 public class DefaultReactiveMySqlRepositoryConfig  extends AbstractReactiveMySqlRepositoryConfig  {
     private String host;
 

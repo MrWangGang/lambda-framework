@@ -5,12 +5,13 @@ import io.r2dbc.pool.ConnectionPoolConfiguration;
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
+import org.lambda.framework.repository.config.ExcludeR2dbcAutoConfig;
 
 import java.time.Duration;
 
 import static io.r2dbc.spi.ConnectionFactoryOptions.*;
 
-public abstract class AbstractReactiveMySqlRepositoryConfig {
+public abstract class AbstractReactiveMySqlRepositoryConfig extends ExcludeR2dbcAutoConfig {
 
     protected abstract String host();
     protected abstract String user();

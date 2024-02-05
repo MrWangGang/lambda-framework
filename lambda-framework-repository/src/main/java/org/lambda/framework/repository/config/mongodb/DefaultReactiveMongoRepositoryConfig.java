@@ -15,7 +15,7 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
 
     private String database;
     @Value("${lambda.repository.mongo.host:-1}")
-    public void setHost(String host) {
+    private void setHost(String host) {
         if(host == null || StringUtils.isBlank(host) || "-1".equals(host)){
             throw new EventException(ES_REPOSITORY_MONGO_004);
         }
@@ -23,7 +23,7 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
     }
 
     @Value("${lambda.repository.mongo.user:-1}")
-    public void setUser(String user) {
+    private void setUser(String user) {
         if(user == null || StringUtils.isBlank(user) || "-1".equals(user)){
             throw new EventException(ES_REPOSITORY_MONGO_005);
         }
@@ -31,7 +31,7 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
     }
 
     @Value("${lambda.repository.mongo.password:-1}")
-    public void setPassword(String password) {
+    private void setPassword(String password) {
         if(password == null || StringUtils.isBlank(password) ||"-1".equals(password)){
             throw new EventException(ES_REPOSITORY_MONGO_006);
         }
@@ -39,7 +39,7 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
     }
 
     @Value("${lambda.repository.mongo.database:-1}")
-    public void setDatabase(String database) {
+    private void setDatabase(String database) {
         if(database == null || StringUtils.isBlank(database) ||"-1".equals(database)){
             throw new EventException(ES_REPOSITORY_MONGO_007);
         }
