@@ -56,7 +56,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         });
     }
 
-    private List<PO> process(List<PO> flattenStream, Long parentId) {
+    private List<PO> process(List<PO> flattenStream, String parentId) {
         List<PO> tree = new ArrayList<>();
         flattenStream.forEach(po -> {
             if (Objects.equals(parentId, po.getParentId())) {
@@ -109,7 +109,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
           全部的更新都是用批处理
          */
     public Mono<Void> moveNode(MoveNodeDTO dto) {
-        if(dto.getTargetNodeId() == null || dto.getTargetNodeId().longValue() < ROOT_NODE_DEFAULT)throw new EventException(ES_COMPLIANCE_010);
+        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getCurrentNodeId() == null)throw new EventException(ES_COMPLIANCE_011);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         PO _currentNode =  instance(clazz);
@@ -132,7 +132,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                         _current.setOrganizationId(dto.getOrganizationId());
                         return super.find(_current).flatMap(root -> {
                             //先记录之前的parentId,用来改变原先的子节点的挂靠
-                            Long oldParentId = e.getParentId();
+                            String oldParentId = e.getParentId();
                             //将当前节点变成根节点
                             e.setParentId(ROOT_NODE_DEFAULT);
                             //查出当前变动节点的子孙节点
@@ -158,7 +158,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                     return super.get(_target)
                             .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                             .then(Mono.just(e)).flatMap(x->{
-                                Long oldParentId = x.getParentId();
+                                String oldParentId = x.getParentId();
                                 x.setParentId(dto.getTargetNodeId());
                                 Mono<Void> currentSelfUpdate = super.update(x).then();
                                 PO  _children = instance(clazz);
@@ -195,7 +195,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     @Override
     public Mono<Void> buildNode(BuildNodeDTO<PO> dto) {
         if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
-        if(dto.getTargetNodeId() == null || dto.getTargetNodeId().longValue() < ROOT_NODE_DEFAULT)throw new EventException(ES_COMPLIANCE_010);
+        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         //先检查 targetNodeId 代表的节点有无存在
         PO po = instance(clazz);
@@ -214,7 +214,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     @Override
     public Mono<Void> editNode(EditNodeDTO<PO> dto) {
         if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
-        if(dto.getTargetNodeId() == null || dto.getTargetNodeId().longValue() < ROOT_NODE_DEFAULT)throw new EventException(ES_COMPLIANCE_010);
+        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         PO po = instance(clazz);
         po.setId(dto.getTargetNodeId());
@@ -243,7 +243,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     @Override
     public Mono<Void> removeNode(RemoveNodeDTO dto) {
         if(dto == null)throw new EventException(ES_COMPLIANCE_001);
-        if(dto.getTargetNodeId() == null || dto.getTargetNodeId().longValue() < ROOT_NODE_DEFAULT)throw new EventException(ES_COMPLIANCE_010);
+        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         //先判断是不是根节点，根节点不允许删除
         PO po = instance(clazz);

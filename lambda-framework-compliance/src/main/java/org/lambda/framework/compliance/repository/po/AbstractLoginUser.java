@@ -8,9 +8,9 @@ import org.lambda.framework.security.container.SecurityLoginUser;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AbstractLoginUser implements SecurityLoginUser {
 
-    private Long id;
+    private String id;
 
-    private Long organizationId;
+    private String organizationId;
 
     private String name;
 }

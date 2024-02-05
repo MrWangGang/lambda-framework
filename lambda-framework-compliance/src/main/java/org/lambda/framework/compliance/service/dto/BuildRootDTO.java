@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class BuildRootDTO<PO> {
-    private Long organizationId;
+    private String organizationId;
     private PO node;
 }

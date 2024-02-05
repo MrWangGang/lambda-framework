@@ -3,17 +3,17 @@ package org.lambda.framework.compliance.repository.po;
 import java.util.List;
 
 public interface IFlattenTreePO {
-    public Long getId();
+    public String getId();
 
-    public void setId(Long id);
+    public void setId(String id);
 
-    public Long getParentId();
+    public String getParentId();
 
-    public void setParentId(Long parentId);
+    public void setParentId(String parentId);
 
-    public Long getOrganizationId();
+    public String getOrganizationId();
 
-    public void setOrganizationId(Long organizationId);
+    public void setOrganizationId(String organizationId);
 
     public <PO extends IFlattenTreePO>List<PO> getChildrens();
 

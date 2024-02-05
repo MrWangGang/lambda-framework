@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class RemoveNodeDTO {
-    private Long targetNodeId;
-    private Long organizationId;
+    private String targetNodeId;
+    private String organizationId;
 }

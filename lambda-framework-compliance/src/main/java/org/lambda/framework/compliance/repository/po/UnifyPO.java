@@ -13,9 +13,9 @@ public class UnifyPO {
     @JsonIgnore
     private LocalDateTime updateTime;
     @JsonIgnore
-    private Long creatorId;
+    private String creatorId;
     @JsonIgnore
-    private Long updaterId;
+    private String updaterId;
     @JsonIgnore
     private String creatorName;
     @JsonIgnore

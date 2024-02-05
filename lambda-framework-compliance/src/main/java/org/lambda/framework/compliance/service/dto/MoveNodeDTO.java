@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MoveNodeDTO {
-    private Long currentNodeId;
-    private Long targetNodeId;
-    private Long organizationId;
+    private String currentNodeId;
+    private String targetNodeId;
+    private String organizationId;
 }

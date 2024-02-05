@@ -10,5 +10,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class FindTreeDTO {
-    private Long organizationId;
+    private String organizationId;
 }

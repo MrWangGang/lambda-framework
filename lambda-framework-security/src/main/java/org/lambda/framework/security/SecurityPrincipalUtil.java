@@ -1,22 +1,18 @@
 package org.lambda.framework.security;
 
 import jakarta.annotation.Resource;
-import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.common.util.sample.MD5Util;
 import org.lambda.framework.common.util.sample.UUIDUtil;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.container.LambdaSecurityAuthToken;
-import org.lambda.framework.security.container.SecurityAuthToken;
 import org.lambda.framework.security.container.SecurityLoginUser;
 import org.lambda.framework.security.contract.SecurityContract;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.springframework.http.server.reactive.ServerHttpRequest;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -67,9 +63,9 @@ public class SecurityPrincipalUtil {
         }
         String principal = JsonUtil.objToString(t);
         //为了保证一个用户只会生成一个token,token唯一性
-        String keyHead = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY + MD5Util.hash(t.getId().toString()) + ".";
-        String keySuffix = MD5Util.hash(t.getId().toString()+"."+SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT + "." + UUIDUtil.get());
-        LambdaSecurityAuthToken lambdaSecurityAuthToken = new LambdaSecurityAuthToken();
+        String keyHead = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY + MD5Util.hash(t.getId()) + ".";
+        String keySuffix = MD5Util.hash(t.getId() +"."+SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT + "." + UUIDUtil.get());
+        LambdaSecurityAuthToken<T> lambdaSecurityAuthToken = new LambdaSecurityAuthToken<T>();
         lambdaSecurityAuthToken.setPrincipal(principal);
         lambdaSecurityAuthToken.setToken(keySuffix);
         return securityAuthRedisOperation.set(keyHead + TOKEN_SUFFIX, lambdaSecurityAuthToken, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(keyHead + keySuffix));
@@ -105,9 +101,9 @@ public class SecurityPrincipalUtil {
     }
 
     private Mono<String> getServerRequestToken(){
-        return this.getServerHttpRequest().flatMap(e -> {
-            List headers = e.getHeaders().get(SecurityContract.AUTH_TOKEN_NAMING);
-            if(headers == null || headers.size() == 0 || headers.get(0) == null){
+        return getServerHttpRequest().flatMap(e -> {
+            List<String> headers = e.getHeaders().get(SecurityContract.AUTH_TOKEN_NAMING);
+            if(headers == null || headers.isEmpty() || headers.get(0) == null){
                 return Mono.error(new EventException(ES_SECURITY_003));
             }
             return Mono.just(e.getHeaders().get(AUTH_TOKEN_NAMING).get(0));
@@ -128,11 +124,11 @@ public class SecurityPrincipalUtil {
             token = token + TOKEN_SUFFIX;
             return Mono.just(token);
     }
-    private Mono<LambdaSecurityAuthToken> getSecurityAuthToken(String key) {
+    private <T extends SecurityLoginUser>Mono<LambdaSecurityAuthToken<T>> getSecurityAuthToken(String key) {
         Assert.verify(key,ES_SECURITY_003);
         return this.getServerRequestToken().flatMap(rqtoken->{
             return securityAuthRedisOperation.get(key).flatMap(tokenBean -> {
-                LambdaSecurityAuthToken lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_SECURITY_003));
+                LambdaSecurityAuthToken<T> lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_SECURITY_003));
                 if (StringUtils.isBlank(lambdaSecurityAuthToken.getToken())) {
                     return Mono.error(new EventException(ES_SECURITY_003));
                 }
