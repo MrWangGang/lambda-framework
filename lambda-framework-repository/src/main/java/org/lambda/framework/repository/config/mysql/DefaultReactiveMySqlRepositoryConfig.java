@@ -19,7 +19,7 @@ public class DefaultReactiveMySqlRepositoryConfig  extends AbstractReactiveMySql
 
     private String database;
     @Value("${lambda.repository.mysql.host:-1}")
-    public void setHost(String host) {
+    private void setHost(String host) {
         if(host == null || StringUtils.isBlank(host) || "-1".equals(host)){
             throw new EventException(ES_REPOSITORY_MYSQL_000);
         }
@@ -27,7 +27,7 @@ public class DefaultReactiveMySqlRepositoryConfig  extends AbstractReactiveMySql
     }
 
     @Value("${lambda.repository.mysql.user:-1}")
-    public void setUser(String user) {
+    private void setUser(String user) {
         if(user == null || StringUtils.isBlank(user) || "-1".equals(user)){
             throw new EventException(ES_REPOSITORY_MYSQL_001);
         }
@@ -35,7 +35,7 @@ public class DefaultReactiveMySqlRepositoryConfig  extends AbstractReactiveMySql
     }
 
     @Value("${lambda.repository.mysql.password:-1}")
-    public void setPassword(String password) {
+    private void setPassword(String password) {
         if(password == null || StringUtils.isBlank(password) ||"-1".equals(password)){
             throw new EventException(ES_REPOSITORY_MYSQL_002);
         }
@@ -43,7 +43,7 @@ public class DefaultReactiveMySqlRepositoryConfig  extends AbstractReactiveMySql
     }
 
     @Value("${lambda.repository.mysql.database:-1}")
-    public void setDatabase(String database) {
+    private void setDatabase(String database) {
         if(database == null || StringUtils.isBlank(database) ||"-1".equals(database)){
             throw new EventException(ES_REPOSITORY_MYSQL_003);
         }
