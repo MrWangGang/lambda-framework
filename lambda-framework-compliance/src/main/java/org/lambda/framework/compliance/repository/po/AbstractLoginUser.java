@@ -6,11 +6,11 @@ import org.lambda.framework.security.container.SecurityLoginUser;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class AbstractLoginUser implements SecurityLoginUser {
+public class AbstractLoginUser<ID> implements SecurityLoginUser<ID> {
 
-    private String id;
+    private ID id;
 
-    private String organizationId;
+    private ID organizationId;
 
     private String name;
 }

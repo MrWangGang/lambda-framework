@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class RemoveNodeDTO {
-    private String targetNodeId;
-    private String organizationId;
+public class RemoveNodeDTO<ID> {
+    private ID targetNodeId;
+    private ID organizationId;
 }

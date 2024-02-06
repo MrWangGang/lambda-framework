@@ -6,16 +6,16 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Data
-public class UnifyPO {
+public class UnifyPO<ID> {
 
     @JsonIgnore
     private LocalDateTime createTime;
     @JsonIgnore
     private LocalDateTime updateTime;
     @JsonIgnore
-    private String creatorId;
+    private ID creatorId;
     @JsonIgnore
-    private String updaterId;
+    private ID updaterId;
     @JsonIgnore
     private String creatorName;
     @JsonIgnore

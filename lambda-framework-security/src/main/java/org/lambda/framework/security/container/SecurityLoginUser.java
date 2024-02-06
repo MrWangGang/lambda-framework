@@ -1,12 +1,12 @@
 package org.lambda.framework.security.container;
 
-public interface SecurityLoginUser {
+public interface SecurityLoginUser<ID> {
     //主键
 
-    public String getId();
-    public String getOrganizationId();
+    public ID getId();
+    public ID getOrganizationId();
     public String getName();
-    public void setId(String id);
-    public void setOrganizationId(String organizationId);
+    public void setId(ID id);
+    public void setOrganizationId(ID organizationId);
     public void setName(String name);
 }

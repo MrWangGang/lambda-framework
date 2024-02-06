@@ -23,7 +23,7 @@ import static org.lambda.framework.compliance.enums.ComplianceConstant.ROOT_NODE
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
 
 
-public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
+public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
 
     private Class<PO> clazz;
     @Resource
@@ -47,16 +47,16 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
 
     //使用递归构建树
     //使用po参数是为了校验机构号这个必要的参数
-    public Mono<List<PO>> findTree(FindTreeDTO dto) {
+    public Mono<List<PO>> findTree(FindTreeDTO<ID> dto) {
         if(dto == null || dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         PO po = this.instance(clazz);
         po.setOrganizationId(dto.getOrganizationId());
         return super.find(po).collectList().flatMap(e->{
-            return Mono.just(process(e, ROOT_NODE_DEFAULT));
+            return Mono.just(process(e, (ID) ROOT_NODE_DEFAULT));
         });
     }
 
-    private List<PO> process(List<PO> flattenStream, String parentId) {
+    private List<PO> process(List<PO> flattenStream, ID parentId) {
         List<PO> tree = new ArrayList<>();
         flattenStream.forEach(po -> {
             if (Objects.equals(parentId, po.getParentId())) {
@@ -71,13 +71,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     public PO instance(Class<PO> clazz){
         try {
             return clazz.getDeclaredConstructor().newInstance();
-        } catch (InstantiationException e) {
-            throw new EventException(ES_COMPLIANCE_014);
-        } catch (IllegalAccessException e) {
-            throw new EventException(ES_COMPLIANCE_014);
-        } catch (InvocationTargetException e) {
-            throw new EventException(ES_COMPLIANCE_014);
-        } catch (NoSuchMethodException e) {
+        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
             throw new EventException(ES_COMPLIANCE_014);
         }
     };
@@ -108,7 +102,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
           全部有关节点查询都需要带上机构id
           全部的更新都是用批处理
          */
-    public Mono<Void> moveNode(MoveNodeDTO dto) {
+    public Mono<Void> moveNode(MoveNodeDTO<ID> dto) {
         if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getCurrentNodeId() == null)throw new EventException(ES_COMPLIANCE_011);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
@@ -132,16 +126,16 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                         _current.setOrganizationId(dto.getOrganizationId());
                         return super.find(_current).flatMap(root -> {
                             //先记录之前的parentId,用来改变原先的子节点的挂靠
-                            String oldParentId = e.getParentId();
+                            ID oldParentId =  e.getParentId();
                             //将当前节点变成根节点
-                            e.setParentId(ROOT_NODE_DEFAULT);
+                            e.setParentId((ID) ROOT_NODE_DEFAULT);
                             //查出当前变动节点的子孙节点
                             PO _children = instance(clazz);
                             _children.setParentId(e.getId());
                             _children.setOrganizationId(dto.getOrganizationId());
                             Flux<PO> currentChildren = super.find(_children)
                                     .flatMap(x->{
-                                        x.setParentId(oldParentId);
+                                        x.setParentId((ID) oldParentId);
                                         return Flux.just(x);
                                     });
                             Flux<PO> currentChildrenUpdate = super.update(currentChildren);
@@ -158,7 +152,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                     return super.get(_target)
                             .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
                             .then(Mono.just(e)).flatMap(x->{
-                                String oldParentId = x.getParentId();
+                                ID oldParentId = x.getParentId();
                                 x.setParentId(dto.getTargetNodeId());
                                 Mono<Void> currentSelfUpdate = super.update(x).then();
                                 PO  _children = instance(clazz);
@@ -176,7 +170,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     }
 
     @Override
-    public Mono<Void> buildRoot(BuildRootDTO<PO> dto) {
+    public Mono<Void> buildRoot(BuildRootDTO<PO,ID> dto) {
         if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
         //要创建一个根节点,先检查之前有无根节点
@@ -186,14 +180,14 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
         return super.find(po).hasElements().flatMap(e->{
                     if(e)return Mono.error(new EventException(ES_COMPLIANCE_003));
                     //设置项
-                    dto.getNode().setParentId(ROOT_NODE_DEFAULT);
+                    dto.getNode().setParentId((ID) ROOT_NODE_DEFAULT);
                     dto.getNode().setOrganizationId(dto.getOrganizationId());
                     return super.insert(dto.getNode());
                 }).then();
     }
 
     @Override
-    public Mono<Void> buildNode(BuildNodeDTO<PO> dto) {
+    public Mono<Void> buildNode(BuildNodeDTO<PO,ID> dto) {
         if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
         if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
@@ -212,7 +206,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
     }
 
     @Override
-    public Mono<Void> editNode(EditNodeDTO<PO> dto) {
+    public Mono<Void> editNode(EditNodeDTO<PO,ID> dto) {
         if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
         if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
@@ -241,7 +235,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repos
                 }).then();
     }
     @Override
-    public Mono<Void> removeNode(RemoveNodeDTO dto) {
+    public Mono<Void> removeNode(RemoveNodeDTO<ID> dto) {
         if(dto == null)throw new EventException(ES_COMPLIANCE_001);
         if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
         if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);

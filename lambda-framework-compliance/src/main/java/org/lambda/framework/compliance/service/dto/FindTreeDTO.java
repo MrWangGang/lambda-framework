@@ -9,6 +9,6 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class FindTreeDTO {
-    private String organizationId;
+public class FindTreeDTO<ID> {
+    private ID organizationId;
 }

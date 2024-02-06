@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class MoveNodeDTO {
-    private String currentNodeId;
-    private String targetNodeId;
-    private String organizationId;
+public class MoveNodeDTO<ID> {
+    private ID currentNodeId;
+    private ID targetNodeId;
+    private ID organizationId;
 }

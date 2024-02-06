@@ -2,20 +2,20 @@ package org.lambda.framework.compliance.repository.po;
 
 import java.util.List;
 
-public interface IFlattenTreePO {
-    public String getId();
+public interface IFlattenTreePO<ID> {
+    public ID getId();
 
-    public void setId(String id);
+    public void setId(ID id);
 
-    public String getParentId();
+    public ID getParentId();
 
-    public void setParentId(String parentId);
+    public void setParentId(ID parentId);
 
-    public String getOrganizationId();
+    public ID getOrganizationId();
 
-    public void setOrganizationId(String organizationId);
+    public void setOrganizationId(ID organizationId);
 
-    public <PO extends IFlattenTreePO>List<PO> getChildrens();
+    public <PO extends IFlattenTreePO<ID>>List<PO> getChildrens();
 
-    public <PO extends IFlattenTreePO>void setChildrens(List<PO> childrens);
+    public <PO extends IFlattenTreePO<ID>>void setChildrens(List<PO> childrens);
 }

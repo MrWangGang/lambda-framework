@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class BuildRootDTO<PO> {
-    private String organizationId;
+public class BuildRootDTO<PO,ID> {
+    private ID organizationId;
     private PO node;
 }

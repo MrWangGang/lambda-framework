@@ -16,7 +16,7 @@ import java.util.List;
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
 
 
-public  class DefaultBasicController<PO extends UnifyPO,ID,Service extends IDefaultBasicService<PO,ID>> {
+public  class DefaultBasicController<PO extends UnifyPO<ID>,ID,Service extends IDefaultBasicService<PO,ID>> {
 
     protected Service service;
     public DefaultBasicController(@Autowired Service service) {

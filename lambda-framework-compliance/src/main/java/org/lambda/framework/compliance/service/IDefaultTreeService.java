@@ -7,17 +7,17 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
-public interface IDefaultTreeService<PO extends UnifyPO & IFlattenTreePO,ID> extends IDefaultBasicService<PO,ID>{
-    public Mono<List<PO>> findTree(FindTreeDTO dto);
+public interface IDefaultTreeService<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,ID> extends IDefaultBasicService<PO,ID>{
+    public Mono<List<PO>> findTree(FindTreeDTO<ID> dto);
 
-    public Mono<Void> moveNode(MoveNodeDTO dto);
+    public Mono<Void> moveNode(MoveNodeDTO<ID> dto);
 
-    public Mono<Void> buildRoot(BuildRootDTO<PO> dto);
-    public Mono<Void> buildNode(BuildNodeDTO<PO> dto);
+    public Mono<Void> buildRoot(BuildRootDTO<PO,ID> dto);
+    public Mono<Void> buildNode(BuildNodeDTO<PO,ID> dto);
 
-    public Mono<Void> editNode(EditNodeDTO<PO> dto);
+    public Mono<Void> editNode(EditNodeDTO<PO,ID> dto);
 
-    public Mono<Void> removeNode(RemoveNodeDTO dto);
+    public Mono<Void> removeNode(RemoveNodeDTO<ID> dto);
 
 
 }

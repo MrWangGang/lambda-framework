@@ -46,15 +46,15 @@ public class SecurityPrincipalUtil {
             });
         });
     }
-    public <T extends SecurityLoginUser>Mono<T> getPrincipal2Object(Class<T> clazz) {
+    public <T extends SecurityLoginUser<?>>Mono<T> getPrincipal2Object(Class<T> clazz) {
         return this.getPrincipal().flatMap(e -> {
             return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_SECURITY_004)));
         }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004)));
     }
 
-    ;
 
-    public <T extends SecurityLoginUser> Mono<String> setPrincipal(T t) {
+
+    public <T extends SecurityLoginUser<?>> Mono<String> setPrincipal(T t) {
         if (t == null) {
             throw new EventException(SecurityExceptionEnum.ES_SECURITY_002);
         }
@@ -63,7 +63,7 @@ public class SecurityPrincipalUtil {
         }
         String principal = JsonUtil.objToString(t);
         //为了保证一个用户只会生成一个token,token唯一性
-        String keyHead = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY + MD5Util.hash(t.getId()) + ".";
+        String keyHead = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY + MD5Util.hash(t.getId().toString()) + ".";
         String keySuffix = MD5Util.hash(t.getId() +"."+SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT + "." + UUIDUtil.get());
         LambdaSecurityAuthToken<T> lambdaSecurityAuthToken = new LambdaSecurityAuthToken<T>();
         lambdaSecurityAuthToken.setPrincipal(principal);
@@ -71,7 +71,7 @@ public class SecurityPrincipalUtil {
         return securityAuthRedisOperation.set(keyHead + TOKEN_SUFFIX, lambdaSecurityAuthToken, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(keyHead + keySuffix));
     }
 
-    public <T extends SecurityLoginUser> Mono<Void> updatePrincipal(T t) {
+    public <T extends SecurityLoginUser<?>> Mono<Void> updatePrincipal(T t) {
         return this.getServerRequestToken().flatMap(reqKey->{
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
                 return this.getSecurityAuthToken(key).flatMap(token->{
@@ -124,11 +124,11 @@ public class SecurityPrincipalUtil {
             token = token + TOKEN_SUFFIX;
             return Mono.just(token);
     }
-    private <T extends SecurityLoginUser>Mono<LambdaSecurityAuthToken<T>> getSecurityAuthToken(String key) {
+    private <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken<?>> getSecurityAuthToken(String key) {
         Assert.verify(key,ES_SECURITY_003);
         return this.getServerRequestToken().flatMap(rqtoken->{
             return securityAuthRedisOperation.get(key).flatMap(tokenBean -> {
-                LambdaSecurityAuthToken<T> lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_SECURITY_003));
+                LambdaSecurityAuthToken<?> lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_SECURITY_003));
                 if (StringUtils.isBlank(lambdaSecurityAuthToken.getToken())) {
                     return Mono.error(new EventException(ES_SECURITY_003));
                 }
