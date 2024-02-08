@@ -6,6 +6,8 @@ import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
 
     public Mono<PO> update(PO po);
@@ -18,9 +20,9 @@ public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
 
     public Mono<Void> delete(ID id);
 
-    public Mono<Void> delete(Publisher<ID> ids);
-
-    public Mono<Void> delete(Iterable<? extends PO> entities);
+    public Mono<Void> delete(List<ID> ids);
+    public Mono<Void> deleteBy(PO po);
+    public Mono<Void> deleteBy(List<PO> pos);
 
     public Flux<PO> find(PO po);
 

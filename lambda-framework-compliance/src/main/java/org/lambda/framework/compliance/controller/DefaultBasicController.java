@@ -55,7 +55,7 @@ public  class DefaultBasicController<PO extends UnifyPO<ID>,ID,Service extends I
     @DeleteMapping("/deletes")
     public Mono<Void> delete(List<ID> ids) {
         if(ids == null || ids.isEmpty())throw new EventException(ES_COMPLIANCE_000);
-        return service.delete(Flux.fromIterable(ids));
+        return service.delete(ids);
     }
 
     @PostMapping("/find")

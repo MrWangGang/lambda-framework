@@ -15,7 +15,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -260,15 +259,13 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
                             PO _rootDelete = instance(clazz);
                             _rootDelete.setId(e.getId());
                             _rootDelete.setOrganizationId(e.getOrganizationId());
-                            Iterable<? extends PO> rootDeleteIterable = Collections.singletonList(_rootDelete);
-                            return super.delete(rootDeleteIterable);
+                            return super.deleteBy(_rootDelete);
                         });
                     }
                     PO _childrenDelete = instance(clazz);
                     _childrenDelete.setId(e.getId());
                     _childrenDelete.setOrganizationId(e.getOrganizationId());
-                    Iterable<? extends PO> childDeleteIterable = Collections.singletonList(_childrenDelete);
-                    Mono<Void> deleteSelf = super.delete(childDeleteIterable);
+                    Mono<Void> deleteSelf = super.deleteBy(_childrenDelete);
 
                     //删除当前节点,并将他们的子节点向前移动，挂靠在之前的parentId上
                     PO _childrenUpdate = instance(clazz);
