@@ -32,7 +32,8 @@ public enum CommonExceptionEnum implements ExceptionEnumFunction {
     ES_COMMON_022("ES_COMMON_022","类型不匹配String"),
     ES_COMMON_023("ES_COMMON_023","要转成date的value不能为空"),
     ES_COMMON_024("ES_COMMON_024","日期转化失败"),
-    ES_COMMON_025("ES_COMMON_025","MD5加密失败");
+    ES_COMMON_025("ES_COMMON_025","MD5加密失败"),
+    ES_COMMON_026("ES_COMMON_026","反射获取属性错误");
     // 成员变量
     private String code;
 

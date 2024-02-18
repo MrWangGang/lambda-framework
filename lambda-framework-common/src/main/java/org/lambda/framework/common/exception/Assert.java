@@ -2,7 +2,10 @@ package org.lambda.framework.common.exception;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.lang.reflect.Field;
 import java.util.List;
+
+import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_026;
 
 public class Assert {
     public static void verify(ExceptionEnumFunction exceptionEnumFunction,Object...objects){
@@ -68,5 +71,28 @@ public class Assert {
             }
         }
         return true;
+    }
+
+    public static boolean verifyField(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+
+        Class<?> clazz = obj.getClass();
+        Field[] fields = clazz.getDeclaredFields();
+
+        for (Field field : fields) {
+            field.setAccessible(true);
+            try {
+                if (field.get(obj) != null) {
+                    return true;
+                }
+            } catch (IllegalAccessException e) {
+                // 处理异常，如果有需要
+                throw new EventException(ES_COMMON_026);
+            }
+        }
+
+        return false;
     }
 }
