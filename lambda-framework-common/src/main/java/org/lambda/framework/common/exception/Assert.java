@@ -7,6 +7,8 @@ import java.util.List;
 public class Assert {
     public static void verify(ExceptionEnumFunction exceptionEnumFunction,Object...objects){
         for (Object object:objects){
+            if(object == null)throw new EventException(exceptionEnumFunction);
+
             if(object instanceof String){
                 if(StringUtils.isBlank((String) object)){
                     throw new EventException(exceptionEnumFunction);
@@ -23,10 +25,11 @@ public class Assert {
                     throw new EventException(exceptionEnumFunction);
                 }
             }
-            if(object == null)throw new EventException(exceptionEnumFunction);
         }
     }
     public static void verify(Object object,ExceptionEnumFunction exceptionEnumFunction){
+        if(object == null)throw new EventException(exceptionEnumFunction);
+
         if(object instanceof String){
             if(StringUtils.isBlank((String) object)){
                 throw new EventException(exceptionEnumFunction);
@@ -43,10 +46,11 @@ public class Assert {
                 throw new EventException(exceptionEnumFunction);
             }
         }
-        if(object == null)throw new EventException(exceptionEnumFunction);
     }
 
     public static boolean verify(Object object){
+        if(object == null)return false;
+
         if(object instanceof String){
             if(StringUtils.isBlank((String) object)){
                 return false;
@@ -63,7 +67,6 @@ public class Assert {
                 return false;
             }
         }
-        if(object == null)return false;
         return true;
     }
 }
