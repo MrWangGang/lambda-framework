@@ -13,6 +13,7 @@ import org.lambda.framework.security.SecurityPrincipalUtil;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
+import org.springframework.data.domain.ExampleMatcher;
 import org.springframework.data.repository.query.ReactiveQueryByExampleExecutor;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.data.repository.reactive.ReactiveSortingRepository;
@@ -143,7 +144,9 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     @Override
     public Flux<PO> find(PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
-        Example<PO> example = Example.<PO>of(po);
+        ExampleMatcher matcher = ExampleMatcher.matching()
+                .withIgnoreNullValues();
+        Example<PO> example = Example.<PO>of(po,matcher);
         return repository.findAll(example);
     }
 
@@ -154,14 +157,16 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
     @Override
     public Mono<Paged<PO>> find(Long page, Long size, PO po) {
+        ExampleMatcher matcher = ExampleMatcher.matching()
+                .withIgnoreNullValues();
         return repository.find(page,size,po,new UnifyPagingOperation<PO>() {
             @Override
             public Mono<Long> count() {
-                return repository.count(Example.of(po));
+                return repository.count(Example.of(po,matcher));
             }
             @Override
             public Flux<PO> query() {
-                return repository.findAll(Example.of(po));
+                return repository.findAll(Example.of(po,matcher));
             }
         });
     }
@@ -175,7 +180,10 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     @Override
     public Mono<PO> get(PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
-        Example<PO> example = Example.of(po);
+        ExampleMatcher matcher = ExampleMatcher.matching()
+                .withIgnoreNullValues();
+
+        Example<PO> example = Example.of(po,matcher);
         return repository.findOne(example);
     }
 }
