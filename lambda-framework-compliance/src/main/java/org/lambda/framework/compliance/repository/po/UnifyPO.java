@@ -12,12 +12,4 @@ public class UnifyPO<ID> {
     private LocalDateTime createTime;
     @JsonIgnore
     private LocalDateTime updateTime;
-    @JsonIgnore
-    private ID creatorId;
-    @JsonIgnore
-    private ID updaterId;
-    @JsonIgnore
-    private String creatorName;
-    @JsonIgnore
-    private String updaterName;
 }

@@ -1,13 +1,11 @@
 package org.lambda.framework.compliance.service.impl;
 
-import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.compliance.repository.po.IFlattenTreePO;
 import org.lambda.framework.compliance.repository.po.UnifyPO;
 import org.lambda.framework.compliance.service.IDefaultTreeService;
 import org.lambda.framework.compliance.service.dto.*;
 import org.lambda.framework.repository.operation.mysql.ReactiveMySqlCrudRepositoryOperation;
-import org.lambda.framework.security.SecurityPrincipalUtil;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -25,8 +23,6 @@ import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
 public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
 
     private Class<PO> clazz;
-    @Resource
-    private SecurityPrincipalUtil securityPrincipalUtil;
 
     public DefaultTreeServiceImpl(Repository repository) {
         super(repository);
@@ -223,10 +219,6 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
                     dto.getNode().setOrganizationId(e.getOrganizationId());
                     dto.getNode().setParentId(e.getParentId());
                     //将统一的信息复制过去
-                    dto.getNode().setCreatorId(e.getCreatorId());
-                    dto.getNode().setUpdaterId(e.getUpdaterId());
-                    dto.getNode().setCreatorName(e.getCreatorName());
-                    dto.getNode().setUpdaterName(e.getUpdaterName());
                     dto.getNode().setCreateTime(e.getCreateTime());
                     dto.getNode().setUpdateTime(e.getUpdateTime());
 

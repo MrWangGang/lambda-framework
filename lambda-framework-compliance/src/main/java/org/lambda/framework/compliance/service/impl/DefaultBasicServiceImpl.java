@@ -1,15 +1,12 @@
 package org.lambda.framework.compliance.service.impl;
 
-import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.compliance.repository.po.AbstractLoginUser;
 import org.lambda.framework.compliance.repository.po.UnifyPO;
 import org.lambda.framework.compliance.service.IDefaultBasicService;
 import org.lambda.framework.repository.operation.Paged;
 import org.lambda.framework.repository.operation.ReactiveUnifyPagingRepositoryOperation;
 import org.lambda.framework.repository.operation.UnifyPagingOperation;
-import org.lambda.framework.security.SecurityPrincipalUtil;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
@@ -23,7 +20,6 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.lambda.framework.compliance.enums.ComplianceConstant.*;
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
 
 public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation>  implements IDefaultBasicService<PO,ID> {
@@ -37,84 +33,46 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     protected Repository repository;
 
 
-    @Resource
-    private SecurityPrincipalUtil securityPrincipalUtil;
-
-    public AbstractLoginUser<ID> getGuest(){
-        AbstractLoginUser<ID> loginUser = new AbstractLoginUser<ID>();
-        loginUser.setId((ID) GUEST_LOGIN_USER_ID);
-        loginUser.setName(GUEST_LOGIN_USER_NAME);
-        loginUser.setOrganizationId((ID) GUEST_LOGIN_USER_ORGANIZATIONID);
-        return loginUser;
-    }
-
     @Override
     public Mono<PO> update(PO po) {
-        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
-                .onErrorReturn(getGuest())
-                .flatMap(e->{
-                    if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
-                    po.setUpdateTime(LocalDateTime.now());
-                    po.setUpdaterId((ID) e.getId());
-                    po.setUpdaterName(e.getName());
-                    return repository.save(po);
-                });
+        if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
+        po.setUpdateTime(LocalDateTime.now());
+        return repository.save(po);
     }
 
     @Override
     public Mono<PO> insert(PO po) {
-        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
-                .onErrorReturn(getGuest())
-                .flatMap(e->{
-                    if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
-                    LocalDateTime now = LocalDateTime.now();
-                    po.setCreateTime(now);
-                    po.setUpdateTime(now);
-                    po.setCreatorId((ID) e.getId());
-                    po.setUpdaterId((ID) e.getId());
-                    po.setCreatorName(e.getName());
-                    po.setUpdaterName(e.getName());
-                    return repository.save(po);
-                });
+        if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
+        LocalDateTime now = LocalDateTime.now();
+        po.setCreateTime(now);
+        po.setUpdateTime(now);
+        return repository.save(po);
     }
 
     @Override
     public Flux<PO> update(Publisher<PO> pos) {
-            return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
-                .onErrorReturn(getGuest())
-                .flatMapMany(e->{
-                    if(pos == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
-                    LocalDateTime now = LocalDateTime.now();
-                    return Flux.from(pos).flatMap(po->{
-                        po.setUpdateTime(now);
-                        po.setUpdaterId((ID) e.getId());
-                        po.setUpdaterName(e.getName());
-                        return Flux.just(po);
-                    }).collectList();
-                }).flatMap(e->{
-                    return repository.saveAll(e);
-                });
+        if(pos == null) throw new EventException(ES_COMPLIANCE_000);
+        LocalDateTime now = LocalDateTime.now();
+        return Flux.from(pos).flatMap(po->{
+            po.setUpdateTime(now);
+            return Flux.just(po);
+        }).collectList().flatMapMany(e->{
+             return repository.saveAll(e);
+        });
     }
 
     @Override
     public Flux<PO> insert(Publisher<PO> pos) {
-        return securityPrincipalUtil.getPrincipal2Object(AbstractLoginUser.class)
-                .onErrorReturn(getGuest())
-                .flatMapMany(e->{
-                    if(pos == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
-                    LocalDateTime now = LocalDateTime.now();
-                    return Flux.from(pos).flatMap(po->{
-                        po.setCreateTime(now);
-                        po.setUpdateTime(now);
-                        po.setCreatorId((ID) e.getId());
-                        po.setUpdaterId((ID) e.getId());
-                        po.setCreatorName(e.getName());
-                        po.setUpdaterName(e.getName());
-                        return Flux.just(po);
-                    }).collectList();
-                }).flatMap(e->{
-                    return repository.saveAll(e);
-                });
+        if(pos == null) throw new EventException(ES_COMPLIANCE_000);
+        LocalDateTime now = LocalDateTime.now();
+        return Flux.from(pos).flatMap(po->{
+            po.setCreateTime(now);
+            po.setUpdateTime(now);
+            return Flux.just(po);
+        }).collectList().flatMapMany(e->{
+            return repository.saveAll(e);
+        });
+
     }
 
     @Override
