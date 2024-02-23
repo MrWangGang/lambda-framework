@@ -96,6 +96,11 @@
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-rsocket</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.lambda.framework</groupId>
 				<artifactId>lambda-framework-security</artifactId>
 				<version>${project.version}</version>
 			</dependency>
