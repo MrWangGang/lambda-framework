@@ -103,7 +103,7 @@ public class HttpClientPostProcessor implements ResourceLoaderAware, SmartInitia
                             }
                     }
                     //根据web客户端去构建服http服务的代理工厂
-                    HttpServiceProxyFactory factory = HttpServiceProxyFactory.builder(WebClientAdapter.forClient(webClient)).build();
+                    HttpServiceProxyFactory factory = HttpServiceProxyFactory.builderFor(WebClientAdapter.create(webClient)).build();
                     //利用类的全限定名通过Class.forName获取class对象并利用http服务的代理工厂创建出代理对象
                     Object client = factory.createClient(Class.forName(metadataReader.getClassMetadata().getClassName()));
                     //将创建出来的代理对象放到spring容器当中
