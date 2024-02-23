@@ -8,7 +8,7 @@ import org.springframework.core.env.PropertiesPropertySource;
 
 import java.util.Properties;
 
-public class LambdaWebConfig implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+public class LambdaVirtualThreadConfig implements ApplicationContextInitializer<ConfigurableApplicationContext> {
     @Override
     public void initialize(ConfigurableApplicationContext applicationContext) {
         ConfigurableEnvironment environment = applicationContext.getEnvironment();

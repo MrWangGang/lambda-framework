@@ -192,6 +192,7 @@
 	<modules>
 		<module>lambda-framework-common</module>
 		<module>lambda-framework-web</module>
+		<module>lambda-framework-rsocket</module>
 		<module>lambda-framework-httpclient</module>
 		<module>lambda-framework-security</module>
 		<module>lambda-framework-guid</module>
