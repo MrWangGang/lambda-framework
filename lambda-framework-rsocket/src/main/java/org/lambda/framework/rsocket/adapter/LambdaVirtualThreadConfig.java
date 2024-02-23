@@ -7,7 +7,10 @@ import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.env.PropertiesPropertySource;
 
 import java.util.Properties;
-
+//在rsocket中 虚拟线程还没有得到应用，
+// 原因是因为netty还没有支持虚拟线程，
+// 这个配置开启了也是没有用
+//期待有一天netty可以拥抱虚拟线程
 public class LambdaVirtualThreadConfig implements ApplicationContextInitializer<ConfigurableApplicationContext> {
     @Override
     public void initialize(ConfigurableApplicationContext applicationContext) {
