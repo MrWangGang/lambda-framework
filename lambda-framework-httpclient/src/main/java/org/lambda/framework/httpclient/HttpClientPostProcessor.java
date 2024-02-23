@@ -1,8 +1,7 @@
-package org.lambda.framework.rpc;
+package org.lambda.framework.httpclient;
 
 import cn.hutool.core.collection.ListUtil;
 import jakarta.annotation.Resource;
-import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -11,9 +10,6 @@ import org.springframework.cloud.client.loadbalancer.reactive.ReactorLoadBalance
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ResourceLoaderAware;
-import org.springframework.context.annotation.Bean;
-import org.springframework.core.annotation.AnnotationAttributes;
-import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.ResourcePatternUtils;
 import org.springframework.core.type.classreading.CachingMetadataReaderFactory;
@@ -23,11 +19,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.support.WebClientAdapter;
-import org.springframework.web.service.annotation.HttpExchange;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
-import reactor.core.publisher.Mono;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -35,10 +28,10 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import static org.lambda.framework.rpc.enums.RpcExceptionEnum.ES_RPC_000;
+import static org.lambda.framework.httpclient.enums.HttpClientExceptionEnum.ES_RPC_000;
 
 @Component
-public class RpcPostProcessor implements ResourceLoaderAware, SmartInitializingSingleton, ApplicationContextAware {
+public class HttpClientPostProcessor implements ResourceLoaderAware, SmartInitializingSingleton, ApplicationContextAware {
     private ResourceLoader resourceLoader;
 
     @Override
@@ -60,16 +53,16 @@ public class RpcPostProcessor implements ResourceLoaderAware, SmartInitializingS
         try {
             //获取指定目录下的class文件
             org.springframework.core.io.Resource[] resources = ResourcePatternUtils.getResourcePatternResolver(resourceLoader)
-                    .getResources("classpath:/**/facade/**/*.class");
+                    .getResources("classpath:/**/httpclient/**/*.class");
             //根据resources创建数据读取工厂
             MetadataReaderFactory metaReader = new CachingMetadataReaderFactory(resourceLoader);
             for (org.springframework.core.io.Resource resource : resources) {
                 //获取元数据
                 MetadataReader metadataReader = metaReader.getMetadataReader(resource);
                 //判断是否存在HttpExchange注解(是否为http interface的接口调用)
-                if (metadataReader.getAnnotationMetadata().hasAnnotation(Rpc.class.getName())) {
+                if (metadataReader.getAnnotationMetadata().hasAnnotation(HttpClient.class.getName())) {
                     //构建一个web客户端
-                    Map rpcAttributes = metadataReader.getAnnotationMetadata().getAnnotationAttributes(Rpc.class.getName());
+                    Map rpcAttributes = metadataReader.getAnnotationMetadata().getAnnotationAttributes(HttpClient.class.getName());
                     WebClient webClient = WebClient.builder().build();
                     if(rpcAttributes!=null){
                         List<ExchangeFilterFunction> customerConsumer = null;

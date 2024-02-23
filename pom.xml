@@ -106,7 +106,7 @@
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
-				<artifactId>lambda-framework-rpc</artifactId>
+				<artifactId>lambda-framework-httpclient</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
@@ -192,7 +192,7 @@
 	<modules>
 		<module>lambda-framework-common</module>
 		<module>lambda-framework-web</module>
-		<module>lambda-framework-rpc</module>
+		<module>lambda-framework-httpclient</module>
 		<module>lambda-framework-security</module>
 		<module>lambda-framework-guid</module>
 		<module>lambda-framework-redis</module>

@@ -1,8 +1,8 @@
-package org.lambda.framework.rpc.enums;
+package org.lambda.framework.httpclient.enums;
 
 import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
-public enum RpcExceptionEnum implements ExceptionEnumFunction {
+public enum HttpClientExceptionEnum implements ExceptionEnumFunction {
 
     //OPEN AI组件相关   300-399
     ES_RPC_000("ES_RPC_000","spring扩展点获取HttpExchange注解自动配置失败");
@@ -11,7 +11,7 @@ public enum RpcExceptionEnum implements ExceptionEnumFunction {
 
     private String message;
     // 构造方法
-    private RpcExceptionEnum(String code, String message) {
+    private HttpClientExceptionEnum(String code, String message) {
         this.code = code;
         this.message = message;
 
