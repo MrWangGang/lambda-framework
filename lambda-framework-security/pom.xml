@@ -19,11 +19,12 @@
 		</dependency>
 		<dependency>
 			<groupId>org.lambda.framework</groupId>
-			<artifactId>lambda-framework-redis</artifactId>
+			<artifactId>lambda-framework-compliance</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
+
 	</dependencies>
 </project>

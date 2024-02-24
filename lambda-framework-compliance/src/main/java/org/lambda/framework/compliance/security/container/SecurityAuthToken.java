@@ -1,9 +1,7 @@
-package org.lambda.framework.security.container;
+package org.lambda.framework.compliance.security.container;
 
 import lombok.Builder;
 import lombok.Data;
-import org.springframework.security.authentication.AbstractAuthenticationToken;
-import org.springframework.security.core.Authentication;
 
 /**
  * @description: 框架层的用户接口
@@ -12,7 +10,7 @@ import org.springframework.security.core.Authentication;
  **/
 @Data
 @Builder
-public class SecurityAuthToken extends AbstractAuthenticationToken implements Authentication {
+public class SecurityAuthToken  {
     private final String principal;
 
     private String credentials;
@@ -21,7 +19,6 @@ public class SecurityAuthToken extends AbstractAuthenticationToken implements Au
 
 
     public SecurityAuthToken(String principal, String credentials, boolean authenticated){
-        super(null);
         this.principal = principal;
         this.credentials = credentials;
         this.authenticated = authenticated;

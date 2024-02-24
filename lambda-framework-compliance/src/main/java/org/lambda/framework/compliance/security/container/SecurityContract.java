@@ -1,4 +1,4 @@
-package org.lambda.framework.security.contract;
+package org.lambda.framework.compliance.security.container;
 
 /**
  * @description: 契约
