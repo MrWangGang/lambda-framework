@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
+import static org.lambda.framework.compliance.security.container.SecurityContract.TOKEN_SUFFIX;
 
 /**
  * @description: 获取spring secutiy中的principal
@@ -28,29 +29,10 @@ import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
  * @create: 2018-11-30 下午 3:28
  **/
 @Component
-public class SecurityPrincipalUtil {
-
-    private static String TOKEN_SUFFIX = "prefix";
+public class PrincipalUtil {
 
     @Resource(name = "securityAuthRedisOperation")
-    private ReactiveRedisOperation securityAuthRedisOperation;
-
-    public Mono<String> getPrincipal() {
-        return this.getServerRequestToken().flatMap(reqKey->{
-            return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
-                return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
-                    return Mono.just(securityAuthToken.getPrincipal());
-                });
-            });
-        });
-    }
-    public <T extends SecurityLoginUser<?>>Mono<T> getPrincipal2Object(Class<T> clazz) {
-        return this.getPrincipal().flatMap(e -> {
-            return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_023)));
-        }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
-    }
-
-
+    protected ReactiveRedisOperation securityAuthRedisOperation;
 
     public <T extends SecurityLoginUser<?>> Mono<String> setPrincipal(T t) {
         if (t == null) {
@@ -93,12 +75,12 @@ public class SecurityPrincipalUtil {
         });
     }
 
-    private static Mono<ServerHttpRequest> getServerHttpRequest() {
+
+    protected static Mono<ServerHttpRequest> getServerHttpRequest() {
         return Mono.deferContextual(Mono::just)
                 .map(contextView -> contextView.get(ServerWebExchange.class).getRequest());
     }
-
-    private Mono<String> getServerRequestToken(){
+    protected Mono<String> getServerRequestToken(){
         return getServerHttpRequest().flatMap(e -> {
             List<String> headers = e.getHeaders().get(SecurityContract.AUTH_TOKEN_NAMING);
             if(headers == null || headers.isEmpty() || headers.get(0) == null){
@@ -107,25 +89,26 @@ public class SecurityPrincipalUtil {
             return Mono.just(e.getHeaders().get(SecurityContract.AUTH_TOKEN_NAMING).get(0));
         }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_021)));
     }
-    private Mono<String> getSecurityAuthTokenKey(String requestToken) {
-            Assert.verify(requestToken,ES_COMPLIANCE_021);
-            if (!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(requestToken).matches()))
-                throw new EventException(ES_COMPLIANCE_024);
-            //对token进行解析
-            // 在字符串中查找最后一个点的位置
-            int lastDotIndex = requestToken.lastIndexOf('.');
-            // 如果找到了点，则返回点之前的子字符串，否则返回原始字符串
-            String token = lastDotIndex != -1 ? requestToken.substring(0, lastDotIndex + 1) : null;
-            if (StringUtils.isBlank(token)) {
-                return Mono.error(new EventException(ES_COMPLIANCE_021));
-            }
-            token = token + TOKEN_SUFFIX;
-            return Mono.just(token);
+
+    protected Mono<String> getSecurityAuthTokenKey(String requestToken) {
+        Assert.verify(requestToken,ES_COMPLIANCE_021);
+        if (!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(requestToken).matches()))
+            throw new EventException(ES_COMPLIANCE_024);
+        //对token进行解析
+        // 在字符串中查找最后一个点的位置
+        int lastDotIndex = requestToken.lastIndexOf('.');
+        // 如果找到了点，则返回点之前的子字符串，否则返回原始字符串
+        String token = lastDotIndex != -1 ? requestToken.substring(0, lastDotIndex + 1) : null;
+        if (StringUtils.isBlank(token)) {
+            return Mono.error(new EventException(ES_COMPLIANCE_021));
+        }
+        token = token + TOKEN_SUFFIX;
+        return Mono.just(token);
     }
-    private <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken<?>> getSecurityAuthToken(String key) {
+    protected <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken<?>> getSecurityAuthToken(String key) {
         Assert.verify(key,ES_COMPLIANCE_021);
         return this.getServerRequestToken().flatMap(rqtoken->{
-            return securityAuthRedisOperation.get(key).flatMap(tokenBean -> {
+            return this.securityAuthRedisOperation.get(key).flatMap(tokenBean -> {
                 LambdaSecurityAuthToken<?> lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_COMPLIANCE_021));
                 if (StringUtils.isBlank(lambdaSecurityAuthToken.getToken())) {
                     return Mono.error(new EventException(ES_COMPLIANCE_021));
@@ -142,4 +125,5 @@ public class SecurityPrincipalUtil {
             }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_021)));
         });
     }
+
 }

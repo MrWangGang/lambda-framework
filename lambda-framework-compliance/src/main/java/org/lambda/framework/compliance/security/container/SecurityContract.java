@@ -10,7 +10,7 @@ public class SecurityContract {
     public static final Long LAMBDA_SECURITY_TOKEN_TIME_SECOND = 2592000L;
     public static final String LAMBDA_SECURITY_AUTH_TOKEN_KEY = "lambda.security.auth-token.";
     public static final String LAMBDA_SECURITY_AUTH_TOKEN_REGEX = LAMBDA_SECURITY_AUTH_TOKEN_KEY+"[a-zA-Z\\d]+\\.[a-zA-Z\\d]+";
-
+    public static final String TOKEN_SUFFIX = "prefix";
     public static final String LAMBDA_SECURITY_EMPTY_STR = "";
 
     //所有经过认证的URL都需要经过授权
