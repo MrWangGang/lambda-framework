@@ -29,7 +29,7 @@ import static org.lambda.framework.compliance.security.container.SecurityContrac
  * @create: 2018-11-30 下午 3:28
  **/
 @Component
-public class PrincipalUtil {
+public class SecurityPrincipalUtil {
 
     @Resource(name = "securityAuthRedisOperation")
     protected ReactiveRedisOperation securityAuthRedisOperation;
@@ -73,6 +73,21 @@ public class PrincipalUtil {
                 return securityAuthRedisOperation.delete(key);
             }).then();
         });
+    }
+
+    public Mono<String> getPrincipal() {
+        return this.getServerRequestToken().flatMap(reqKey->{
+            return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
+                return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
+                    return Mono.just(securityAuthToken.getPrincipal());
+                });
+            });
+        });
+    }
+    public <T extends SecurityLoginUser<?>>Mono<T> getPrincipal2Object(Class<T> clazz) {
+        return this.getPrincipal().flatMap(e -> {
+            return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_023)));
+        }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
     }
 
 
