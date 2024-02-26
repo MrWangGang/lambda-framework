@@ -11,12 +11,9 @@ import org.lambda.framework.compliance.security.container.LambdaSecurityAuthToke
 import org.lambda.framework.compliance.security.container.SecurityContract;
 import org.lambda.framework.compliance.security.container.SecurityLoginUser;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
-import org.springframework.http.server.reactive.ServerHttpRequest;
-import org.springframework.stereotype.Component;
-import org.springframework.web.server.ServerWebExchange;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import reactor.core.publisher.Mono;
 
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -28,13 +25,16 @@ import static org.lambda.framework.compliance.security.container.SecurityContrac
  * @author: Mr.WangGang
  * @create: 2018-11-30 下午 3:28
  **/
-@Component
-public class SecurityPrincipalUtil {
+@ConditionalOnMissingBean
+public abstract class PrincipalFactory {
 
+    protected abstract Mono<String> getAuthToken();
+
+    protected abstract Mono<String> fetchPrincipal();
     @Resource(name = "securityAuthRedisOperation")
     protected ReactiveRedisOperation securityAuthRedisOperation;
-
-    public <T extends SecurityLoginUser<?>> Mono<String> setPrincipal(T t) {
+    /*protected 用于隐藏这个bean里的方法，在应用层面重写*/
+    public   <T extends SecurityLoginUser<?>> Mono<String> setPrincipal(T t) {
         if (t == null) {
             throw new EventException(ES_COMPLIANCE_020);
         }
@@ -51,8 +51,8 @@ public class SecurityPrincipalUtil {
         return securityAuthRedisOperation.set(keyHead + TOKEN_SUFFIX, lambdaSecurityAuthToken, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(keyHead + keySuffix));
     }
 
-    public <T extends SecurityLoginUser<?>> Mono<Void> updatePrincipal(T t) {
-        return this.getServerRequestToken().flatMap(reqKey->{
+    public  <T extends SecurityLoginUser<?>> Mono<Void> updatePrincipal(T t) {
+        return this.getAuthToken().flatMap(reqKey->{
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
                 return this.getSecurityAuthToken(key).flatMap(token->{
                     token.setPrincipal(JsonUtil.objToString(t));
@@ -68,15 +68,14 @@ public class SecurityPrincipalUtil {
     }
 
     public Mono<Void> deletePrincipal() {
-        return this.getServerRequestToken().flatMap(reqKey->{
+        return this.getAuthToken().flatMap(reqKey->{
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
                 return securityAuthRedisOperation.delete(key);
             }).then();
         });
     }
-
     public Mono<String> getPrincipal() {
-        return this.getServerRequestToken().flatMap(reqKey->{
+        return this.getAuthToken().flatMap(reqKey->{
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
                 return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
                     return Mono.just(securityAuthToken.getPrincipal());
@@ -84,28 +83,25 @@ public class SecurityPrincipalUtil {
             });
         });
     }
+    public  <T extends SecurityLoginUser<?>>Mono<T> fetchPrincipal2Object(Class<T> clazz) {
+        return this.fetchPrincipal().switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)))
+                .flatMap(e -> {
+                    return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_023)));
+                }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
+    }
     public <T extends SecurityLoginUser<?>>Mono<T> getPrincipal2Object(Class<T> clazz) {
-        return this.getPrincipal().flatMap(e -> {
+        return this.getAuthToken().flatMap(reqKey->{
+            return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
+                return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
+                    return Mono.just(securityAuthToken.getPrincipal());
+                });
+            });
+        }).flatMap(e -> {
             return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_023)));
         }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
     }
 
-
-    protected static Mono<ServerHttpRequest> getServerHttpRequest() {
-        return Mono.deferContextual(Mono::just)
-                .map(contextView -> contextView.get(ServerWebExchange.class).getRequest());
-    }
-    protected Mono<String> getServerRequestToken(){
-        return getServerHttpRequest().flatMap(e -> {
-            List<String> headers = e.getHeaders().get(SecurityContract.AUTH_TOKEN_NAMING);
-            if(headers == null || headers.isEmpty() || headers.get(0) == null){
-                return Mono.error(new EventException(ES_COMPLIANCE_021));
-            }
-            return Mono.just(e.getHeaders().get(SecurityContract.AUTH_TOKEN_NAMING).get(0));
-        }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_021)));
-    }
-
-    protected Mono<String> getSecurityAuthTokenKey(String requestToken) {
+    private Mono<String> getSecurityAuthTokenKey(String requestToken) {
         Assert.verify(requestToken,ES_COMPLIANCE_021);
         if (!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(requestToken).matches()))
             throw new EventException(ES_COMPLIANCE_024);
@@ -120,9 +116,9 @@ public class SecurityPrincipalUtil {
         token = token + TOKEN_SUFFIX;
         return Mono.just(token);
     }
-    protected <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken<?>> getSecurityAuthToken(String key) {
+    private <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken<?>> getSecurityAuthToken(String key) {
         Assert.verify(key,ES_COMPLIANCE_021);
-        return this.getServerRequestToken().flatMap(rqtoken->{
+        return this.getAuthToken().flatMap(rqtoken->{
             return this.securityAuthRedisOperation.get(key).flatMap(tokenBean -> {
                 LambdaSecurityAuthToken<?> lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_COMPLIANCE_021));
                 if (StringUtils.isBlank(lambdaSecurityAuthToken.getToken())) {
@@ -140,5 +136,4 @@ public class SecurityPrincipalUtil {
             }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_021)));
         });
     }
-
 }

@@ -6,6 +6,7 @@ package org.lambda.framework.compliance.security.container;
  * @create: 2018-11-16 下午 3:56
  **/
 public class SecurityContract {
+
     public static final String LAMBDA_SECURITY_AUTH_TOKEN_SALT  = "QWERTYUIOPasdfghjklZXCVBNM<>?";
     public static final Long LAMBDA_SECURITY_TOKEN_TIME_SECOND = 2592000L;
     public static final String LAMBDA_SECURITY_AUTH_TOKEN_KEY = "lambda.security.auth-token.";
@@ -20,5 +21,8 @@ public class SecurityContract {
     public static final String LAMBDA_SECURITY_URL_AUTZ_MODEL_MAPPING="MAPPING";
 
     public static String AUTH_TOKEN_NAMING = "Auth-Token";
+
+    public static final String PRINCIPAL_STASH_NAMING  = "Principal-Stash";
+
 
 }

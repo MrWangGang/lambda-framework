@@ -18,6 +18,10 @@
 			<groupId>org.lambda.framework</groupId>
 			<artifactId>lambda-framework-common</artifactId>
 		</dependency>
+		<dependency>
+			<groupId>org.lambda.framework</groupId>
+			<artifactId>lambda-framework-compliance</artifactId>
+		</dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>

@@ -11,7 +11,6 @@ public enum WebExceptionEnum implements ExceptionEnumFunction {
     ES_WEB_001("ES_WEB_001","[static][获取 METHOD_PARAMETER 时，找不都方法"),
     ES_WEB_002("ES_WEB_002","response不允许返回其他类型");
 
-
     // 成员变量
 
     @Getter

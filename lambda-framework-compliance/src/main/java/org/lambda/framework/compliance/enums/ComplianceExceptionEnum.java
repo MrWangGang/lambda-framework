@@ -25,17 +25,11 @@ public enum ComplianceExceptionEnum implements ExceptionEnumFunction {
     ES_COMPLIANCE_017("ES_COMPLIANCE_017","创建此节点，不需要指定parentId"),
     ES_COMPLIANCE_018("ES_COMPLIANCE_018","获取节点类型失败"),
     ES_COMPLIANCE_019("ES_COMPLIANCE_019","用户信息不存在"),
-
     ES_COMPLIANCE_020("ES_COMPLIANCE_020","访问用户为空"),
-
     ES_COMPLIANCE_021("ES_COMPLIANCE_021","无效令牌"),
-
     ES_COMPLIANCE_022("ES_COMPLIANCE_022","用户信息缓存更新失败"),
-
     ES_COMPLIANCE_023("ES_COMPLIANCE_023","用户信息不存在"),
-
     ES_COMPLIANCE_024("ES_COMPLIANCE_024","令牌格式不符合规范");
-
 
 
 
