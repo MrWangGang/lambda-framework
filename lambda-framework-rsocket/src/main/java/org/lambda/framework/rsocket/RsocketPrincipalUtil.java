@@ -17,14 +17,14 @@ import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET
 public class RsocketPrincipalUtil extends PrincipalFactory {
     @Override
     protected Mono<String> getAuthToken(){
-        return getTokenByRequest(SecurityContract.AUTH_TOKEN_NAMING);
+        return getRequest(SecurityContract.AUTH_TOKEN_NAMING);
     }
 
     @Override
     protected Mono<String> fetchPrincipal() {
-        return getTokenByRequest(PRINCIPAL_STASH_NAMING);
+        return getRequest(PRINCIPAL_STASH_NAMING);
     }
-    private Mono<String> getTokenByRequest(String key) {
+    private Mono<String> getRequest(String key) {
         return Mono.deferContextual(Mono::just)
                 .map(contextView -> contextView.get(Payload.class))  // 使用 RSocketRequester 获取元数据
                 .switchIfEmpty(Mono.error(new EventException(ES_RSOCKET_000)))

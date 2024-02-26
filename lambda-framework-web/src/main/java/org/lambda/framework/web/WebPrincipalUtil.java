@@ -16,14 +16,14 @@ import static org.lambda.framework.compliance.security.container.SecurityContrac
 public class WebPrincipalUtil extends PrincipalFactory {
     @Override
     protected Mono<String> getAuthToken(){
-        return getTokenByRequest(SecurityContract.AUTH_TOKEN_NAMING);
+        return getRequest(SecurityContract.AUTH_TOKEN_NAMING);
     }
 
     @Override
     protected Mono<String> fetchPrincipal() {
-        return getTokenByRequest(PRINCIPAL_STASH_NAMING);
+        return getRequest(PRINCIPAL_STASH_NAMING);
     }
-    private  Mono<String> getTokenByRequest(String key) {
+    private  Mono<String> getRequest(String key) {
         return Mono.deferContextual(Mono::just)
                 .map(contextView -> contextView.get(ServerWebExchange.class).getRequest())
                 .flatMap(request->{
