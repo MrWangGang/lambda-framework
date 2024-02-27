@@ -11,9 +11,8 @@ import java.util.List;
 
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_021;
 import static org.lambda.framework.compliance.security.container.SecurityContract.PRINCIPAL_STASH_NAMING;
-
 @Component
-public class SecurityPrincipalUtil extends PrincipalFactory {
+public class SecurityPrincipalFactory extends PrincipalFactory {
     @Override
     protected Mono<String> getAuthToken(){
         return getRequest(SecurityContract.AUTH_TOKEN_NAMING);

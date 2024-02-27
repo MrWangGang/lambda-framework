@@ -3,7 +3,6 @@ package org.lambda.framework.web;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.compliance.security.PrincipalFactory;
 import org.lambda.framework.compliance.security.container.SecurityContract;
-import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -14,10 +13,7 @@ import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_C
 import static org.lambda.framework.compliance.security.container.SecurityContract.PRINCIPAL_STASH_NAMING;
 
 @Component
-public class WebPrincipalUtil extends PrincipalFactory {
-    public WebPrincipalUtil(ReactiveRedisOperation reactiveRedisOperation) {
-        super(reactiveRedisOperation);
-    }
+public class WebPrincipalFactory extends PrincipalFactory {
     @Override
     protected Mono<String> getAuthToken(){
         return getRequest(SecurityContract.AUTH_TOKEN_NAMING);

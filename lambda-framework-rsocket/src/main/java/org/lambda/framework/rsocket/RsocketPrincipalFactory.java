@@ -6,17 +6,15 @@ import io.rsocket.metadata.WellKnownMimeType;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.compliance.security.PrincipalFactory;
 import org.lambda.framework.compliance.security.container.SecurityContract;
-import org.lambda.framework.redis.operation.ReactiveRedisOperation;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_021;
 import static org.lambda.framework.compliance.security.container.SecurityContract.PRINCIPAL_STASH_NAMING;
 import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_000;
 
-public abstract class RsocketPrincipalUtil extends PrincipalFactory {
-    public RsocketPrincipalUtil(ReactiveRedisOperation reactiveRedisOperation) {
-        super(reactiveRedisOperation);
-    }
+@Component
+public class RsocketPrincipalFactory extends PrincipalFactory {
 
     @Override
     protected Mono<String> getAuthToken(){

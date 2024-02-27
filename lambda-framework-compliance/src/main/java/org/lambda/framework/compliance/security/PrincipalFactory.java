@@ -1,5 +1,6 @@
 package org.lambda.framework.compliance.security;
 
+import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
@@ -10,7 +11,6 @@ import org.lambda.framework.compliance.security.container.LambdaSecurityAuthToke
 import org.lambda.framework.compliance.security.container.SecurityContract;
 import org.lambda.framework.compliance.security.container.SecurityLoginUser;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
@@ -24,14 +24,10 @@ import static org.lambda.framework.compliance.security.container.SecurityContrac
  * @author: Mr.WangGang
  * @create: 2018-11-30 下午 3:28
  **/
-@ConditionalOnMissingBean
 public abstract class PrincipalFactory {
 
-    private ReactiveRedisOperation reactiveRedisOperation;
-
-    public PrincipalFactory(ReactiveRedisOperation reactiveRedisOperation){
-        this.reactiveRedisOperation = reactiveRedisOperation;
-    }
+    @Resource(name = "securityAuthRedisOperation")
+    private ReactiveRedisOperation securityAuthRedisOperation;
     protected abstract Mono<String> getAuthToken();
 
     protected abstract Mono<String> fetchPrincipal();
@@ -50,7 +46,7 @@ public abstract class PrincipalFactory {
         LambdaSecurityAuthToken<T> lambdaSecurityAuthToken = new LambdaSecurityAuthToken<T>();
         lambdaSecurityAuthToken.setPrincipal(principal);
         lambdaSecurityAuthToken.setToken(keySuffix);
-        return reactiveRedisOperation.set(keyHead + TOKEN_SUFFIX, lambdaSecurityAuthToken, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(keyHead + keySuffix));
+        return securityAuthRedisOperation.set(keyHead + TOKEN_SUFFIX, lambdaSecurityAuthToken, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(keyHead + keySuffix));
     }
 
     public  <T extends SecurityLoginUser<?>> Mono<Void> updatePrincipal(T t) {
@@ -58,7 +54,7 @@ public abstract class PrincipalFactory {
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
                 return this.getSecurityAuthToken(key).flatMap(token->{
                     token.setPrincipal(JsonUtil.objToString(t));
-                    return reactiveRedisOperation.update(key,token)
+                    return securityAuthRedisOperation.update(key,token)
                             .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_022)))
                             .flatMap(flag->{
                                 if(!flag)return Mono.error(new EventException(ES_COMPLIANCE_022));
@@ -72,7 +68,7 @@ public abstract class PrincipalFactory {
     public Mono<Void> deletePrincipal() {
         return this.getAuthToken().flatMap(reqKey->{
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
-                return reactiveRedisOperation.delete(key);
+                return securityAuthRedisOperation.delete(key);
             }).then();
         });
     }
@@ -121,7 +117,7 @@ public abstract class PrincipalFactory {
     private <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken<?>> getSecurityAuthToken(String key) {
         Assert.verify(key,ES_COMPLIANCE_021);
         return this.getAuthToken().flatMap(rqtoken->{
-            return reactiveRedisOperation.get(key).flatMap(tokenBean -> {
+            return securityAuthRedisOperation.get(key).flatMap(tokenBean -> {
                 LambdaSecurityAuthToken<?> lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_COMPLIANCE_021));
                 if (StringUtils.isBlank(lambdaSecurityAuthToken.getToken())) {
                     return Mono.error(new EventException(ES_COMPLIANCE_021));

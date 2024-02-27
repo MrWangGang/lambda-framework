@@ -8,7 +8,7 @@ import org.lambda.framework.compliance.security.container.SecurityAuthToken;
 import org.lambda.framework.compliance.security.container.SecurityContract;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
-import org.lambda.framework.security.manger.support.SecurityPrincipalUtil;
+import org.lambda.framework.security.manger.support.SecurityPrincipalFactory;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -28,7 +28,7 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
     private ReactiveRedisOperation securityAuthRedisOperation;
 
     @Resource
-    private SecurityPrincipalUtil securityPrincipalUtil;
+    private SecurityPrincipalFactory securityPrincipalFactory;
 
     @Override
     public Mono<SecurityAuthToken> authenticate(AuthorizationContext authorizationContext) {
@@ -38,7 +38,7 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
         if(StringUtils.isBlank(authToken))throw new EventException(SecurityExceptionEnum.ES_SECURITY_003);
         //authentication
         //令牌与库中不匹配
-        return securityPrincipalUtil.getPrincipal().flatMap(principal -> {
+        return securityPrincipalFactory.getPrincipal().flatMap(principal -> {
             if(StringUtils.isBlank(principal.toString()))return Mono.error(new EventException(ES_SECURITY_004));
             //刷新TOKEN存活时间 保持登陆
             //更新SecurityContext中的Authentication信息
