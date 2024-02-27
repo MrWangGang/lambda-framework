@@ -19,6 +19,9 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
+import java.util.stream.Stream;
+
 
 /**
  * @program: decisionsupportsystem
@@ -34,8 +37,7 @@ public class SecurityConfig {
 
     @Value("#{'${lambda.security.permit-urls:}'.empty ?new String[]{''} :'${lambda.security.permit-urls:}'.split(',')}")
     private String[] permitUrls;
-
-
+    private final String[] creditUrl = {"/", "/csrf", "/v2/api-docs/**", "/swagger-ui.html/**", "/swagger-resources/**", "/webjars/**", "/favicon.ico"};
     //@Bean
     //public AuthenticationWebFilter authenticationWebFilter(){
     //    AuthenticationWebFilter authenticationWebFilter = new AuthenticationWebFilter(new ReactiveAuthenticationManager() {
@@ -99,10 +101,16 @@ public class SecurityConfig {
         http.securityContextRepository(NoOpServerSecurityContextRepository.getInstance());
         http.exceptionHandling(e->e.authenticationEntryPoint((a,b)->{throw new EventException(SecurityExceptionEnum.ES_SECURITY_000);}));
         http.exceptionHandling(e->e.accessDeniedHandler((a,b)->{throw new EventException(SecurityExceptionEnum.ES_SECURITY_001);}));
-        http.authorizeExchange(e->e.pathMatchers(permitUrls).permitAll());
+
+        http.authorizeExchange(e->e.pathMatchers(this.mergeArrays(creditUrl,permitUrls)).permitAll());
         //http.addFilterAt(authenticationWebFilter, SecurityWebFiltersOrder.AUTHENTICATION);
         http.authorizeExchange(e->e.anyExchange().access(autzManager));
         return http.build();
+    }
+
+    private String[] mergeArrays(String[] array1, String[] array2) {
+        return Stream.concat(Arrays.stream(array1), Arrays.stream(array2))
+                .toArray(String[]::new);
     }
 
     @Bean
