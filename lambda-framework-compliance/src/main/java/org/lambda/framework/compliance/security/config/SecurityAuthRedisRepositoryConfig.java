@@ -1,16 +1,23 @@
 package org.lambda.framework.compliance.security.config;
 
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.redis.config.AbstractReactiveRedisRepositoryConfig;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_025;
+
 @Configuration
 public class SecurityAuthRedisRepositoryConfig extends AbstractReactiveRedisRepositoryConfig {
     //##Redis服务器地址
-    @Value("${lambda.security.redis.auth.host:0}")
     protected String host;
+    @Value("${lambda.security.redis.auth.host:0}")
+    public void setHost(String host) {
+        if("0".equals(host))throw new EventException(ES_COMPLIANCE_025);
+        this.host = host;
+    }
     //## Redis服务器连接端口
     @Value("${lambda.security.redis.auth.port:6379}")
     protected Integer port;
