@@ -1,6 +1,7 @@
 package org.lambda.framework.web.adapter;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.sample.JsonUtil;
@@ -42,7 +43,7 @@ public class WebGlobalExceptionHandler implements ErrorWebExceptionHandler {
         if(e instanceof GlobalException){
             return result(((GlobalException)e).getCode(),e.getMessage());
         }
-        return result(ES_WEB_000.getCode(),ES_WEB_000.getMessage());
+        return result(ES_WEB_000.getCode(), StringUtils.isBlank(e.getMessage())?ES_WEB_000.getMessage():e.getMessage());
     }
 
     private ResponseTemplete result(String code, String message){
