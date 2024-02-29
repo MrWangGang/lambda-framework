@@ -7,9 +7,7 @@ import org.lambda.framework.common.exception.ExceptionEnumFunction;
 public enum NacosExceptionEnum implements ExceptionEnumFunction {
 
     //系统异常-普通异常 0-99
-    ES_WEB_000("ES_WEB_000","系统错误"),
-    ES_WEB_001("ES_WEB_001","[static][获取 METHOD_PARAMETER 时，找不都方法"),
-    ES_WEB_002("ES_WEB_002","response不允许返回其他类型");
+    ES_NACOS_000("ES_NACOS_000","Rsocket 无法注册到nacos,请检查port配置。");
 
 
     // 成员变量
