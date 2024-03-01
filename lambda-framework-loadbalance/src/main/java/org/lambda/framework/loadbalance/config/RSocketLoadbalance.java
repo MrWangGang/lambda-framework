@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 import static org.lambda.framework.nacos.enums.LoadBalanceExceptionEnum.*;
 
 @Component
-public class RSocketRequesterFactory {
+public class RSocketLoadbalance {
     @Resource
     private DiscoveryClient discoveryClient;
     @Resource
