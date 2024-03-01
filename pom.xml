@@ -119,6 +119,11 @@
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-loadbalance</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.lambda.framework</groupId>
 				<artifactId>lambda-framework-security</artifactId>
 				<version>${project.version}</version>
 			</dependency>
@@ -218,6 +223,7 @@
 		<module>lambda-framework-rsocket</module>
 		<module>lambda-framework-gateway</module>
 		<module>lambda-framework-nacos</module>
+		<module>lambda-framework-loadbalance</module>
 		<module>lambda-framework-httpclient</module>
 		<module>lambda-framework-security</module>
 		<module>lambda-framework-guid</module>
