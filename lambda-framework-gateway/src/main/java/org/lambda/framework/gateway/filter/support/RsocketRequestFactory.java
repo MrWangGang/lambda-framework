@@ -34,7 +34,7 @@ public class RsocketRequestFactory {
         Assert.verify(match,ES_GATEWAY_005);
         // 获取请求的 URL
         URI targetUri = (URI)exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR);
-        Assert.verify(targetUri.getHost(),ES_GATEWAY_000);
+        Assert.verify(targetUri.getHost(),ES_GATEWAY_008);
         Assert.verify(targetUri,ES_GATEWAY_001);
         Assert.verify(targetUri.getScheme(),ES_GATEWAY_001);
         URI currentUri = exchange.getRequest().getURI();

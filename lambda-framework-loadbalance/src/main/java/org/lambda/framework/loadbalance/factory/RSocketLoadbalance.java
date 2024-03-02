@@ -29,32 +29,23 @@ public class RSocketLoadbalance {
     private RSocketRequester.Builder builder;
 
     public RSocketRequester build(String ip,Integer port){
-        RSocketStrategies strategies = RSocketStrategies.builder()
-                .encoder(new Jackson2JsonEncoder())  // 使用 ByteArrayEncoder 处理二进制数据的编码
-                .decoder(new Jackson2JsonDecoder())  // 使用 ByteArrayDecoder 处理二进制数据的解码
-                .build();
-        Assert.verify(ip,EB_LOADBALANCE_001);
-        Assert.verify(port,EB_LOADBALANCE_004);
-        RSocketRequester requester = builder
-                .rsocketStrategies(strategies)
-                .dataMimeType(MimeTypeUtils.APPLICATION_JSON)
-                .metadataMimeType(MimeTypeUtils.parseMimeType("message/x.rsocket.routing.v0"))
-                .transport(TcpClientTransport.create(ip,port));
-        return requester;
+        return getBuilder().transport(TcpClientTransport.create(ip,port));
     }
 
     public RSocketRequester build(String serviceName){
         Assert.verify(serviceName,EB_LOADBALANCE_001);
+        return getBuilder().transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy());
+    }
+
+    public RSocketRequester.Builder getBuilder(){
         RSocketStrategies strategies = RSocketStrategies.builder()
-                .encoder(new Jackson2JsonEncoder())  // 使用 ByteArrayEncoder 处理二进制数据的编码
-                .decoder(new Jackson2JsonDecoder())  // 使用 ByteArrayDecoder 处理二进制数据的解码
+                .encoder(new Jackson2JsonEncoder())
+                .decoder(new Jackson2JsonDecoder())
                 .build();
-        RSocketRequester requester = builder
+        return builder
                 .rsocketStrategies(strategies)
                 .dataMimeType(MimeTypeUtils.APPLICATION_JSON)
-                .metadataMimeType(MimeTypeUtils.parseMimeType("message/x.rsocket.routing.v0"))
-                .transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy());
-        return requester;
+                .metadataMimeType(MimeTypeUtils.parseMimeType("message/x.rsocket.routing.v0"));
     }
     private Flux<List<LoadbalanceTarget>> loadBalanceTargets(String serviceName) {
         return Mono.fromCallable(() -> {
