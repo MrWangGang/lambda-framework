@@ -10,8 +10,8 @@ public enum LoadBalanceExceptionEnum implements ExceptionEnumFunction {
     ES_LOADBALANCE_000("ES_LOADBALANCE_000","Rsocket 无法注册到nacos,请检查port配置。"),
     EB_LOADBALANCE_001("EB_LOADBALANCE_001","调用服务名不能为空"),
     EB_LOADBALANCE_002("EB_LOADBALANCE_002","该服务名下没有活跃的服务"),
-    EB_LOADBALANCE_003("EB_LOADBALANCE_003","无效路由");
-
+    EB_LOADBALANCE_003("EB_LOADBALANCE_003","无效路由"),
+    EB_LOADBALANCE_004("EB_LOADBALANCE_004","无效端口");
 
     // 成员变量
 
