@@ -2,6 +2,7 @@ package org.lambda.framework.web.adapter;
 
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.templete.ResponseTemplete;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.MethodParameter;
@@ -14,9 +15,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import static org.lambda.framework.web.enums.WebExceptionEnum.ES_WEB_001;
-import static org.lambda.framework.web.enums.WebExceptionEnum.ES_WEB_002;
 
 @Configuration
+@ConditionalOnProperty(value = "lambda.web.response.convert.enabled",havingValue = "true")
 @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
 public class WebGlobalResponseHandler  {
 
