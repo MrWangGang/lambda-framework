@@ -3,19 +3,19 @@ package org.lambda.framework.security.manger;
 
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
+import org.lambda.framework.common.enums.SecurityContract;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.compliance.security.container.SecurityAuthToken;
-import org.lambda.framework.compliance.security.container.SecurityContract;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
-import org.lambda.framework.security.manger.support.SecurityPrincipalFactory;
+import org.lambda.framework.security.manger.support.SecurityAuthToken;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import reactor.util.context.Context;
 
-import static org.lambda.framework.compliance.security.container.SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND;
+import static org.lambda.framework.common.enums.SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND;
+import static org.lambda.framework.common.enums.SecurityContract.PRINCIPAL_STASH_NAMING;
 import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_000;
-import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_004;
 
 
 /**
@@ -38,13 +38,14 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
         if(StringUtils.isBlank(authToken))throw new EventException(SecurityExceptionEnum.ES_SECURITY_003);
         //authentication
         //令牌与库中不匹配
-        return securityPrincipalFactory.getPrincipal().flatMap(principal -> {
-            if(StringUtils.isBlank(principal.toString()))return Mono.error(new EventException(ES_SECURITY_004));
+        return securityPrincipalFactory.principal().flatMap(principal -> {
+            if(StringUtils.isBlank(principal.toString()))return Mono.error(new EventException(ES_SECURITY_000));
             //刷新TOKEN存活时间 保持登陆
             //更新SecurityContext中的Authentication信息
-            if(!verify(principal)) return Mono.error(new EventException(ES_SECURITY_000));
-            return securityAuthRedisOperation.expire(authToken, LAMBDA_SECURITY_TOKEN_TIME_SECOND)
-                    .then(Mono.just(SecurityAuthToken.builder().principal(principal.toString()).credentials(authToken).authenticated(true).build()));
-       }).switchIfEmpty(Mono.error(new EventException(ES_SECURITY_004)));
+            if(verify(principal) == false) return Mono.error(new EventException(ES_SECURITY_000));
+               SecurityAuthToken securityAuthToken = SecurityAuthToken.builder().principal(principal.toString()).credentials(authToken).authenticated(true).build();
+               return securityAuthRedisOperation.expire(authToken, LAMBDA_SECURITY_TOKEN_TIME_SECOND)
+                        .then(Mono.just(securityAuthToken)).contextWrite(Context.of(PRINCIPAL_STASH_NAMING,securityAuthToken));
+       });
     }
 }

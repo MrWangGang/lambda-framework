@@ -1,4 +1,4 @@
-package org.lambda.framework.compliance.security.container;
+package org.lambda.framework.common.enums;
 
 /**
  * @description: 契约
@@ -13,6 +13,7 @@ public class SecurityContract {
     public static final String LAMBDA_SECURITY_AUTH_TOKEN_REGEX = LAMBDA_SECURITY_AUTH_TOKEN_KEY+"[a-zA-Z\\d]+\\.[a-zA-Z\\d]+";
     public static final String TOKEN_SUFFIX = "prefix";
     public static final String LAMBDA_SECURITY_EMPTY_STR = "";
+    public static final String LAMBDA_EMPTY_PRINCIPAL = "none-principal";
 
     //所有经过认证的URL都需要经过授权
     public static final String LAMBDA_SECURITY_URL_AUTZ_MODEL_ALL="ALL";
@@ -22,7 +23,7 @@ public class SecurityContract {
 
     public static String AUTH_TOKEN_NAMING = "Auth-Token";
 
-    public static final String PRINCIPAL_STASH_NAMING  = "Principal-Stash";
+    public static final String PRINCIPAL_STASH_NAMING  = "message/x.rsocket.routing.v0";
 
 
 }

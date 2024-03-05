@@ -8,7 +8,7 @@ import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.common.util.sample.MD5Util;
 import org.lambda.framework.common.util.sample.UUIDUtil;
 import org.lambda.framework.compliance.security.container.LambdaSecurityAuthToken;
-import org.lambda.framework.compliance.security.container.SecurityContract;
+import org.lambda.framework.common.enums.SecurityContract;
 import org.lambda.framework.compliance.security.container.SecurityLoginUser;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import reactor.core.publisher.Mono;
@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
-import static org.lambda.framework.compliance.security.container.SecurityContract.TOKEN_SUFFIX;
+import static org.lambda.framework.common.enums.SecurityContract.TOKEN_SUFFIX;
 
 /**
  * @description: 获取spring secutiy中的principal
@@ -29,8 +29,7 @@ public abstract class PrincipalFactory {
     @Resource(name = "securityAuthRedisOperation")
     private ReactiveRedisOperation securityAuthRedisOperation;
     protected abstract Mono<String> getAuthToken();
-
-    protected abstract Mono<String> fetchPrincipal();
+    protected abstract Mono<String> fetchSubject();
     /*protected 用于隐藏这个bean里的方法，在应用层面重写*/
     public   <T extends SecurityLoginUser<?>> Mono<String> setPrincipal(T t) {
         if (t == null) {
@@ -72,7 +71,11 @@ public abstract class PrincipalFactory {
             }).then();
         });
     }
-    public Mono<String> getPrincipal() {
+
+    //不要使用这个方法去获取，请使用子类中的 getAuth和fetch方法去获取，这个方法获取的数据，会再次查询redis
+    //这个方法只给security 用来校验使用的
+    @Deprecated
+    protected Mono<String> getPrincipal() {
         return this.getAuthToken().flatMap(reqKey->{
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
                 return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
@@ -81,13 +84,10 @@ public abstract class PrincipalFactory {
             });
         });
     }
-    public  <T extends SecurityLoginUser<?>>Mono<T> fetchPrincipal2Object(Class<T> clazz) {
-        return this.fetchPrincipal().switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)))
-                .flatMap(e -> {
-                    return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_023)));
-                }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
-    }
-    public <T extends SecurityLoginUser<?>>Mono<T> getPrincipal2Object(Class<T> clazz) {
+    //不要使用这个方法去获取，请使用子类中的 getAuth和fetch方法去获取，这个方法获取的数据，会再次查询redis
+    //这个方法只给security 用来校验使用的
+    @Deprecated
+    protected <T extends SecurityLoginUser<?>>Mono<T> getPrincipal(Class<T> clazz) {
         return this.getAuthToken().flatMap(reqKey->{
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
                 return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
@@ -97,6 +97,15 @@ public abstract class PrincipalFactory {
         }).flatMap(e -> {
             return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_023)));
         }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
+    }
+    public  Mono<String> fetchPrincipal() {
+        return this.fetchSubject().switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
+    }
+    public  <T extends SecurityLoginUser<?>>Mono<T> fetchPrincipal2Object(Class<T> clazz) {
+        return this.fetchSubject().switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)))
+                .flatMap(e -> {
+                    return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_023)));
+                }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
     }
 
     private Mono<String> getSecurityAuthTokenKey(String requestToken) {

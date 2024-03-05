@@ -1,8 +1,8 @@
-package org.lambda.framework.web;
+package org.lambda.framework.web.support;
 
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.compliance.security.PrincipalFactory;
-import org.lambda.framework.compliance.security.container.SecurityContract;
+import org.lambda.framework.common.enums.SecurityContract;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -10,7 +10,7 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_021;
-import static org.lambda.framework.compliance.security.container.SecurityContract.PRINCIPAL_STASH_NAMING;
+import static org.lambda.framework.common.enums.SecurityContract.PRINCIPAL_STASH_NAMING;
 
 @Component
 public class WebPrincipalFactory extends PrincipalFactory {
@@ -20,7 +20,7 @@ public class WebPrincipalFactory extends PrincipalFactory {
     }
 
     @Override
-    protected Mono<String> fetchPrincipal() {
+    protected Mono<String> fetchSubject() {
         return getRequest(PRINCIPAL_STASH_NAMING);
     }
     private  Mono<String> getRequest(String key) {

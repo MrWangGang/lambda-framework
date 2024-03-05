@@ -3,8 +3,8 @@ package org.lambda.framework.security.manger;
 
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
+import org.lambda.framework.common.enums.SecurityContract;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.compliance.security.container.SecurityContract;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,7 +45,6 @@ public abstract class SecurityAutzManager implements ReactiveAuthorizationManage
 
     @Override
     public Mono<AuthorizationDecision> check(Mono<Authentication> authentication, AuthorizationContext authorizationContext) {
-
          return securityAuthManager.authenticate(authorizationContext).flatMap(auth->{
             if(!auth.isAuthenticated()) return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_000));
             String currentPath = authorizationContext.getExchange().getRequest().getURI().getPath();

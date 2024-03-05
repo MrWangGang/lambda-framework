@@ -28,6 +28,7 @@ import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.*;
 
 @Component
 public class RsocketRequestFactory {
+
     @Resource
     private RSocketLoadbalance rSocketLoadbalance;
     public Mono<Void> execute(ServerWebExchange exchange, GatewayFilterChain chain,String match,RSocketRequesterBuild rSocketRequesterBuild){
@@ -52,29 +53,30 @@ public class RsocketRequestFactory {
                 //获取请求里的body
                 Flux<DataBuffer> bodyFlux = exchange.getRequest().getBody();
                 ServerHttpResponse rs = exchange.getResponse();
-                HttpHeaders resHeaders = rs.getHeaders();
                 return extractRequestBody(bodyFlux)
                         .switchIfEmpty(Mono.error(new EventException(ES_GATEWAY_004)))
                         //bodyByte是绝对不会为空的 。extract永远都会返回一个;
                         .flatMap(dataBuffer -> {
                             return Mono.just(new String(dataBuffer, StandardCharsets.UTF_8));
                         }).flatMap(body->{
-                            RSocketRequester rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort());
-                            // 使用RSocket客户端发送请求
-                            RSocketRequester.RetrieveSpec retrieveSpec =  rSocketRequester
-                                    .route(targetUri.getPath())
-                                    .data(body);
-                            switch (model){
-                                case RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_MODEL_FIRE_AND_FORGET:
-                                    return handleResponse(retrieveSpec.retrieveMono(String.class), rs);
-                                case RSOCKET_MODEL_REQUEST_STREAM, RSOCKET_MODEL_CHANNEL:
-                                    return handleResponse(retrieveSpec.retrieveFlux(String.class).collectList(), rs);
-                                default:
-                                    return Mono.error(new EventException(ES_GATEWAY_006));
-                            }
-
+                            Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort());
+                            return rSocketRequester.flatMap(requester->{
+                                // 使用RSocket客户端发送请求
+                                RSocketRequester.RetrieveSpec retrieveSpec =  requester
+                                        .route(targetUri.getPath())
+                                        .data(body);
+                                switch (model){
+                                    case RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_MODEL_FIRE_AND_FORGET:
+                                        return handleResponse(retrieveSpec.retrieveMono(String.class), rs);
+                                    case RSOCKET_MODEL_REQUEST_STREAM, RSOCKET_MODEL_CHANNEL:
+                                        return handleResponse(retrieveSpec.retrieveFlux(String.class).collectList(), rs);
+                                    default:
+                                        return Mono.error(new EventException(ES_GATEWAY_006));
+                                }
+                            });
                         });
-            }return chain.filter(exchange);
+            }
+            return chain.filter(exchange);
         }
         throw new EventException(ES_GATEWAY_002);
     }
@@ -102,6 +104,6 @@ public class RsocketRequestFactory {
     }
 
     public interface RSocketRequesterBuild{
-        public RSocketRequester build(RSocketLoadbalance rSocketLoadbalance,String host,Integer port);
+        public Mono<RSocketRequester> build(RSocketLoadbalance rSocketLoadbalance,String host,Integer port);
     }
 }

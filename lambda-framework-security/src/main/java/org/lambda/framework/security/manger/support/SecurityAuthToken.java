@@ -1,4 +1,4 @@
-package org.lambda.framework.compliance.security.container;
+package org.lambda.framework.security.manger.support;
 
 import lombok.Builder;
 import lombok.Data;
@@ -10,7 +10,7 @@ import lombok.Data;
  **/
 @Data
 @Builder
-public class SecurityAuthToken  {
+public class SecurityAuthToken {
     private final String principal;
 
     private String credentials;
@@ -23,5 +23,4 @@ public class SecurityAuthToken  {
         this.credentials = credentials;
         this.authenticated = authenticated;
     }
-
 }

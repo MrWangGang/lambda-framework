@@ -101,7 +101,6 @@ public class SecurityConfig {
         http.securityContextRepository(NoOpServerSecurityContextRepository.getInstance());
         http.exceptionHandling(e->e.authenticationEntryPoint((a,b)->{throw new EventException(SecurityExceptionEnum.ES_SECURITY_000);}));
         http.exceptionHandling(e->e.accessDeniedHandler((a,b)->{throw new EventException(SecurityExceptionEnum.ES_SECURITY_001);}));
-
         http.authorizeExchange(e->e.pathMatchers(this.mergeArrays(creditUrl,permitUrls)).permitAll());
         //http.addFilterAt(authenticationWebFilter, SecurityWebFiltersOrder.AUTHENTICATION);
         http.authorizeExchange(e->e.anyExchange().access(autzManager));
