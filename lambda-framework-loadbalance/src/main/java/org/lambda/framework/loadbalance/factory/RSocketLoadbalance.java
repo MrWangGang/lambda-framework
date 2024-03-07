@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.Assert;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cloud.client.ServiceInstance;
@@ -26,8 +27,7 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.lambda.framework.common.enums.SecurityContract.LAMBDA_EMPTY_PRINCIPAL;
-import static org.lambda.framework.common.enums.SecurityContract.PRINCIPAL_STASH_NAMING;
+import static org.lambda.framework.common.enums.ConmonContract.*;
 import static org.lambda.framework.nacos.enums.LoadBalanceExceptionEnum.*;
 
 @Component
@@ -41,25 +41,34 @@ public class RSocketLoadbalance {
     @Resource
     private RSocketStrategies strategies;
 
-    public Mono<RSocketRequester> build(String ip,Integer port){
+    public Mono<RSocketRequester> build(String ip, Integer port){
         Assert.verify(ip,EB_LOADBALANCE_005);
         Assert.verify(port,EB_LOADBALANCE_006);
-        return rsocketPrincipalStash.getPrincipal().defaultIfEmpty(LAMBDA_EMPTY_PRINCIPAL).map(principal->{
-            return getBuilder(principal).transport(TcpClientTransport.create(ip,port));
+        return rsocketPrincipalStash.setSecurityStash()
+                .onErrorReturn(defaultSecurityStash)
+                .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
+            return getBuilder(securityStash).transport(TcpClientTransport.create(ip,port));
         });
     }
 
     public Mono<RSocketRequester> build(String serviceName){
         Assert.verify(serviceName,EB_LOADBALANCE_001);
-        return rsocketPrincipalStash.getPrincipal().defaultIfEmpty(LAMBDA_EMPTY_PRINCIPAL).map(principal->{
-                return getBuilder(principal).transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy());
+        return rsocketPrincipalStash.setSecurityStash()
+                .onErrorReturn(defaultSecurityStash)
+                .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
+                return getBuilder(securityStash).transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy());
         });
     }
 
-    private RSocketRequester.Builder getBuilder(String principal){
-        return builder
-                .setupMetadata(principal,MimeTypeUtils.APPLICATION_JSON)
-                .rsocketStrategies(strategies);
+    private RSocketRequester.Builder getBuilder(SecurityStash defaultSecurityStash){
+        if(StringUtils.isNotBlank(defaultSecurityStash.getAuthToken())){
+            builder.setupMetadata(defaultSecurityStash.getAuthToken(), MimeTypeUtils.parseMimeType(AUTHTOKEN_STASH_NAMING));
+        }
+        if(StringUtils.isNotBlank(defaultSecurityStash.getPrincipal())){
+            builder.setupMetadata(defaultSecurityStash.getPrincipal(), MimeTypeUtils.parseMimeType(PRINCIPAL_STASH_NAMING));
+        }
+        builder.rsocketStrategies(strategies);
+        return builder;
     }
 
 
@@ -85,17 +94,30 @@ public class RSocketLoadbalance {
         private String value;
     }
 
+    private static SecurityStash defaultSecurityStash= SecurityStash.builder().build();
+
+
     public interface RsocketPrincipalStash{
-        public Mono<String> getPrincipal();
-    }
+        public Mono<SecurityStash> setSecurityStash();}
     @Component
     @ConditionalOnMissingBean(RsocketPrincipalStash.class)
     public static class Stash implements RsocketPrincipalStash{
 
         @Override
-        public Mono<String> getPrincipal() {
-            return Mono.just(LAMBDA_EMPTY_PRINCIPAL);
+        public Mono<SecurityStash> setSecurityStash() {
+            return Mono.just(defaultSecurityStash);
         }
+
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class SecurityStash{
+        private String authToken;
+
+        private String principal;
     }
 
     @Configuration
@@ -105,7 +127,6 @@ public class RSocketLoadbalance {
             RSocketStrategies strategies = RSocketStrategies.builder()
                     .encoder(new Jackson2JsonEncoder())
                     .decoder(new Jackson2JsonDecoder())
-                    .metadataExtractorRegistry(r -> r.metadataToExtract(MimeTypeUtils.APPLICATION_JSON, String.class, PRINCIPAL_STASH_NAMING))
                     .build();
             return strategies;
         }

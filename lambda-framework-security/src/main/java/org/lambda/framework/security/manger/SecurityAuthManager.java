@@ -3,7 +3,6 @@ package org.lambda.framework.security.manger;
 
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
-import org.lambda.framework.common.enums.SecurityContract;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
@@ -14,9 +13,11 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.util.context.ContextView;
 
-import static org.lambda.framework.common.enums.SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND;
-import static org.lambda.framework.common.enums.SecurityContract.PRINCIPAL_STASH_NAMING;
-import static org.lambda.framework.security.enums.SecurityExceptionEnum.*;
+import java.util.Map;
+
+import static org.lambda.framework.common.enums.ConmonContract.*;
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_000;
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_008;
 
 
 /**
@@ -35,7 +36,11 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
     public Mono<SecurityAuthToken> authenticate(AuthorizationContext authorizationContext) {
         //converter
         ServerWebExchange exchange = authorizationContext.getExchange();
-        String authToken = exchange.getRequest().getHeaders().getFirst(SecurityContract.AUTH_TOKEN_NAMING);
+        String authToken = exchange.getRequest().getHeaders().getFirst(AUTH_TOKEN_NAMING);
+        Map map = exchange.getAttributes();
+        Assert.verify(map,ES_SECURITY_008);
+        exchange.getAttributes().put(AUTHTOKEN_STASH_NAMING,authToken);
+
         if(StringUtils.isBlank(authToken))throw new EventException(SecurityExceptionEnum.ES_SECURITY_003);
         //authentication
         //令牌与库中不匹配
@@ -59,7 +64,8 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
                 .map(contextView ->{
                     ServerWebExchange serverWebExchange = contextView.get(ServerWebExchange.class);
                     Assert.verify(serverWebExchange,ES_SECURITY_008);
-                    serverWebExchange.getAttributes().put(PRINCIPAL_STASH_NAMING,token);
+                    serverWebExchange.getAttributes().put(PRINCIPAL_STASH_NAMING,token.getPrincipal());
+                    serverWebExchange.getAttributes().put(AUTHTOKEN_STASH_NAMING,token.getCredentials());
                     return contextView;
                 })
                 .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_008)));

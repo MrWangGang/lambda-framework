@@ -1,23 +1,20 @@
 package org.lambda.framework.rsocket.support;
 
-import io.rsocket.Payload;
 import io.rsocket.metadata.CompositeMetadata;
-import io.rsocket.metadata.WellKnownMimeType;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.compliance.security.PrincipalFactory;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import static org.lambda.framework.common.enums.SecurityContract.AUTH_TOKEN_NAMING;
-import static org.lambda.framework.common.enums.SecurityContract.PRINCIPAL_STASH_NAMING;
-import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.*;
+import static org.lambda.framework.common.enums.ConmonContract.*;
+import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_002;
 
 @Component
 public class RsocketPrincipalFactory extends PrincipalFactory {
 
     @Override
-    protected Mono<String> getAuthToken(){
-        return getRequest(AUTH_TOKEN_NAMING);
+    public Mono<String> getAuthToken(){
+        return getRequest(AUTHTOKEN_STASH_NAMING);
     }
 
     @Override
@@ -27,15 +24,10 @@ public class RsocketPrincipalFactory extends PrincipalFactory {
 
     private Mono<String> getRequest(String key) {
         return Mono.deferContextual(Mono::just)
-                .map(contextView -> contextView.get(Payload.class))  // 使用 RSocketRequester 获取元数据
-                .switchIfEmpty(Mono.error(new EventException(ES_RSOCKET_000)))
-                .flatMap(payload -> {
-                    CompositeMetadata compositeMetadata = new CompositeMetadata(payload.metadata(), false);
-                    // 获取特定类型的元数据块
-                    String metadata = getMetadataValue(compositeMetadata, WellKnownMimeType.APPLICATION_JSON.getString());
-                    return Mono.just(metadata);
-                })
-                .switchIfEmpty(Mono.error(new EventException(ES_RSOCKET_001)));
+                .map(contextView -> {
+                    Object o = contextView.get(PRINCIPAL_STASH_NAMING);
+                    return o.toString();
+                });  // 使用 RSocketRequester 获取元数据
     }
 
     private static String getMetadataValue(CompositeMetadata compositeMetadata, String mimeType) {

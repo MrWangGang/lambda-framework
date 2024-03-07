@@ -23,7 +23,8 @@ public enum SecurityExceptionEnum implements ExceptionEnumFunction {
     ES_SECURITY_010("ES_SECURITY_010","未知的lambda.security.url-autz-model"),
     ES_SECURITY_011("ES_SECURITY_011","用户信息缓存更新失败"),
     ES_SECURITY_0012("ES_SECURITY_0012","无效令牌"),
-    ES_SECURITY_0013("ES_SECURITY_0013","用户信息不存在");
+    ES_SECURITY_0013("ES_SECURITY_0013","用户信息不存在"),
+    ES_SECURITY_0014("ES_SECURITY_0014","无法访问Stash");
 
     // 成员变量
     private String code;

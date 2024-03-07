@@ -8,7 +8,6 @@ import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.common.util.sample.MD5Util;
 import org.lambda.framework.common.util.sample.UUIDUtil;
 import org.lambda.framework.compliance.security.container.LambdaSecurityAuthToken;
-import org.lambda.framework.common.enums.SecurityContract;
 import org.lambda.framework.compliance.security.container.SecurityLoginUser;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import reactor.core.publisher.Mono;
@@ -16,8 +15,8 @@ import reactor.core.publisher.Mono;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import static org.lambda.framework.common.enums.ConmonContract.*;
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
-import static org.lambda.framework.common.enums.SecurityContract.TOKEN_SUFFIX;
 
 /**
  * @description: 获取spring secutiy中的principal
@@ -28,7 +27,7 @@ public abstract class PrincipalFactory {
 
     @Resource(name = "securityAuthRedisOperation")
     private ReactiveRedisOperation securityAuthRedisOperation;
-    protected abstract Mono<String> getAuthToken();
+    public abstract Mono<String> getAuthToken();
     protected abstract Mono<String> fetchSubject();
     /*protected 用于隐藏这个bean里的方法，在应用层面重写*/
     public   <T extends SecurityLoginUser<?>> Mono<String> setPrincipal(T t) {
@@ -40,12 +39,12 @@ public abstract class PrincipalFactory {
         }
         String principal = JsonUtil.objToString(t);
         //为了保证一个用户只会生成一个token,token唯一性
-        String keyHead = SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY + MD5Util.hash(t.getId().toString()) + ".";
-        String keySuffix = MD5Util.hash(t.getId() +"."+SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_SALT + "." + UUIDUtil.get());
+        String keyHead = LAMBDA_SECURITY_AUTH_TOKEN_KEY + MD5Util.hash(t.getId().toString()) + ".";
+        String keySuffix = MD5Util.hash(t.getId() +"."+LAMBDA_SECURITY_AUTH_TOKEN_SALT + "." + UUIDUtil.get());
         LambdaSecurityAuthToken<T> lambdaSecurityAuthToken = new LambdaSecurityAuthToken<T>();
         lambdaSecurityAuthToken.setPrincipal(principal);
         lambdaSecurityAuthToken.setToken(keySuffix);
-        return securityAuthRedisOperation.set(keyHead + TOKEN_SUFFIX, lambdaSecurityAuthToken, SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(keyHead + keySuffix));
+        return securityAuthRedisOperation.set(keyHead + TOKEN_SUFFIX, lambdaSecurityAuthToken, LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(keyHead + keySuffix));
     }
 
     public  <T extends SecurityLoginUser<?>> Mono<Void> updatePrincipal(T t) {
@@ -110,7 +109,7 @@ public abstract class PrincipalFactory {
 
     private Mono<String> getSecurityAuthTokenKey(String requestToken) {
         Assert.verify(requestToken,ES_COMPLIANCE_021);
-        if (!(Pattern.compile(SecurityContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(requestToken).matches()))
+        if (!(Pattern.compile(LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(requestToken).matches()))
             throw new EventException(ES_COMPLIANCE_024);
         //对token进行解析
         // 在字符串中查找最后一个点的位置
