@@ -12,6 +12,8 @@ import org.lambda.framework.common.exception.Assert;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.http.codec.json.Jackson2JsonEncoder;
 import org.springframework.messaging.rsocket.RSocketRequester;
@@ -26,8 +28,7 @@ import java.util.stream.Collectors;
 
 import static org.lambda.framework.common.enums.SecurityContract.LAMBDA_EMPTY_PRINCIPAL;
 import static org.lambda.framework.common.enums.SecurityContract.PRINCIPAL_STASH_NAMING;
-import static org.lambda.framework.nacos.enums.LoadBalanceExceptionEnum.EB_LOADBALANCE_001;
-import static org.lambda.framework.nacos.enums.LoadBalanceExceptionEnum.EB_LOADBALANCE_002;
+import static org.lambda.framework.nacos.enums.LoadBalanceExceptionEnum.*;
 
 @Component
 public class RSocketLoadbalance {
@@ -37,34 +38,32 @@ public class RSocketLoadbalance {
     private RSocketRequester.Builder builder;
     @Resource
     private RsocketPrincipalStash rsocketPrincipalStash;
+    @Resource
+    private RSocketStrategies strategies;
 
     public Mono<RSocketRequester> build(String ip,Integer port){
-        RSocketRequester rSocketRequester = getBuilder().transport(TcpClientTransport.create(ip,port));
+        Assert.verify(ip,EB_LOADBALANCE_005);
+        Assert.verify(port,EB_LOADBALANCE_006);
         return rsocketPrincipalStash.getPrincipal().defaultIfEmpty(LAMBDA_EMPTY_PRINCIPAL).map(principal->{
-            rSocketRequester.metadata(principal,MimeTypeUtils.parseMimeType(PRINCIPAL_STASH_NAMING));
-            return rSocketRequester;
+            return getBuilder(principal).transport(TcpClientTransport.create(ip,port));
         });
     }
 
     public Mono<RSocketRequester> build(String serviceName){
         Assert.verify(serviceName,EB_LOADBALANCE_001);
-        RSocketRequester rSocketRequester = getBuilder().transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy());
         return rsocketPrincipalStash.getPrincipal().defaultIfEmpty(LAMBDA_EMPTY_PRINCIPAL).map(principal->{
-            rSocketRequester.metadata(principal,MimeTypeUtils.parseMimeType(PRINCIPAL_STASH_NAMING));
-            return rSocketRequester;
+                return getBuilder(principal).transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy());
         });
     }
 
-    public RSocketRequester.Builder getBuilder(){
-        RSocketStrategies strategies = RSocketStrategies.builder()
-                .encoder(new Jackson2JsonEncoder())
-                .decoder(new Jackson2JsonDecoder())
-                .build();
+    private RSocketRequester.Builder getBuilder(String principal){
         return builder
-                .rsocketStrategies(strategies)
-                .dataMimeType(MimeTypeUtils.APPLICATION_JSON)
-                .metadataMimeType(MimeTypeUtils.parseMimeType(PRINCIPAL_STASH_NAMING));
+                .setupMetadata(principal,MimeTypeUtils.APPLICATION_JSON)
+                .rsocketStrategies(strategies);
     }
+
+
+
     private Flux<List<LoadbalanceTarget>> loadBalanceTargets(String serviceName) {
         return Mono.fromCallable(() -> {
             Assert.verify(serviceName,EB_LOADBALANCE_001);
@@ -92,9 +91,23 @@ public class RSocketLoadbalance {
     @Component
     @ConditionalOnMissingBean(RsocketPrincipalStash.class)
     public static class Stash implements RsocketPrincipalStash{
+
         @Override
         public Mono<String> getPrincipal() {
             return Mono.just(LAMBDA_EMPTY_PRINCIPAL);
+        }
+    }
+
+    @Configuration
+    public static class RsocketLoadbalanceConfig {
+        @Bean
+        public RSocketStrategies getStrategies(){
+            RSocketStrategies strategies = RSocketStrategies.builder()
+                    .encoder(new Jackson2JsonEncoder())
+                    .decoder(new Jackson2JsonDecoder())
+                    .metadataExtractorRegistry(r -> r.metadataToExtract(MimeTypeUtils.APPLICATION_JSON, String.class, PRINCIPAL_STASH_NAMING))
+                    .build();
+            return strategies;
         }
     }
 }

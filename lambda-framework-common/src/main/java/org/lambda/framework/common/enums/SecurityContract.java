@@ -22,8 +22,7 @@ public class SecurityContract {
     public static final String LAMBDA_SECURITY_URL_AUTZ_MODEL_MAPPING="MAPPING";
 
     public static String AUTH_TOKEN_NAMING = "Auth-Token";
-
-    public static final String PRINCIPAL_STASH_NAMING  = "message/x.rsocket.routing.v0";
+    public static final String PRINCIPAL_STASH_NAMING  = "Principal-Stash";
 
 
 }

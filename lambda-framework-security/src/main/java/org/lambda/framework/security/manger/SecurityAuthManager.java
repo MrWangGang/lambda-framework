@@ -4,6 +4,7 @@ package org.lambda.framework.security.manger;
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.enums.SecurityContract;
+import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
@@ -11,11 +12,11 @@ import org.lambda.framework.security.manger.support.SecurityAuthToken;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-import reactor.util.context.Context;
+import reactor.util.context.ContextView;
 
 import static org.lambda.framework.common.enums.SecurityContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND;
 import static org.lambda.framework.common.enums.SecurityContract.PRINCIPAL_STASH_NAMING;
-import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_000;
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.*;
 
 
 /**
@@ -45,7 +46,22 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
             if(verify(principal) == false) return Mono.error(new EventException(ES_SECURITY_000));
                SecurityAuthToken securityAuthToken = SecurityAuthToken.builder().principal(principal.toString()).credentials(authToken).authenticated(true).build();
                return securityAuthRedisOperation.expire(authToken, LAMBDA_SECURITY_TOKEN_TIME_SECOND)
-                        .then(Mono.just(securityAuthToken)).contextWrite(Context.of(PRINCIPAL_STASH_NAMING,securityAuthToken));
-       });
+                           .then(Mono.just(securityAuthToken)).flatMap(token->{
+                                return putToken(token).map(e->{
+                                    return token;
+                                });
+                            });
+        });
+    }
+
+    private  Mono<ContextView> putToken(SecurityAuthToken token) {
+        return Mono.deferContextual(Mono::just)
+                .map(contextView ->{
+                    ServerWebExchange serverWebExchange = contextView.get(ServerWebExchange.class);
+                    Assert.verify(serverWebExchange,ES_SECURITY_008);
+                    serverWebExchange.getAttributes().put(PRINCIPAL_STASH_NAMING,token);
+                    return contextView;
+                })
+                .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_008)));
     }
 }

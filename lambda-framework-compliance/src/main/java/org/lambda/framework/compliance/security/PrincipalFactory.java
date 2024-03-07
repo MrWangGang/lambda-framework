@@ -95,7 +95,7 @@ public abstract class PrincipalFactory {
                 });
             });
         }).flatMap(e -> {
-            return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_023)));
+            return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_019)));
         }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
     }
     public  Mono<String> fetchPrincipal() {
@@ -104,7 +104,7 @@ public abstract class PrincipalFactory {
     public  <T extends SecurityLoginUser<?>>Mono<T> fetchPrincipal2Object(Class<T> clazz) {
         return this.fetchSubject().switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)))
                 .flatMap(e -> {
-                    return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_023)));
+                    return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_019)));
                 }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
     }
 

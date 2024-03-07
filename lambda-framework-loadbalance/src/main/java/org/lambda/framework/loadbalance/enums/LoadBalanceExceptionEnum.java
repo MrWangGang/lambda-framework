@@ -11,7 +11,10 @@ public enum LoadBalanceExceptionEnum implements ExceptionEnumFunction {
     EB_LOADBALANCE_001("EB_LOADBALANCE_001","调用服务名不能为空"),
     EB_LOADBALANCE_002("EB_LOADBALANCE_002","该服务名下没有活跃的服务"),
     EB_LOADBALANCE_003("EB_LOADBALANCE_003","无效路由"),
-    EB_LOADBALANCE_004("EB_LOADBALANCE_004","无效端口");
+    EB_LOADBALANCE_004("EB_LOADBALANCE_004","无效端口"),
+    EB_LOADBALANCE_005("EB_LOADBALANCE_005","调用服务的地址不能为空"),
+    EB_LOADBALANCE_006("EB_LOADBALANCE_006","调用服务的端口不能为空");
+
 
     // 成员变量
 

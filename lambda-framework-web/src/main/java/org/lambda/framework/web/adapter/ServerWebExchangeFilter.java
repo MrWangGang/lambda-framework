@@ -16,7 +16,6 @@ public class ServerWebExchangeFilter  implements WebFilter {
         return Mono.deferContextual(contextView -> {
             // 将 ServerWebExchange 放入 Context 中
             Context context = Context.of(ServerWebExchange.class, exchange);
-            Context.of(ServerWebExchange.class, exchange);
             // 将修改后的 Context 传递给下游方法
             return chain.filter(exchange).contextWrite(context);
         });

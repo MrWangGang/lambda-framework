@@ -5,20 +5,19 @@ import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.metadata.WellKnownMimeType;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.compliance.security.PrincipalFactory;
-import org.lambda.framework.common.enums.SecurityContract;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_021;
+import static org.lambda.framework.common.enums.SecurityContract.AUTH_TOKEN_NAMING;
 import static org.lambda.framework.common.enums.SecurityContract.PRINCIPAL_STASH_NAMING;
-import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_000;
+import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.*;
 
 @Component
 public class RsocketPrincipalFactory extends PrincipalFactory {
 
     @Override
     protected Mono<String> getAuthToken(){
-        return getRequest(SecurityContract.AUTH_TOKEN_NAMING);
+        return getRequest(AUTH_TOKEN_NAMING);
     }
 
     @Override
@@ -36,7 +35,7 @@ public class RsocketPrincipalFactory extends PrincipalFactory {
                     String metadata = getMetadataValue(compositeMetadata, WellKnownMimeType.APPLICATION_JSON.getString());
                     return Mono.just(metadata);
                 })
-                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_021)));
+                .switchIfEmpty(Mono.error(new EventException(ES_RSOCKET_001)));
     }
 
     private static String getMetadataValue(CompositeMetadata compositeMetadata, String mimeType) {
@@ -44,6 +43,6 @@ public class RsocketPrincipalFactory extends PrincipalFactory {
         return compositeMetadata.stream()
                 .filter(entry -> entry.getMimeType().equals(mimeType))
                 .findFirst()
-                .map(entry -> entry.getContent().toString()).orElseThrow(()->new EventException(ES_COMPLIANCE_021));
+                .map(entry -> entry.getContent().toString()).orElseThrow(()->new EventException(ES_RSOCKET_002));
     }
 }
