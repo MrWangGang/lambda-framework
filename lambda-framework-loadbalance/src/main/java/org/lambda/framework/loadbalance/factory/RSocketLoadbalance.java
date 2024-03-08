@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.Assert;
+import org.lambda.framework.common.support.SecurityStash;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
@@ -27,7 +28,8 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.lambda.framework.common.enums.ConmonContract.*;
+import static org.lambda.framework.common.enums.ConmonContract.AUTHTOKEN_STASH_NAMING;
+import static org.lambda.framework.common.enums.ConmonContract.PRINCIPAL_STASH_NAMING;
 import static org.lambda.framework.nacos.enums.LoadBalanceExceptionEnum.*;
 
 @Component
@@ -41,32 +43,44 @@ public class RSocketLoadbalance {
     @Resource
     private RSocketStrategies strategies;
 
-    public Mono<RSocketRequester> build(String ip, Integer port){
+    public Mono<RSocketRequester.RequestSpec> build(String ip, Integer port,String path){
         Assert.verify(ip,EB_LOADBALANCE_005);
         Assert.verify(port,EB_LOADBALANCE_006);
         return rsocketPrincipalStash.setSecurityStash()
                 .onErrorReturn(defaultSecurityStash)
                 .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
-            return getBuilder(securityStash).transport(TcpClientTransport.create(ip,port));
+                    RSocketRequester.RequestSpec requester =  getBuilder()
+                            .transport(TcpClientTransport.create(ip,port))
+                            .route(path);
+                    return setRSocketRequester(requester,securityStash);
         });
     }
 
-    public Mono<RSocketRequester> build(String serviceName){
+
+    public Mono<RSocketRequester.RequestSpec> build(String serviceName,String path){
         Assert.verify(serviceName,EB_LOADBALANCE_001);
         return rsocketPrincipalStash.setSecurityStash()
                 .onErrorReturn(defaultSecurityStash)
                 .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
-                return getBuilder(securityStash).transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy());
+                    RSocketRequester.RequestSpec requester = getBuilder()
+                            .transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy())
+                            .route(path);
+                    return setRSocketRequester(requester,securityStash);
         });
     }
 
-    private RSocketRequester.Builder getBuilder(SecurityStash defaultSecurityStash){
-        if(StringUtils.isNotBlank(defaultSecurityStash.getAuthToken())){
-            builder.setupMetadata(defaultSecurityStash.getAuthToken(), MimeTypeUtils.parseMimeType(AUTHTOKEN_STASH_NAMING));
+    public RSocketRequester.RequestSpec setRSocketRequester(RSocketRequester.RequestSpec requester,SecurityStash securityStash){
+        if(StringUtils.isNotBlank(securityStash.getAuthToken())){
+            requester.metadata(securityStash.getAuthToken(), MimeTypeUtils.parseMimeType(AUTHTOKEN_STASH_NAMING));
         }
-        if(StringUtils.isNotBlank(defaultSecurityStash.getPrincipal())){
-            builder.setupMetadata(defaultSecurityStash.getPrincipal(), MimeTypeUtils.parseMimeType(PRINCIPAL_STASH_NAMING));
+        if(StringUtils.isNotBlank(securityStash.getPrincipal())){
+            requester.metadata(securityStash.getPrincipal(), MimeTypeUtils.parseMimeType(PRINCIPAL_STASH_NAMING));
         }
+
+        return requester;
+    }
+
+    private RSocketRequester.Builder getBuilder(){
         builder.rsocketStrategies(strategies);
         return builder;
     }
@@ -110,15 +124,6 @@ public class RSocketLoadbalance {
 
     }
 
-    @Data
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class SecurityStash{
-        private String authToken;
-
-        private String principal;
-    }
 
     @Configuration
     public static class RsocketLoadbalanceConfig {

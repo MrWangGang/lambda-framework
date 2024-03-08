@@ -59,12 +59,10 @@ public class RsocketRequestFactory {
                         .flatMap(dataBuffer -> {
                             return Mono.just(new String(dataBuffer, StandardCharsets.UTF_8));
                         }).flatMap(body->{
-                            Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort());
+                            Mono<RSocketRequester.RequestSpec> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort(),targetUri.getPath());
                             return rSocketRequester.flatMap(requester->{
                                 // 使用RSocket客户端发送请求
-                                RSocketRequester.RetrieveSpec retrieveSpec =  requester
-                                        .route(targetUri.getPath())
-                                        .data(body);
+                                RSocketRequester.RetrieveSpec retrieveSpec =  requester.data(body);
                                 switch (model){
                                     case RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_MODEL_FIRE_AND_FORGET:
                                         return handleResponse(retrieveSpec.retrieveMono(String.class), rs);
@@ -104,6 +102,6 @@ public class RsocketRequestFactory {
     }
 
     public interface RSocketRequesterBuild{
-        public Mono<RSocketRequester> build(RSocketLoadbalance rSocketLoadbalance,String host,Integer port);
+        public Mono<RSocketRequester.RequestSpec> build(RSocketLoadbalance rSocketLoadbalance,String host,Integer port,String path);
     }
 }

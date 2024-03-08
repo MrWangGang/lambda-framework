@@ -19,8 +19,8 @@ public class RSocketBalanceFilter implements GlobalFilter,Ordered{
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        return rsocketRequestFactory.execute(exchange,chain,RB_SCHEME,(rSocketLoadbalance,host,port)->{
-            return rSocketLoadbalance.build(host);
+        return rsocketRequestFactory.execute(exchange,chain,RB_SCHEME,(rSocketLoadbalance,host,port,path)->{
+            return rSocketLoadbalance.build(host,path);
         });
     }
     @Override

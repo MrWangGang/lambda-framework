@@ -9,7 +9,8 @@ public enum RsocketExceptionEnum implements ExceptionEnumFunction {
     //系统异常-普通异常 0-99
     ES_RSOCKET_000("ES_RSOCKET_000","缺失负载消息"),
     ES_RSOCKET_001("ES_RSOCKET_001","无效令牌"),
-    ES_RSOCKET_002("ES_RSOCKET_002","用户信息不存在");
+    ES_RSOCKET_002("ES_RSOCKET_002","用户信息不存在"),
+    ES_RSOCKET_003("ES_RSOCKET_003","无法访问上下文 SecurityStash");
 
 
     // 成员变量

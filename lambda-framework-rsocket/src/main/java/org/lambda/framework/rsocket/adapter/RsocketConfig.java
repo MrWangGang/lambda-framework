@@ -4,21 +4,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.rsocket.server.RSocketServerCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.messaging.rsocket.RSocketStrategies;
 
 @Configuration
-public class RsocketConfig {
+public class RsocketConfig  {
     @Bean
-    public RSocketServerCustomizer rSocketServerCustomizer(RSocketMetadataInterceptor rSocketMetadataInterceptor) {
+    public RSocketServerCustomizer rSocketServerCustomizer(@Autowired(required = false) RSocketMetadataInterceptor rSocketMetadataInterceptor) {
         return server -> server.interceptors(interceptorRegistry ->
-                interceptorRegistry.forSocketAcceptor(
-                        rSocketMetadataInterceptor::apply
-                )
-        );
-    }
-
-    @Bean
-    public RSocketMetadataInterceptor rSocketMetadataInterceptor(@Autowired(required = false) RSocketStrategies strategies) {
-        return new RSocketMetadataInterceptor(strategies);
+                interceptorRegistry.forResponder(rSocketMetadataInterceptor));
     }
 }
