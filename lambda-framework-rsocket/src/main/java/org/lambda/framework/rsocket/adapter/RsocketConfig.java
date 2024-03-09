@@ -10,9 +10,8 @@ public class RsocketConfig  {
     @Bean
     public RSocketServerCustomizer rSocketServerCustomizer(
             @Autowired(required = false) RSocketMetadataInterceptor rSocketMetadataInterceptor
-            ,@Autowired(required = false) RSocketSocketAccpInterceptor rSocketSocketAccpInterceptor
     ) {
         return server -> server.interceptors(interceptorRegistry ->
-                interceptorRegistry.forResponder(rSocketMetadataInterceptor).forSocketAcceptor(rSocketSocketAccpInterceptor));
+                interceptorRegistry.forResponder(rSocketMetadataInterceptor));
     }
 }
