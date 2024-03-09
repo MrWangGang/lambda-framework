@@ -59,15 +59,17 @@ public class RsocketRequestFactory {
                         .flatMap(dataBuffer -> {
                             return Mono.just(new String(dataBuffer, StandardCharsets.UTF_8));
                         }).flatMap(body->{
-                            Mono<RSocketRequester.RequestSpec> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort(),targetUri.getPath());
+                            Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort());
                             return rSocketRequester.flatMap(requester->{
                                 // 使用RSocket客户端发送请求
-                                RSocketRequester.RetrieveSpec retrieveSpec =  requester.data(body);
+                                RSocketRequester.RetrieveSpec retrieveSpec =  requester
+                                        .route(targetUri.getPath())
+                                        .data(body);
                                 switch (model){
                                     case RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_MODEL_FIRE_AND_FORGET:
-                                        return handleResponse(retrieveSpec.retrieveMono(Object.class), rs);
+                                        return handleResponse(retrieveSpec.retrieveMono(String.class), rs);
                                     case RSOCKET_MODEL_REQUEST_STREAM, RSOCKET_MODEL_CHANNEL:
-                                        return handleResponse(retrieveSpec.retrieveFlux(Object.class).collectList(), rs);
+                                        return handleResponse(retrieveSpec.retrieveFlux(String.class).collectList(), rs);
                                     default:
                                         return Mono.error(new EventException(ES_GATEWAY_006));
                                 }
@@ -102,6 +104,6 @@ public class RsocketRequestFactory {
     }
 
     public interface RSocketRequesterBuild{
-        public Mono<RSocketRequester.RequestSpec> build(RSocketLoadbalance rSocketLoadbalance,String host,Integer port,String path);
+        public Mono<RSocketRequester> build(RSocketLoadbalance rSocketLoadbalance,String host,Integer port);
     }
 }

@@ -43,38 +43,34 @@ public class RSocketLoadbalance {
     @Resource
     private RSocketStrategies strategies;
 
-    public Mono<RSocketRequester.RequestSpec> build(String ip, Integer port,String path){
+    public Mono<RSocketRequester> build(String ip, Integer port){
         Assert.verify(ip,EB_LOADBALANCE_005);
         Assert.verify(port,EB_LOADBALANCE_006);
         return rsocketPrincipalStash.setSecurityStash()
                 .onErrorReturn(defaultSecurityStash)
                 .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
-                    RSocketRequester.RequestSpec requester =  getBuilder()
-                            .transport(TcpClientTransport.create(ip,port))
-                            .route(path);
-                    return setRSocketRequester(requester,securityStash);
+                    return setRSocketRequester(getBuilder(),securityStash)
+                                .transport(TcpClientTransport.create(ip,port));
         });
     }
 
 
-    public Mono<RSocketRequester.RequestSpec> build(String serviceName,String path){
+    public Mono<RSocketRequester> build(String serviceName){
         Assert.verify(serviceName,EB_LOADBALANCE_001);
         return rsocketPrincipalStash.setSecurityStash()
                 .onErrorReturn(defaultSecurityStash)
                 .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
-                    RSocketRequester.RequestSpec requester = getBuilder()
-                            .transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy())
-                            .route(path);
-                    return setRSocketRequester(requester,securityStash);
+                 return setRSocketRequester(getBuilder(),securityStash)
+                            .transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy());
         });
     }
 
-    public RSocketRequester.RequestSpec setRSocketRequester(RSocketRequester.RequestSpec requester,SecurityStash securityStash){
+    public RSocketRequester.Builder setRSocketRequester(RSocketRequester.Builder requester,SecurityStash securityStash){
         if(StringUtils.isNotBlank(securityStash.getAuthToken())){
-            requester.metadata(securityStash.getAuthToken(), MimeTypeUtils.parseMimeType(AUTHTOKEN_STASH_NAMING));
+            requester.setupMetadata(securityStash.getAuthToken(), MimeTypeUtils.parseMimeType(AUTHTOKEN_STASH_NAMING));
         }
         if(StringUtils.isNotBlank(securityStash.getPrincipal())){
-            requester.metadata(securityStash.getPrincipal(), MimeTypeUtils.parseMimeType(PRINCIPAL_STASH_NAMING));
+            requester.setupMetadata(securityStash.getPrincipal(), MimeTypeUtils.parseMimeType(PRINCIPAL_STASH_NAMING));
         }
 
         return requester;
