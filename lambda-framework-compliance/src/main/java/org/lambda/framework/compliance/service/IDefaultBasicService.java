@@ -8,7 +8,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
-public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
+public interface IDefaultBasicService<PO extends UnifyPO,ID>{
 
     public Mono<PO> update(PO po);
 

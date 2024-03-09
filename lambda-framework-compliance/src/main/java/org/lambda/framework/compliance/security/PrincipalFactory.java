@@ -41,7 +41,7 @@ public abstract class PrincipalFactory {
         //为了保证一个用户只会生成一个token,token唯一性
         String keyHead = LAMBDA_SECURITY_AUTH_TOKEN_KEY + MD5Util.hash(t.getId().toString()) + ".";
         String keySuffix = MD5Util.hash(t.getId() +"."+LAMBDA_SECURITY_AUTH_TOKEN_SALT + "." + UUIDUtil.get());
-        LambdaSecurityAuthToken<T> lambdaSecurityAuthToken = new LambdaSecurityAuthToken<T>();
+        LambdaSecurityAuthToken lambdaSecurityAuthToken = new LambdaSecurityAuthToken();
         lambdaSecurityAuthToken.setPrincipal(principal);
         lambdaSecurityAuthToken.setToken(keySuffix);
         return securityAuthRedisOperation.set(keyHead + TOKEN_SUFFIX, lambdaSecurityAuthToken, LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(keyHead + keySuffix));
@@ -122,11 +122,11 @@ public abstract class PrincipalFactory {
         token = token + TOKEN_SUFFIX;
         return Mono.just(token);
     }
-    private <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken<?>> getSecurityAuthToken(String key) {
+    private <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken> getSecurityAuthToken(String key) {
         Assert.verify(key,ES_COMPLIANCE_021);
         return this.getAuthToken().flatMap(rqtoken->{
             return securityAuthRedisOperation.get(key).flatMap(tokenBean -> {
-                LambdaSecurityAuthToken<?> lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_COMPLIANCE_021));
+                LambdaSecurityAuthToken lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_COMPLIANCE_021));
                 if (StringUtils.isBlank(lambdaSecurityAuthToken.getToken())) {
                     return Mono.error(new EventException(ES_COMPLIANCE_021));
                 }

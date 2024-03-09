@@ -8,8 +8,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RsocketConfig  {
     @Bean
-    public RSocketServerCustomizer rSocketServerCustomizer(@Autowired(required = false) RSocketMetadataInterceptor rSocketMetadataInterceptor) {
+    public RSocketServerCustomizer rSocketServerCustomizer(
+            @Autowired(required = false) RSocketMetadataInterceptor rSocketMetadataInterceptor
+            ,@Autowired(required = false) RSocketSocketAccpInterceptor rSocketSocketAccpInterceptor
+    ) {
         return server -> server.interceptors(interceptorRegistry ->
-                interceptorRegistry.forResponder(rSocketMetadataInterceptor));
+                interceptorRegistry.forResponder(rSocketMetadataInterceptor).forSocketAcceptor(rSocketSocketAccpInterceptor));
     }
 }
