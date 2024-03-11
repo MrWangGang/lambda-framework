@@ -11,7 +11,9 @@ public class GatewayContract {
     public static final String RSOCKET_MODEL_REQUEST_STREAM = "request-stream";
     public static final String RSOCKET_MODEL_FIRE_AND_FORGET = "fire-and-forget";
     public static final String RSOCKET_MODEL_CHANNEL = "channel";
-    public static final String RSOCKET_ECHO_STRING = "response-string";
+    public static final String RSOCKET_ECHO_CHAR = "response-char";
+    public static final String RSOCKET_ECHO_ARRAY = "response-array";
     public static final String RSOCKET_ECHO_OBJECT = "response-object";
+    public static final String RSOCKET_ECHO_MEDIA = "response-media";
 
 }

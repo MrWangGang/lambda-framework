@@ -73,18 +73,18 @@ public class RsocketRequestFactory {
                                 switch (rsocketModel){
                                     case RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_MODEL_FIRE_AND_FORGET:
                                         switch (rsocketEcho){
-                                            case RSOCKET_ECHO_STRING:
+                                            case RSOCKET_ECHO_CHAR, RSOCKET_ECHO_ARRAY:
                                                 return handleResponse(retrieveSpec.retrieveMono(String.class), rs);
-                                            case RSOCKET_ECHO_OBJECT:
+                                            case RSOCKET_ECHO_OBJECT, RSOCKET_ECHO_MEDIA:
                                                 return handleResponse(retrieveSpec.retrieveMono(Object.class), rs);
                                             default:
                                                 return Mono.error(new EventException(ES_GATEWAY_010));
                                         }
                                     case RSOCKET_MODEL_REQUEST_STREAM, RSOCKET_MODEL_CHANNEL:
                                         switch (rsocketEcho){
-                                            case RSOCKET_ECHO_STRING:
+                                            case RSOCKET_ECHO_CHAR, RSOCKET_ECHO_ARRAY:
                                                 return handleResponse(retrieveSpec.retrieveFlux(String.class).collectList(), rs);
-                                            case RSOCKET_ECHO_OBJECT:
+                                            case RSOCKET_ECHO_OBJECT, RSOCKET_ECHO_MEDIA:
                                                 return handleResponse(retrieveSpec.retrieveFlux(Object.class).collectList(), rs);
                                             default:
                                                 return Mono.error(new EventException(ES_GATEWAY_010));
