@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 
 import static org.lambda.framework.common.enums.ConmonContract.AUTHTOKEN_STASH_NAMING;
 import static org.lambda.framework.common.enums.ConmonContract.PRINCIPAL_STASH_NAMING;
-import static org.lambda.framework.nacos.enums.LoadBalanceExceptionEnum.*;
+import static org.lambda.framework.loadbalance.enums.LoadBalanceExceptionEnum.*;
 
 @Component
 public class RSocketLoadbalance {
@@ -121,7 +121,7 @@ public class RSocketLoadbalance {
     }
 
 
-    @Configuration
+   @Configuration
     public static class RsocketLoadbalanceConfig {
         @Bean
         public RSocketStrategies getStrategies(){

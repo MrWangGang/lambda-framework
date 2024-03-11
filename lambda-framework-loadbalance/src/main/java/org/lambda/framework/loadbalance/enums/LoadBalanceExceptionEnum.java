@@ -1,4 +1,4 @@
-package org.lambda.framework.nacos.enums;
+package org.lambda.framework.loadbalance.enums;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -14,7 +14,11 @@ public enum LoadBalanceExceptionEnum implements ExceptionEnumFunction {
     EB_LOADBALANCE_004("EB_LOADBALANCE_004","无效端口"),
     EB_LOADBALANCE_005("EB_LOADBALANCE_005","调用服务的地址不能为空"),
     EB_LOADBALANCE_006("EB_LOADBALANCE_006","调用服务的端口不能为空"),
-    EB_LOADBALANCE_007("EB_LOADBALANCE_007","调用服务的路径不能为空");
+    EB_LOADBALANCE_007("EB_LOADBALANCE_007","调用服务的路径不能为空"),
+    EB_LOADBALANCE_008("EB_LOADBALANCE_008","服务间的调用必须用二进制(application/octet-stream)传输"),
+    EB_LOADBALANCE_009("EB_LOADBALANCE_009","二进制数据转json失败");
+
+
 
 
     // 成员变量

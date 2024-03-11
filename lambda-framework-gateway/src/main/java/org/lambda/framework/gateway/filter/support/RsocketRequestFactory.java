@@ -56,9 +56,7 @@ public class RsocketRequestFactory {
                 return extractRequestBody(bodyFlux)
                         .switchIfEmpty(Mono.error(new EventException(ES_GATEWAY_004)))
                         //bodyByte是绝对不会为空的 。extract永远都会返回一个;
-                        .flatMap(dataBuffer -> {
-                            return Mono.just(new String(dataBuffer, StandardCharsets.UTF_8));
-                        }).flatMap(body->{
+                        .flatMap(body->{
                             Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort());
                             return rSocketRequester.flatMap(requester->{
                                 // 使用RSocket客户端发送请求
