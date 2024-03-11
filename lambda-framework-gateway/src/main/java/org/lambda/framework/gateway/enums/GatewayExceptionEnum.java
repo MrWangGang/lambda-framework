@@ -17,7 +17,10 @@ public enum GatewayExceptionEnum implements ExceptionEnumFunction {
     ES_GATEWAY_007("ES_GATEWAY_007","解析目标地址返回值出错"),
     ES_GATEWAY_008("ES_GATEWAY_008","服务名缺失"),
     ES_GATEWAY_009("ES_GATEWAY_009","无效的协议头 RSocket-Echo"),
-    ES_GATEWAY_010("ES_GATEWAY_010","无效的 rsocket 响应类型");
+    ES_GATEWAY_010("ES_GATEWAY_010","无效的 rsocket 响应类型"),
+    ES_GATEWAY_011("ES_GATEWAY_011","不支持query params形式的接口"),
+    ES_GATEWAY_012("ES_GATEWAY_012","缺失Content-Type"),
+    ES_GATEWAY_013("ES_GATEWAY_013","Content-Type仅支持 application/json;charset=UTF-8和application/octet-stream");
 
 
 

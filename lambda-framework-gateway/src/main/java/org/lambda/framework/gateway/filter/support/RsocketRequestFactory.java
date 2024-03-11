@@ -12,6 +12,7 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ import reactor.core.publisher.Mono;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 
 import static org.lambda.framework.gateway.enums.GatewayContract.*;
 import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.*;
@@ -57,6 +59,23 @@ public class RsocketRequestFactory {
                 Assert.verify(rsocketEchoHeaders,ES_GATEWAY_005);
                 String rsocketEcho = rsocketEchoHeaders.getFirst();
                 Assert.verify(rsocketModel,ES_GATEWAY_009);
+                Map map = exchange.getRequest().getQueryParams();
+                if(map!=null){
+                    if(!map.isEmpty()){
+                        throw new EventException(ES_GATEWAY_011);
+                    }
+                }
+
+                //获取content type
+                List<String> contentHeaders = reqHeaders.get(HttpHeaders.CONTENT_TYPE);
+                Assert.verify(contentHeaders,ES_GATEWAY_012);
+                String contentType = contentHeaders.getFirst();
+                Assert.verify(contentType,ES_GATEWAY_012);
+                switch (contentType){
+                    case MediaType.APPLICATION_JSON_UTF8_VALUE:break;
+                    case MediaType.APPLICATION_OCTET_STREAM_VALUE:break;
+                    default:throw new EventException(ES_GATEWAY_013);
+                }
                 //获取请求里的body
                 Flux<DataBuffer> bodyFlux = exchange.getRequest().getBody();
                 ServerHttpResponse rs = exchange.getResponse();
