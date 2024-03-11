@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import static org.lambda.framework.gateway.config.GatewayContract.RB_SCHEME;
+import static org.lambda.framework.gateway.enums.GatewayContract.RB_SCHEME;
 
 @Component
 public class RSocketBalanceFilter implements GlobalFilter,Ordered{

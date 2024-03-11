@@ -23,7 +23,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import static org.lambda.framework.gateway.config.GatewayContract.*;
+import static org.lambda.framework.gateway.enums.GatewayContract.*;
 import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.*;
 
 @Component
@@ -47,9 +47,16 @@ public class RsocketRequestFactory {
             if (targetUri != null && (match.equals(targetUri.getScheme()))) {
                 HttpHeaders reqHeaders = exchange.getRequest().getHeaders();
                 Assert.verify(reqHeaders,ES_GATEWAY_005);
-                List<String> headers = reqHeaders.get(RSOCKET_MODEL);
-                Assert.verify(headers,ES_GATEWAY_005);
-                String model = headers.getFirst();
+                //获取model
+                List<String> rsocketModelHeaders = reqHeaders.get(RSOCKET_MODEL);
+                Assert.verify(rsocketModelHeaders,ES_GATEWAY_005);
+                String rsocketModel = rsocketModelHeaders.getFirst();
+                Assert.verify(rsocketModel,ES_GATEWAY_005);
+                //获取echo
+                List<String> rsocketEchoHeaders = reqHeaders.get(RSOCKET_ECHO);
+                Assert.verify(rsocketEchoHeaders,ES_GATEWAY_005);
+                String rsocketEcho = rsocketEchoHeaders.getFirst();
+                Assert.verify(rsocketModel,ES_GATEWAY_009);
                 //获取请求里的body
                 Flux<DataBuffer> bodyFlux = exchange.getRequest().getBody();
                 ServerHttpResponse rs = exchange.getResponse();
@@ -63,13 +70,26 @@ public class RsocketRequestFactory {
                                 RSocketRequester.RetrieveSpec retrieveSpec =  requester
                                         .route(targetUri.getPath())
                                         .data(body);
-                                switch (model){
+                                switch (rsocketModel){
                                     case RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_MODEL_FIRE_AND_FORGET:
-                                        return handleResponse(retrieveSpec.retrieveMono(String.class), rs);
+                                        switch (rsocketEcho){
+                                            case RSOCKET_ECHO_STRING:
+                                                return handleResponse(retrieveSpec.retrieveMono(String.class), rs);
+                                            case RSOCKET_ECHO_OBJECT:
+                                                return handleResponse(retrieveSpec.retrieveMono(Object.class), rs);
+                                            default:
+                                                return Mono.error(new EventException(ES_GATEWAY_010));
+                                        }
                                     case RSOCKET_MODEL_REQUEST_STREAM, RSOCKET_MODEL_CHANNEL:
-                                        return handleResponse(retrieveSpec.retrieveFlux(String.class).collectList(), rs);
-                                    default:
-                                        return Mono.error(new EventException(ES_GATEWAY_006));
+                                        switch (rsocketEcho){
+                                            case RSOCKET_ECHO_STRING:
+                                                return handleResponse(retrieveSpec.retrieveFlux(String.class).collectList(), rs);
+                                            case RSOCKET_ECHO_OBJECT:
+                                                return handleResponse(retrieveSpec.retrieveFlux(Object.class).collectList(), rs);
+                                            default:
+                                                return Mono.error(new EventException(ES_GATEWAY_010));
+                                        }
+                                    default: return Mono.error(new EventException(ES_GATEWAY_006));
                                 }
                             });
                         });
@@ -87,7 +107,14 @@ public class RsocketRequestFactory {
             // 使用 DefaultDataBufferFactory 创建 DataBuffer
             DataBuffer joinedDataBuffer = DefaultDataBufferFactory.sharedInstance.wrap(responseBytes);
             return response.writeWith(Mono.just(joinedDataBuffer));
-        });
+        }).switchIfEmpty(Mono.defer(()->{
+            ResponseTemplete responseTemplete = new ResponseTemplete();
+            // 将字符串转换为字节数组
+            byte[] responseBytes = JsonUtil.objToString(responseTemplete).getBytes(StandardCharsets.UTF_8);
+            // 使用 DefaultDataBufferFactory 创建 DataBuffer
+            DataBuffer joinedDataBuffer = DefaultDataBufferFactory.sharedInstance.wrap(responseBytes);
+            return response.writeWith(Mono.just(joinedDataBuffer));
+        }));
     }
 
     private Mono<byte[]> extractRequestBody(Flux<DataBuffer> body) {
