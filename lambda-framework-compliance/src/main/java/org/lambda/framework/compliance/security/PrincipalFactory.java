@@ -52,7 +52,7 @@ public abstract class PrincipalFactory {
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
                 return this.getSecurityAuthToken(key).flatMap(token->{
                     token.setPrincipal(JsonUtil.objToString(t));
-                    return securityAuthRedisOperation.update(key,token)
+                    return securityAuthRedisOperation.update(key,token,LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue())
                             .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_022)))
                             .flatMap(flag->{
                                 if(!flag)return Mono.error(new EventException(ES_COMPLIANCE_022));
