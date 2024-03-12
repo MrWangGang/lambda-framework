@@ -21,9 +21,6 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -73,6 +70,11 @@ public class RsocketRequestFactory {
                     case MediaType.APPLICATION_OCTET_STREAM_VALUE:break;
                     default:throw new EventException(ES_GATEWAY_013);
                 }
+
+                MultiValueMap<String,String> queryParams = exchange.getRequest().getQueryParams();
+                if(verifyQueryParamsIsNotNull(queryParams)){
+                    throw new EventException(ES_GATEWAY_011);
+                }
                 //获取请求里的body
                 Flux<DataBuffer> bodyFlux = exchange.getRequest().getBody();
                 ServerHttpResponse rs = exchange.getResponse();
@@ -80,32 +82,12 @@ public class RsocketRequestFactory {
                         .switchIfEmpty(Mono.error(new EventException(ES_GATEWAY_004)))
                         //bodyByte是绝对不会为空的 。extract永远都会返回一个;
                         .flatMap(body->{
-                            MultiValueMap<String,String> queryParams = exchange.getRequest().getQueryParams();
-                            if(body.length != 0 && verifyQueryParamsIsNull(queryParams)){
-                                //两个都不为空
-                                return Mono.error(new EventException(ES_GATEWAY_014));
-                            }
-                            if(body.length != 0){
-                                //无事发生
-                            }
-                            if(verifyQueryParamsIsNull(queryParams)){
-                                if(queryParams.size()>1){
-                                    //query params不为空,并且长度对于1
-                                    return Mono.error(new EventException(ES_GATEWAY_011));
-                                }
-                                List firstValue = queryParams.values().iterator().next();
-                                if(!Assert.verify(firstValue)){
-                                    body = new byte[0];
-                                }
-                                body = convertToBytes(firstValue.get(0));
-                            }
                             Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort());
-                            byte[] finalBody = body;
                             return rSocketRequester.flatMap(requester->{
                                 // 使用RSocket客户端发送请求
                                 RSocketRequester.RetrieveSpec retrieveSpec =  requester
                                         .route(targetUri.getPath())
-                                        .data(finalBody);
+                                        .data(body);
                                 switch (rsocketModel){
                                     case RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_MODEL_FIRE_AND_FORGET:
                                         switch (rsocketEcho){
@@ -135,18 +117,8 @@ public class RsocketRequestFactory {
         throw new EventException(ES_GATEWAY_002);
     }
 
-    public static byte[] convertToBytes(Object obj){
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
-             ObjectOutputStream oos = new ObjectOutputStream(bos)) {
-             oos.writeObject(obj);
-            return bos.toByteArray();
-        }catch (IOException e) {
-            // 处理可能的 IOException
-            throw new EventException(ES_GATEWAY_015);
-        }
-    }
 
-    private boolean verifyQueryParamsIsNull(Map queryParams){
+    private boolean verifyQueryParamsIsNotNull(Map queryParams){
         if(queryParams!=null){
             if(!queryParams.isEmpty()){
                 return true;
