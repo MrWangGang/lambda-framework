@@ -59,13 +59,6 @@ public class RsocketRequestFactory {
                 Assert.verify(rsocketEchoHeaders,ES_GATEWAY_005);
                 String rsocketEcho = rsocketEchoHeaders.getFirst();
                 Assert.verify(rsocketModel,ES_GATEWAY_009);
-                Map map = exchange.getRequest().getQueryParams();
-                if(map!=null){
-                    if(!map.isEmpty()){
-                        throw new EventException(ES_GATEWAY_011);
-                    }
-                }
-
                 //获取content type
                 List<String> contentHeaders = reqHeaders.get(HttpHeaders.CONTENT_TYPE);
                 Assert.verify(contentHeaders,ES_GATEWAY_012);
@@ -83,12 +76,32 @@ public class RsocketRequestFactory {
                         .switchIfEmpty(Mono.error(new EventException(ES_GATEWAY_004)))
                         //bodyByte是绝对不会为空的 。extract永远都会返回一个;
                         .flatMap(body->{
+                            Map queryParams = exchange.getRequest().getQueryParams();
+                            if(!body.equals(new byte[0]) && verifyQueryParamsIsNull(queryParams)){
+                                //两个都不为空
+                                return Mono.error(new EventException(ES_GATEWAY_014));
+                            }
+                            if(!body.equals(new byte[0])){
+                                //无事发生
+                            }
+                            if(verifyQueryParamsIsNull(queryParams)){
+                                if(queryParams.size()>1){
+                                    //query params不为空,并且长度对于1
+                                    return Mono.error(new EventException(ES_GATEWAY_011));
+                                }
+                                Object firstValue = queryParams.values().iterator().next();
+                                if(firstValue == null){
+                                    body = new byte[0];
+                                }
+                                body = firstValue.toString().getBytes();
+                            }
                             Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort());
+                            byte[] finalBody = body;
                             return rSocketRequester.flatMap(requester->{
                                 // 使用RSocket客户端发送请求
                                 RSocketRequester.RetrieveSpec retrieveSpec =  requester
                                         .route(targetUri.getPath())
-                                        .data(body);
+                                        .data(finalBody);
                                 switch (rsocketModel){
                                     case RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_MODEL_FIRE_AND_FORGET:
                                         switch (rsocketEcho){
@@ -116,6 +129,16 @@ public class RsocketRequestFactory {
             return chain.filter(exchange);
         }
         throw new EventException(ES_GATEWAY_002);
+    }
+
+    private boolean verifyQueryParamsIsNull(Map queryParams){
+        if(queryParams!=null){
+            if(!queryParams.isEmpty()){
+                return true;
+            }
+            return false;
+        }
+        return false;
     }
 
     private <T> Mono<Void> handleResponse(Mono<?> fluxMono, ServerHttpResponse response) {
