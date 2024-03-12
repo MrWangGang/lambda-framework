@@ -6,7 +6,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
-import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.lambda.framework.security.manger.support.SecurityAuthToken;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
 import org.springframework.web.server.ServerWebExchange;
@@ -16,8 +15,7 @@ import reactor.util.context.ContextView;
 import java.util.Map;
 
 import static org.lambda.framework.common.enums.ConmonContract.*;
-import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_000;
-import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_008;
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.*;
 
 
 /**
@@ -37,11 +35,12 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
         //converter
         ServerWebExchange exchange = authorizationContext.getExchange();
         String authToken = exchange.getRequest().getHeaders().getFirst(AUTH_TOKEN_NAMING);
+        Assert.verify(authToken,ES_SECURITY_003);
         Map map = exchange.getAttributes();
         Assert.verify(map,ES_SECURITY_008);
         exchange.getAttributes().put(AUTHTOKEN_STASH_NAMING,authToken);
 
-        if(StringUtils.isBlank(authToken))throw new EventException(SecurityExceptionEnum.ES_SECURITY_003);
+        if(StringUtils.isBlank(authToken))throw new EventException(ES_SECURITY_003);
         //authentication
         //令牌与库中不匹配
         return securityPrincipalFactory.principal().flatMap(principal -> {
