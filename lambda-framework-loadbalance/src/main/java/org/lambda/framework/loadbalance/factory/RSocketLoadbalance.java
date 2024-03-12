@@ -17,6 +17,7 @@ import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
+import org.springframework.http.codec.json.Jackson2JsonEncoder;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.messaging.rsocket.RSocketStrategies;
 import org.springframework.stereotype.Component;
@@ -125,7 +126,7 @@ public class RSocketLoadbalance {
         @Bean
         public RSocketStrategies getStrategies(){
             RSocketStrategies strategies = RSocketStrategies.builder()
-                    //.encoder(new Jackson2JsonEncoder())
+                    .encoder(new Jackson2JsonEncoder())
                     .decoder(new Jackson2JsonDecoder())
                     .build();
             return strategies;
