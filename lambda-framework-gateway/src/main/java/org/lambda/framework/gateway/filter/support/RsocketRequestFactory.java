@@ -20,6 +20,9 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -93,7 +96,9 @@ public class RsocketRequestFactory {
                                 if(firstValue == null){
                                     body = new byte[0];
                                 }
-                                body = firstValue.toString().getBytes();
+
+                                body = convertToBytes(firstValue);
+
                             }
                             Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort());
                             byte[] finalBody = body;
@@ -129,6 +134,17 @@ public class RsocketRequestFactory {
             return chain.filter(exchange);
         }
         throw new EventException(ES_GATEWAY_002);
+    }
+
+    public static byte[] convertToBytes(Object obj){
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
+             ObjectOutputStream oos = new ObjectOutputStream(bos)) {
+             oos.writeObject(obj);
+            return bos.toByteArray();
+        }catch (IOException e) {
+            // 处理可能的 IOException
+            throw new EventException(ES_GATEWAY_015);
+        }
     }
 
     private boolean verifyQueryParamsIsNull(Map queryParams){
