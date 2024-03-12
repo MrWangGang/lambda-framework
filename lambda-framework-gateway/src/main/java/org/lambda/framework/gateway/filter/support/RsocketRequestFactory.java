@@ -91,7 +91,7 @@ public class RsocketRequestFactory {
                                 switch (rsocketModel){
                                     case RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_MODEL_FIRE_AND_FORGET:
                                         switch (rsocketEcho){
-                                            case RSOCKET_ECHO_CHAR, RSOCKET_ECHO_ARRAY:
+                                            case RSOCKET_ECHO_CHAR, RSOCKET_ECHO_ARRAY, RSOCKET_ECHO_VOID :
                                                 return handleResponse(retrieveSpec.retrieveMono(String.class), rs);
                                             case RSOCKET_ECHO_OBJECT, RSOCKET_ECHO_MEDIA:
                                                 return handleResponse(retrieveSpec.retrieveMono(Object.class), rs);
@@ -100,7 +100,7 @@ public class RsocketRequestFactory {
                                         }
                                     case RSOCKET_MODEL_REQUEST_STREAM, RSOCKET_MODEL_CHANNEL:
                                         switch (rsocketEcho){
-                                            case RSOCKET_ECHO_CHAR, RSOCKET_ECHO_ARRAY:
+                                            case RSOCKET_ECHO_CHAR, RSOCKET_ECHO_ARRAY , RSOCKET_ECHO_VOID:
                                                 return handleResponse(retrieveSpec.retrieveFlux(String.class).collectList(), rs);
                                             case RSOCKET_ECHO_OBJECT, RSOCKET_ECHO_MEDIA:
                                                 return handleResponse(retrieveSpec.retrieveFlux(Object.class).collectList(), rs);

@@ -7,7 +7,6 @@ public class GatewayContract {
     public static final String HTTPS_SCHEME = "https";
     public static final String RSOCKET_MODEL = "RSocket-Model";
     public static final String RSOCKET_ECHO = "RSocket-Echo";
-    public static final String CONTENT_TYPE = "Content-Type";
     public static final String RSOCKET_MODEL_REQUEST_RESPONSE = "request-response";
     public static final String RSOCKET_MODEL_REQUEST_STREAM = "request-stream";
     public static final String RSOCKET_MODEL_FIRE_AND_FORGET = "fire-and-forget";
@@ -16,5 +15,6 @@ public class GatewayContract {
     public static final String RSOCKET_ECHO_ARRAY = "response-array";
     public static final String RSOCKET_ECHO_OBJECT = "response-object";
     public static final String RSOCKET_ECHO_MEDIA = "response-media";
+    public static final String RSOCKET_ECHO_VOID = "response-void";
 
 }
