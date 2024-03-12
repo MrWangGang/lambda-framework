@@ -80,11 +80,11 @@ public class RsocketRequestFactory {
                         //bodyByte是绝对不会为空的 。extract永远都会返回一个;
                         .flatMap(body->{
                             Map queryParams = exchange.getRequest().getQueryParams();
-                            if(!body.equals(new byte[0]) && verifyQueryParamsIsNull(queryParams)){
+                            if(body.length != 0 && verifyQueryParamsIsNull(queryParams)){
                                 //两个都不为空
                                 return Mono.error(new EventException(ES_GATEWAY_014));
                             }
-                            if(!body.equals(new byte[0])){
+                            if(body.length != 0){
                                 //无事发生
                             }
                             if(verifyQueryParamsIsNull(queryParams)){
