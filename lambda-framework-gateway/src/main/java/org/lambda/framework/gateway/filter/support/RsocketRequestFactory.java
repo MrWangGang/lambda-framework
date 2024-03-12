@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -79,7 +80,7 @@ public class RsocketRequestFactory {
                         .switchIfEmpty(Mono.error(new EventException(ES_GATEWAY_004)))
                         //bodyByte是绝对不会为空的 。extract永远都会返回一个;
                         .flatMap(body->{
-                            Map queryParams = exchange.getRequest().getQueryParams();
+                            MultiValueMap<String,String> queryParams = exchange.getRequest().getQueryParams();
                             if(body.length != 0 && verifyQueryParamsIsNull(queryParams)){
                                 //两个都不为空
                                 return Mono.error(new EventException(ES_GATEWAY_014));
@@ -92,13 +93,11 @@ public class RsocketRequestFactory {
                                     //query params不为空,并且长度对于1
                                     return Mono.error(new EventException(ES_GATEWAY_011));
                                 }
-                                Object firstValue = queryParams.values().iterator().next();
-                                if(firstValue == null){
+                                List firstValue = queryParams.values().iterator().next();
+                                if(!Assert.verify(firstValue)){
                                     body = new byte[0];
                                 }
-
-                                body = convertToBytes(firstValue);
-
+                                body = convertToBytes(firstValue.get(0));
                             }
                             Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort());
                             byte[] finalBody = body;
