@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeType;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
@@ -60,21 +61,14 @@ public class RsocketRequestFactory {
                 Assert.verify(rsocketEchoHeaders,ES_GATEWAY_005);
                 String rsocketEcho = rsocketEchoHeaders.getFirst();
                 Assert.verify(rsocketModel,ES_GATEWAY_009);
-                //获取content type
-                List<String> contentHeaders = reqHeaders.get(HttpHeaders.CONTENT_TYPE);
-                Assert.verify(contentHeaders,ES_GATEWAY_012);
-                String contentType = contentHeaders.getFirst();
-                Assert.verify(contentType,ES_GATEWAY_012);
-                switch (contentType){
-                    case MediaType.APPLICATION_JSON_UTF8_VALUE:break;
-                    case MediaType.APPLICATION_OCTET_STREAM_VALUE:break;
-                    default:throw new EventException(ES_GATEWAY_013);
-                }
+                //校验headers
+                MimeType contentType = rSocketRequesterBuild.verifyHttpHeaders(exchange);
 
                 MultiValueMap<String,String> queryParams = exchange.getRequest().getQueryParams();
                 if(verifyQueryParamsIsNotNull(queryParams)){
                     throw new EventException(ES_GATEWAY_011);
                 }
+
                 //获取请求里的body
                 Flux<DataBuffer> bodyFlux = exchange.getRequest().getBody();
                 ServerHttpResponse rs = exchange.getResponse();
@@ -82,7 +76,7 @@ public class RsocketRequestFactory {
                         .switchIfEmpty(Mono.error(new EventException(ES_GATEWAY_004)))
                         //bodyByte是绝对不会为空的 。extract永远都会返回一个;
                         .flatMap(body->{
-                            Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort());
+                            Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort(),contentType);
                             return rSocketRequester.flatMap(requester->{
                                 // 使用RSocket客户端发送请求
                                 RSocketRequester.RetrieveSpec retrieveSpec =  requester
@@ -158,6 +152,25 @@ public class RsocketRequestFactory {
     }
 
     public interface RSocketRequesterBuild{
-        public Mono<RSocketRequester> build(RSocketLoadbalance rSocketLoadbalance,String host,Integer port);
+        public Mono<RSocketRequester> build(RSocketLoadbalance rSocketLoadbalance, String host, Integer port, MimeType mimeType);
+        default MimeType verifyHttpHeaders(ServerWebExchange exchange){
+            HttpHeaders reqHeaders = exchange.getRequest().getHeaders();
+            Assert.verify(reqHeaders,ES_GATEWAY_005);
+            //获取content type
+            List<String> contentHeaders = reqHeaders.get(HttpHeaders.CONTENT_TYPE);
+            Assert.verify(contentHeaders,ES_GATEWAY_012);
+            String contentType = contentHeaders.getFirst();
+            Assert.verify(contentType,ES_GATEWAY_012);
+            boolean flag = false;
+            if(MediaType.APPLICATION_JSON.isCompatibleWith(MediaType.valueOf(contentType)) || MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(MediaType.valueOf(contentType)) ){
+                flag = true;
+            }
+            if(!flag){
+                throw new EventException(ES_GATEWAY_013);
+            }
+
+            return MimeType.valueOf(contentType);
+        }
+
     }
 }

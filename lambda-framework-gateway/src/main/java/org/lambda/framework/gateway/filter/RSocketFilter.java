@@ -2,6 +2,7 @@ package org.lambda.framework.gateway.filter;
 
 import jakarta.annotation.Resource;
 import org.lambda.framework.gateway.filter.support.RsocketRequestFactory;
+import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -17,9 +18,7 @@ public class RSocketFilter implements GlobalFilter,Ordered{
     private RsocketRequestFactory rsocketRequestFactory;
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        return rsocketRequestFactory.execute(exchange,chain,RSOCKET_SCHEME,(rSocketLoadbalance,host,port)->{
-            return rSocketLoadbalance.build(host,port);
-        });
+        return rsocketRequestFactory.execute(exchange,chain,RSOCKET_SCHEME, RSocketLoadbalance::build);
     }
     @Override
     public int getOrder() {

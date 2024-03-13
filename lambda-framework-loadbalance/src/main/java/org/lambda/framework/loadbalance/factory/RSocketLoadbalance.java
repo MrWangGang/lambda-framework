@@ -11,17 +11,13 @@ import lombok.NoArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.support.SecurityStash;
-import org.lambda.framework.common.util.sample.JsonUtil;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.http.codec.json.Jackson2JsonDecoder;
-import org.springframework.http.codec.json.Jackson2JsonEncoder;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.messaging.rsocket.RSocketStrategies;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -44,24 +40,26 @@ public class RSocketLoadbalance {
     @Resource
     private RSocketStrategies strategies;
 
-    public Mono<RSocketRequester> build(String ip, Integer port){
+    public Mono<RSocketRequester> build(String ip, Integer port, MimeType mimeType){
         Assert.verify(ip,EB_LOADBALANCE_005);
         Assert.verify(port,EB_LOADBALANCE_006);
         return rsocketPrincipalStash.setSecurityStash()
                 .onErrorReturn(defaultSecurityStash)
                 .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
                     return setRSocketRequester(getBuilder(),securityStash)
+                                .dataMimeType(mimeType)
                                 .transport(TcpClientTransport.create(ip,port));
         });
     }
 
 
-    public Mono<RSocketRequester> build(String serviceName){
+    public Mono<RSocketRequester> build(String serviceName,MimeType mimeType){
         Assert.verify(serviceName,EB_LOADBALANCE_001);
         return rsocketPrincipalStash.setSecurityStash()
                 .onErrorReturn(defaultSecurityStash)
                 .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
                  return setRSocketRequester(getBuilder(),securityStash)
+                            .dataMimeType(mimeType)
                             .transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy());
         });
     }
@@ -119,19 +117,5 @@ public class RSocketLoadbalance {
             return Mono.just(defaultSecurityStash);
         }
 
-    }
-
-
-   @Configuration
-    public static class RsocketLoadbalanceConfig {
-        @ConditionalOnMissingBean(RSocketStrategies.class)
-        @Bean
-        public RSocketStrategies getStrategies(){
-            RSocketStrategies strategies = RSocketStrategies.builder()
-                    .encoder(new Jackson2JsonEncoder(JsonUtil.getJsonFactory()))
-                    .decoder(new Jackson2JsonDecoder(JsonUtil.getJsonFactory()))
-                    .build();
-            return strategies;
-        }
     }
 }
