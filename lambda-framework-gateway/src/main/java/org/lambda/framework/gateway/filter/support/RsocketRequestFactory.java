@@ -17,6 +17,7 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
@@ -162,7 +163,7 @@ public class RsocketRequestFactory {
             String contentType = contentHeaders.getFirst();
             Assert.verify(contentType,ES_GATEWAY_012);
             boolean flag = false;
-            if(MediaType.APPLICATION_JSON.isCompatibleWith(MediaType.valueOf(contentType)) || MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(MediaType.valueOf(contentType)) ){
+            if(MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(MediaType.valueOf(contentType)) || MimeTypeUtils.APPLICATION_OCTET_STREAM.isCompatibleWith(MediaType.valueOf(contentType)) ){
                 flag = true;
             }
             if(!flag){
