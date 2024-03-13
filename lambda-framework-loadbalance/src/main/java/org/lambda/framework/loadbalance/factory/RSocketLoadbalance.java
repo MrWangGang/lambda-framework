@@ -124,6 +124,7 @@ public class RSocketLoadbalance {
 
    @Configuration
     public static class RsocketLoadbalanceConfig {
+        @ConditionalOnMissingBean(RSocketStrategies.class)
         @Bean
         public RSocketStrategies getStrategies(){
             RSocketStrategies strategies = RSocketStrategies.builder()
