@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.support.SecurityStash;
+import org.lambda.framework.common.util.sample.JsonUtil;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
@@ -126,8 +127,8 @@ public class RSocketLoadbalance {
         @Bean
         public RSocketStrategies getStrategies(){
             RSocketStrategies strategies = RSocketStrategies.builder()
-                    .encoder(new Jackson2JsonEncoder())
-                    .decoder(new Jackson2JsonDecoder())
+                    .encoder(new Jackson2JsonEncoder(JsonUtil.getJsonFactory()))
+                    .decoder(new Jackson2JsonDecoder(JsonUtil.getJsonFactory()))
                     .build();
             return strategies;
         }
