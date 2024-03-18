@@ -39,10 +39,7 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
         Map map = exchange.getAttributes();
         Assert.verify(map,ES_SECURITY_008);
         exchange.getAttributes().put(AUTHTOKEN_STASH_NAMING,authToken);
-
         if(StringUtils.isBlank(authToken))throw new EventException(ES_SECURITY_003);
-        //authentication
-        //令牌与库中不匹配
         return securityPrincipalFactory.principal().flatMap(principal -> {
             if(StringUtils.isBlank(principal.toString()))return Mono.error(new EventException(ES_SECURITY_000));
             //刷新TOKEN存活时间 保持登陆

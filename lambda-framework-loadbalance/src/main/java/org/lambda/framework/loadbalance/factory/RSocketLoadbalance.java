@@ -10,8 +10,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.Assert;
+import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.SecurityStash;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.messaging.rsocket.RSocketRequester;
@@ -36,14 +36,14 @@ public class RSocketLoadbalance {
     @Resource
     private RSocketRequester.Builder builder;
     @Resource
-    private RsocketPrincipalStash rsocketPrincipalStash;
+    private PrincipalStash principalStash;
     @Resource
     private RSocketStrategies strategies;
 
     public Mono<RSocketRequester> build(String ip, Integer port, MimeType mimeType){
         Assert.verify(ip,EB_LOADBALANCE_005);
         Assert.verify(port,EB_LOADBALANCE_006);
-        return rsocketPrincipalStash.setSecurityStash()
+        return principalStash.setSecurityStash()
                 .onErrorReturn(defaultSecurityStash)
                 .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
                     return setRSocketRequester(getBuilder(),securityStash)
@@ -55,7 +55,7 @@ public class RSocketLoadbalance {
 
     public Mono<RSocketRequester> build(String serviceName,MimeType mimeType){
         Assert.verify(serviceName,EB_LOADBALANCE_001);
-        return rsocketPrincipalStash.setSecurityStash()
+        return principalStash.setSecurityStash()
                 .onErrorReturn(defaultSecurityStash)
                 .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
                  return setRSocketRequester(getBuilder(),securityStash)
@@ -106,16 +106,6 @@ public class RSocketLoadbalance {
     private static SecurityStash defaultSecurityStash= SecurityStash.builder().build();
 
 
-    public interface RsocketPrincipalStash{
-        public Mono<SecurityStash> setSecurityStash();}
-    @Component
-    @ConditionalOnMissingBean(RsocketPrincipalStash.class)
-    public static class Stash implements RsocketPrincipalStash{
 
-        @Override
-        public Mono<SecurityStash> setSecurityStash() {
-            return Mono.just(defaultSecurityStash);
-        }
 
-    }
 }

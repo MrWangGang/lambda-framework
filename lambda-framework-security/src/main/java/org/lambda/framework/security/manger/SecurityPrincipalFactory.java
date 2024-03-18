@@ -11,7 +11,8 @@ import static org.lambda.framework.common.enums.ConmonContract.*;
 import static org.lambda.framework.security.enums.SecurityExceptionEnum.*;
 
 @Component
-public class SecurityPrincipalFactory extends PrincipalFactory {
+//security 的过滤器 需要特殊处理token和principal 需要从数据库中去获取，再验证，保证值是最新的 并且是最安全的
+class SecurityPrincipalFactory extends PrincipalFactory {
     @Override
     public Mono<String> getAuthToken(){
         return getRequest(AUTHTOKEN_STASH_NAMING);
