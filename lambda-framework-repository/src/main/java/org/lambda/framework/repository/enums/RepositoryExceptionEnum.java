@@ -15,7 +15,8 @@ public enum RepositoryExceptionEnum implements ExceptionEnumFunction {
     ES_REPOSITORY_MONGO_007("ES_REPOSITORY_MONGO_007","mongo缺少database配置"),
 
     ES_REPOSITORY_100("ES_REPOSITORY_100","分页参数不规范 page 必须 >0 size必须 >0 "),
-    ES_REPOSITORY_101("ES_REPOSITORY_101","对mongo的密码编码失败");
+    ES_REPOSITORY_101("ES_REPOSITORY_101","对mongo的密码编码失败"),
+    ES_REPOSITORY_MONGO_008("ES_REPOSITORY_MONGO_008","mongo缺少auth-database配置");
 
 
     private String code;

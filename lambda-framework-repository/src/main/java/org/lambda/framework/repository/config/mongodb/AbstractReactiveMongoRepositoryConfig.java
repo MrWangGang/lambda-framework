@@ -16,6 +16,7 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
     protected abstract String host();
     protected abstract String user();
     protected abstract String password();
+    protected abstract String authDatabase();
     protected abstract String database();
     protected abstract Integer port();
     protected abstract Integer connectTimeoutSeconds();
@@ -32,7 +33,7 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
                 .applyToClusterSettings(builder -> builder.serverSelectionTimeout(connectTimeoutSeconds(), TimeUnit.SECONDS))
                 .applyToConnectionPoolSettings(builder -> builder.applySettings(connectionPoolSettings))
                 .applyConnectionString(new ConnectionString("mongodb://" + host() + ":" + port()))
-                .credential(MongoCredential.createCredential(user(), database(), password().toCharArray()))
+                .credential(MongoCredential.createCredential(user(), authDatabase(), password().toCharArray()))
                 .build();
         return MongoClients.create(settings);
     }

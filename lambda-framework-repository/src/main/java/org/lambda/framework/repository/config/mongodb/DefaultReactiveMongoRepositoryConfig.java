@@ -14,6 +14,8 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
     private String password;
 
     private String database;
+    private String authDatabase;
+
     @Value("${lambda.repository.mongo.host:-1}")
     private void setHost(String host) {
         if(host == null || StringUtils.isBlank(host) || "-1".equals(host)){
@@ -46,6 +48,18 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
         this.database = database;
     }
 
+    @Value("${lambda.repository.mongo.auth-database:-1}")
+    protected void setAuthDatabase(String authDatabase) {
+        if(authDatabase == null || StringUtils.isBlank(authDatabase) ||"-1".equals(authDatabase)){
+            throw new EventException(ES_REPOSITORY_MONGO_008);
+        }
+         this.authDatabase = authDatabase;
+    }
+    @Override
+    protected String authDatabase() {
+        return this.authDatabase;
+    }
+
     @Value("${lambda.repository.mongo.port:27017}")
     private Integer port;
     @Value("${lambda.repository.mongo.connect-timeout-seconds:60}")
@@ -69,6 +83,9 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
     protected String password() {
         return this.password;
     }
+
+
+
 
     @Override
     protected String database() {
