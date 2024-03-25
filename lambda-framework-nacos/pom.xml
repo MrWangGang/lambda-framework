@@ -19,10 +19,6 @@
 			<artifactId>lambda-framework-common</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.lambda.framework</groupId>
-			<artifactId>lambda-framework-loadbalance</artifactId>
-		</dependency>
-		<dependency>
 			<groupId>com.alibaba.cloud</groupId>
 			<artifactId>spring-cloud-starter-alibaba-nacos-config</artifactId>
 		</dependency>
