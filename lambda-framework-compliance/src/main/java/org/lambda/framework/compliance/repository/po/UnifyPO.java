@@ -7,7 +7,9 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
-public class UnifyPO implements Serializable {
+public class UnifyPO<ID> implements Serializable {
+    @JsonProperty
+    private ID id;
     @JsonProperty
     private LocalDateTime createTime;
     @JsonProperty

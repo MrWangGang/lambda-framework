@@ -22,7 +22,7 @@ import java.util.List;
 
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
 
-public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation>  implements IDefaultBasicService<PO,ID> {
+public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation>  implements IDefaultBasicService<PO,ID> {
 
 
     public DefaultBasicServiceImpl(@Autowired Repository repository){

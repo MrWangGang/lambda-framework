@@ -20,7 +20,7 @@ import static org.lambda.framework.compliance.enums.ComplianceConstant.ROOT_NODE
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
 
 
-public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO<ID>,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
+public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
 
     private Class<PO> clazz;
 
