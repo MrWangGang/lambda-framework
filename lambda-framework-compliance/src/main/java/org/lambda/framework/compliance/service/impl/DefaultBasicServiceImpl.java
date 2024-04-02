@@ -99,6 +99,12 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
         Assert.verify(pos,ES_COMPLIANCE_000);
         return repository.deleteAll(pos);
     }
+
+    @Override
+    public Mono<Void> deleteAll() {
+        return repository.deleteAll();
+    }
+
     @Override
     public Flux<PO> find(PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);

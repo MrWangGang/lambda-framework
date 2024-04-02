@@ -23,6 +23,7 @@ public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
     public Mono<Void> delete(List<ID> ids);
     public Mono<Void> deleteBy(PO po);
     public Mono<Void> deleteBy(List<PO> pos);
+    public Mono<Void> deleteAll();
 
     public Flux<PO> find(PO po);
 
