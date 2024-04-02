@@ -1,4 +1,4 @@
-package org.lambda.framework.rsocket.supper;
+package org.lambda.framework.web.support;
 
 import jakarta.annotation.Resource;
 import org.lambda.framework.common.support.PrincipalStash;
@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 @Component
-public class RsocketPrincipalStash implements PrincipalStash {
+public class WebPrincipalStash implements PrincipalStash {
 
     @Resource
     private SecurityPrincipalHolder securityPrincipalHolder;
