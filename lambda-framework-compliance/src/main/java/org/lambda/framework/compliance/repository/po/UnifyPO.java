@@ -9,9 +9,9 @@ import java.time.LocalDateTime;
 @Data
 public class UnifyPO<ID> implements Serializable {
     @JsonProperty
-    private ID id;
+    protected ID id;
     @JsonProperty
-    private LocalDateTime createTime;
+    protected LocalDateTime createTime;
     @JsonProperty
-    private LocalDateTime updateTime;
+    protected LocalDateTime updateTime;
 }
