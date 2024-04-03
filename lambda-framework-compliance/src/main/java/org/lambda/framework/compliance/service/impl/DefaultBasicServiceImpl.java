@@ -118,6 +118,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
     @Override
     public Flux<PO> find(PO po, ExampleMatcher matcher) {
+        if(po == null)throw new EventException(ES_COMPLIANCE_000);
         Assert.verify(matcher,ES_COMPLIANCE_028);
         matcher.withIgnoreNullValues();
         Example<PO> example = Example.<PO>of(po,matcher);
@@ -133,8 +134,9 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
     @Override
     public Mono<Paged<PO>> find(Long page, Long size, PO po) {
+        if(po == null)throw new EventException(ES_COMPLIANCE_000);
         ExampleMatcher matcher = ExampleMatcher.matching()
-                .withIncludeNullValues();
+                .withIgnoreNullValues();
         return repository.find(page,size,po,new UnifyPagingOperation<PO>() {
             @Override
             public Mono<Long> count() {
@@ -157,7 +159,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     public Mono<PO> get(PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
         ExampleMatcher matcher = ExampleMatcher.matching()
-                .withIncludeNullValues();
+                .withIgnoreNullValues();
 
         Example<PO> example = Example.of(po,matcher);
         return repository.findOne(example);
