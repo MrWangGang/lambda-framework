@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class RsocketConfig  {
+public class RsocketInterceptorConfig  {
     @Bean
     public RSocketServerCustomizer rSocketServerCustomizer(@Autowired(required = false) RSocketAcceptorInterceptor rSocketSocketAccpInterceptor
     ) {
