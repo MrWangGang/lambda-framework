@@ -34,12 +34,29 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
 
     @Override
     public Mono<Void> handle(ServerWebExchange serverWebExchange, Throwable throwable) {
+
         return writeResponse(serverWebExchange,handleTransferException(throwable));
     }
 
+
+
     private ResponseTemplete handleTransferException(Throwable e) {
         logger.error("GatewayGlobalExceptionHandler",e);
-        return result(ES_GATEWAY_000.getCode(), StringUtils.isBlank(e.getMessage())? ES_GATEWAY_000.getMessage():e.getMessage());
+        if(StringUtils.isBlank(e.getMessage())){
+            return result(ES_GATEWAY_000.getCode(), ES_GATEWAY_000.getMessage());
+        }
+        // 找到第一个冒号的位置
+        int index = e.getMessage().indexOf(':');
+        if (index != -1) {
+            // 获取第一个冒号前面的字符串
+            String firstPart = e.getMessage().substring(0, index);
+            // 获取第一个冒号后面的字符串
+            String secondPart = e.getMessage().substring(index + 1);
+            return result(firstPart,secondPart);
+        } else {
+            // 如果没有找到冒号，则输出原始错误信息
+            return result(ES_GATEWAY_000.getCode(), e.getMessage());
+        }
     }
 
     private ResponseTemplete result(String code, String message){

@@ -32,4 +32,8 @@ public class GlobalException extends RuntimeException{
     public void setMessage(String message) {
         this.message = message;
     }
+
+    public String getSerializeMessage(){
+        return this.code+":"+this.message;
+    }
 }

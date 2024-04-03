@@ -7,7 +7,7 @@ import org.lambda.framework.common.exception.ExceptionEnumFunction;
 public enum GatewayExceptionEnum implements ExceptionEnumFunction {
 
     //系统异常-普通异常 0-99
-    ES_GATEWAY_000("ES_GATEWAY_000","系统错误"),
+    ES_GATEWAY_000("ES_GATEWAY_000","系统错误[未知]"),
     ES_GATEWAY_001("ES_GATEWAY_001","协议缺失"),
     ES_GATEWAY_002("ES_GATEWAY_002","网关协议未知"),
     ES_GATEWAY_003("ES_GATEWAY_003","无法找到实例"),
