@@ -14,11 +14,13 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.messaging.handler.invocation.MethodArgumentResolutionException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.netty.ByteBufMono;
 
 import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_000;
+import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_017;
 
 
 /**
@@ -43,7 +45,13 @@ public class WebGlobalExceptionHandler implements ErrorWebExceptionHandler {
         if(e instanceof GlobalException){
             return result(((GlobalException)e).getCode(),e.getMessage());
         }
+
+        if (e instanceof MethodArgumentResolutionException) {
+            // 如果是方法参数解析异常，可能是客户端请求参数错误导致的，返回参数错误的信息
+            return result(ES_GATEWAY_017.getCode(), ES_GATEWAY_017.getMessage());
+        }
         return result(ES_GATEWAY_000.getCode(), StringUtils.isBlank(e.getMessage())? ES_GATEWAY_000.getMessage():e.getMessage());
+
     }
 
     private ResponseTemplete result(String code, String message){

@@ -21,9 +21,10 @@ public enum GatewayExceptionEnum implements ExceptionEnumFunction {
     ES_GATEWAY_011("ES_GATEWAY_011","不支持query params的形式传输"),
     ES_GATEWAY_012("ES_GATEWAY_012","缺失Content-Type"),
     ES_GATEWAY_013("ES_GATEWAY_013","Content-Type仅支持 application/json 和application/octet-stream"),
-    ES_GATEWAY_014("ES_GATEWAY_014","query params和json body只能选择一种格式传输"),
-    ES_GATEWAY_015("ES_GATEWAY_015","获取query params字节流失败"),
-    ES_GATEWAY_016("ES_GATEWAY_016","[static][获取 METHOD_PARAMETER 时，找不都方法");
+    ES_GATEWAY_016("ES_GATEWAY_016","[static][获取 METHOD_PARAMETER 时，找不都方法"),
+    ES_GATEWAY_017("ES_GATEWAY_017","请求参数解析错误");
+
+
 
 
 
