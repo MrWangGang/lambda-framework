@@ -31,7 +31,8 @@ public enum ComplianceExceptionEnum implements ExceptionEnumFunction {
     ES_COMPLIANCE_024("ES_COMPLIANCE_024","令牌格式不符合规范"),
     ES_COMPLIANCE_025("ES_COMPLIANCE_025","lambda.security.redis.auth.host 未配置"),
     ES_COMPLIANCE_026("ES_COMPLIANCE_026","lambda.security.redis.autz.host 未配置"),
-    ES_COMPLIANCE_027("ES_COMPLIANCE_027","无法访问上下文 SecurityStash");
+    ES_COMPLIANCE_027("ES_COMPLIANCE_027","无法访问上下文 SecurityStash"),
+    ES_COMPLIANCE_028("ES_COMPLIANCE_028","查询条件 ExampleMatcher 不能为空");
 
 
 

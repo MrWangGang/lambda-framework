@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
+import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_028;
 
 public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation>  implements IDefaultBasicService<PO,ID> {
 
@@ -105,14 +106,25 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
         return repository.deleteAll();
     }
 
+
     @Override
     public Flux<PO> find(PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
         ExampleMatcher matcher = ExampleMatcher.matching()
-                .withIncludeNullValues();
+                .withIgnoreNullValues();
         Example<PO> example = Example.<PO>of(po,matcher);
         return repository.findAll(example);
     }
+
+    @Override
+    public Flux<PO> find(PO po, ExampleMatcher matcher) {
+        Assert.verify(matcher,ES_COMPLIANCE_028);
+        matcher.withIgnoreNullValues();
+        Example<PO> example = Example.<PO>of(po,matcher);
+        return repository.findAll(example);
+    }
+
+
 
     @Override
     public Flux<PO> find() {

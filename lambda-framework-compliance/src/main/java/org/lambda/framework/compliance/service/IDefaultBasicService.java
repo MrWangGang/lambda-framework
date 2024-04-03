@@ -3,6 +3,7 @@ package org.lambda.framework.compliance.service;
 import org.lambda.framework.compliance.repository.po.UnifyPO;
 import org.lambda.framework.repository.operation.Paged;
 import org.reactivestreams.Publisher;
+import org.springframework.data.domain.ExampleMatcher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -24,7 +25,7 @@ public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
     public Mono<Void> deleteBy(PO po);
     public Mono<Void> deleteBy(List<PO> pos);
     public Mono<Void> deleteAll();
-
+    public Flux<PO> find(PO po, ExampleMatcher matcher);
     public Flux<PO> find(PO po);
 
     public Flux<PO> find();
