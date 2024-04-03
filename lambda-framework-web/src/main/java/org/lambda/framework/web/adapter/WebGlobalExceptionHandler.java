@@ -15,7 +15,7 @@ public class WebGlobalExceptionHandler {
 
     @ExceptionHandler(Throwable.class)
     public void handleException(Throwable e) throws Throwable {
-        this.logger.error("RsocketGlobalExceptionHandler", e);
+        this.logger.error("WebGlobalExceptionHandler", e);
         // 处理异常并返回适当的响应
         GlobalException globalException = null;
         if(e instanceof GlobalException){
