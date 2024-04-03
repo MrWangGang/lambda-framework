@@ -7,7 +7,6 @@ import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -30,7 +29,6 @@ import static org.lambda.framework.web.enums.WebExceptionEnum.ES_WEB_000;
 @Configuration
 @Order(-2)
 @Slf4j
-@ConditionalOnProperty(value = "lambda.web.exception.handler.enabled",havingValue = "true")
 public class WebGlobalExceptionHandler implements ErrorWebExceptionHandler {
 
     private Logger logger = LoggerFactory.getLogger(WebGlobalExceptionHandler.class);
