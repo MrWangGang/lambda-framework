@@ -1,4 +1,4 @@
-package org.lambda.framework.web.adapter;
+package org.lambda.framework.gateway.adapter;
 
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.templete.ResponseTemplete;
@@ -13,7 +13,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import static org.lambda.framework.web.enums.WebExceptionEnum.ES_WEB_001;
+import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_016;
 
 @Configuration
 @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
@@ -30,7 +30,7 @@ public class WebGlobalResponseHandler  {
             METHOD_PARAMETER = new MethodParameter(
                     WebGlobalResponseHandler.class.getDeclaredMethod("methodForParams"), -1);
         } catch (NoSuchMethodException e) {
-            throw new EventException(ES_WEB_001);
+            throw new EventException(ES_GATEWAY_016);
         }
     }
 
