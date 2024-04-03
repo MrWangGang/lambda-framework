@@ -1,4 +1,3 @@
-/*
 package org.lambda.framework.web.adapter;
 
 import org.apache.commons.lang3.StringUtils;
@@ -15,13 +14,15 @@ public class WebGlobalExceptionHandler {
     private Logger logger = LoggerFactory.getLogger(WebGlobalExceptionHandler.class);
 
     @ExceptionHandler(Throwable.class)
-    public void handleException(Throwable e) {
-        this.logger.error("WebGlobalExceptionHandler", e);
+    public void handleException(Throwable e) throws Throwable {
+        this.logger.error("RsocketGlobalExceptionHandler", e);
         // 处理异常并返回适当的响应
+        GlobalException globalException = null;
         if(e instanceof GlobalException){
-            throw (GlobalException) e;
+            globalException = (GlobalException) e;
+        }else {
+            globalException = new GlobalException(ES_WEB_000.getCode(), StringUtils.isBlank(e.getMessage()) ? ES_WEB_000.getMessage() : e.getMessage());
         }
-        throw new GlobalException(ES_WEB_000.getCode(), StringUtils.isBlank(e.getMessage())? ES_WEB_000.getMessage():e.getMessage());
+        throw new Throwable(globalException.getSerializeMessage());
     }
 }
-*/
