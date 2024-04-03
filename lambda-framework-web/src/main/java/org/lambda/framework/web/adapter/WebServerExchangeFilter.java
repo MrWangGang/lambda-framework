@@ -10,7 +10,7 @@ import reactor.util.context.Context;
 
 //将ServerWebExchange存入context，使得mono操作链里的任何地方都可以去获取
 @Component
-public class ServerWebExchangeFilter  implements WebFilter {
+public class WebServerExchangeFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         return Mono.deferContextual(contextView -> {

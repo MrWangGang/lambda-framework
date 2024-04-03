@@ -31,9 +31,9 @@ import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY
 @Configuration
 @Order(-2)
 @Slf4j
-public class WebGlobalExceptionHandler implements ErrorWebExceptionHandler {
+public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
 
-    private Logger logger = LoggerFactory.getLogger(WebGlobalExceptionHandler.class);
+    private Logger logger = LoggerFactory.getLogger(GatewayGlobalExceptionHandler.class);
 
     @Override
     public Mono<Void> handle(ServerWebExchange serverWebExchange, Throwable throwable) {

@@ -20,6 +20,10 @@
 		</dependency>
 		<dependency>
 			<groupId>org.lambda.framework</groupId>
+			<artifactId>lambda-framework-compliance</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.lambda.framework</groupId>
 			<artifactId>lambda-framework-loadbalance</artifactId>
 		</dependency>
 		<dependency>

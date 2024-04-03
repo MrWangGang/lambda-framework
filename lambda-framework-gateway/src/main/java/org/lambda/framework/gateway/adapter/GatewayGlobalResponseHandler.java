@@ -17,7 +17,7 @@ import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY
 
 @Configuration
 @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
-public class WebGlobalResponseHandler  {
+public class GatewayGlobalResponseHandler {
 
     private static Mono<ResponseTemplete> methodForParams() {
         return Mono.empty();
@@ -28,7 +28,7 @@ public class WebGlobalResponseHandler  {
         try {
             // 获得 METHOD_PARAMETER 。其中 -1 表示 `#methodForParams()` 方法的返回值
             METHOD_PARAMETER = new MethodParameter(
-                    WebGlobalResponseHandler.class.getDeclaredMethod("methodForParams"), -1);
+                    GatewayGlobalResponseHandler.class.getDeclaredMethod("methodForParams"), -1);
         } catch (NoSuchMethodException e) {
             throw new EventException(ES_GATEWAY_016);
         }
