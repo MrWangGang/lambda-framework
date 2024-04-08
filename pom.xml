@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.lambda.framework</groupId>
 	<artifactId>lambda-framework</artifactId>
-	<version>1.0.0</version>
+	<version>1.0.0-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>lambda-framework</name>
 	<description>lambda framework</description>
@@ -41,7 +41,6 @@
 		-->
 	</parent>
 	<properties>
-		<lambda-framework.version>1.0.0</lambda-framework.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>21</java.version>
@@ -232,4 +231,52 @@
 		<module>lambda-framework-openai</module>
 		<module>lambda-framework-compliance</module>
 	</modules>
+
+	<distributionManagement>
+		<repository>
+			<id>rdc-releases</id>
+			<url>https://658b83c54ae926de53a23fc0:pZhZbJ8CnqX7@packages.aliyun.com/maven/repository/2444343-release-fxeBn3/</url>
+			<uniqueVersion>false</uniqueVersion>
+			<layout>default</layout>
+			<releases>
+				<enabled>true</enabled>
+				<updatePolicy>always</updatePolicy>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+		<snapshotRepository>
+			<id>rdc-snapshots</id>
+			<url>https://658b83c54ae926de53a23fc0:pZhZbJ8CnqX7@packages.aliyun.com/maven/repository/2444343-snapshot-UpImCt/</url>
+			<uniqueVersion>false</uniqueVersion>
+			<layout>default</layout>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+				<updatePolicy>always</updatePolicy>
+			</snapshots>
+		</snapshotRepository>
+	</distributionManagement>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-deploy-plugin</artifactId>
+				<version>3.1.1</version>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>versions-maven-plugin</artifactId>
+				<version>2.3</version>
+				<configuration>
+					<generateBackupPoms>false</generateBackupPoms>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
 </project>
