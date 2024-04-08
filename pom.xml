@@ -260,29 +260,6 @@
 		</snapshotRepository>
 	</distributionManagement>
 
-	<repositories>
-		<repository>
-			<id>rdc-releases</id>
-			<url>https://658b83c54ae926de53a23fc0:pZhZbJ8CnqX7@packages.aliyun.com/maven/repository/2444343-release-fxeBn3/</url>
-			<releases>
-				<enabled>true</enabled>
-			</releases>
-			<snapshots>
-				<enabled>false</enabled>
-			</snapshots>
-		</repository>
-		<repository>
-			<id>rdc-snapshots</id>
-			<url>https://658b83c54ae926de53a23fc0:pZhZbJ8CnqX7@packages.aliyun.com/maven/repository/2444343-snapshot-UpImCt/</url>
-			<releases>
-				<enabled>false</enabled>
-			</releases>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
-		</repository>
-	</repositories>
-
 	<build>
 		<plugins>
 			<plugin>
