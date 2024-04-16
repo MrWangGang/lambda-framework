@@ -219,6 +219,7 @@
 		<module>lambda-framework-common</module>
 		<module>lambda-framework-web</module>
 		<module>lambda-framework-rsocket</module>
+		<module>lambda-framework-rpc</module>
 		<module>lambda-framework-gateway</module>
 		<module>lambda-framework-nacos</module>
 		<module>lambda-framework-loadbalance</module>
