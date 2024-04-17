@@ -1,4 +1,4 @@
-package org.lambda.framework.compliance.security.container;
+package org.lambda.framework.common.po;
 
 public interface SecurityLoginUser<ID> {
     //主键

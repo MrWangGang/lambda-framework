@@ -1,4 +1,4 @@
-package org.lambda.framework.rpc.annotation.rsocket;
+package org.lambda.framework.common.annotation.rsocket;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

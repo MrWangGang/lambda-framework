@@ -4,8 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.lambda.framework.compliance.repository.po.IFlattenTreePO;
-import org.lambda.framework.compliance.repository.po.UnifyPO;
+import org.lambda.framework.common.po.IFlattenTreePO;
+import org.lambda.framework.common.po.UnifyPO;
 
 @Data
 @Builder

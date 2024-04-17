@@ -1,4 +1,4 @@
-package org.lambda.framework.rpc.annotation;
+package org.lambda.framework.common.annotation;
 
 public interface Test {
     public void test();

@@ -1,4 +1,4 @@
-package org.lambda.framework.compliance.repository.po;
+package org.lambda.framework.common.po;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;

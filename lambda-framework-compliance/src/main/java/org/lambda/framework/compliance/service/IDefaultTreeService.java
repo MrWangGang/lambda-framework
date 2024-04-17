@@ -1,7 +1,7 @@
 package org.lambda.framework.compliance.service;
 
-import org.lambda.framework.compliance.repository.po.IFlattenTreePO;
-import org.lambda.framework.compliance.repository.po.UnifyPO;
+import org.lambda.framework.common.po.IFlattenTreePO;
+import org.lambda.framework.common.po.UnifyPO;
 import org.lambda.framework.compliance.service.dto.*;
 import reactor.core.publisher.Mono;
 
