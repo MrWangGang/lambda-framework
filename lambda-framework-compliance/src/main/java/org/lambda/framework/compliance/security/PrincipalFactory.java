@@ -8,7 +8,7 @@ import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.common.util.sample.MD5Util;
 import org.lambda.framework.common.util.sample.UUIDUtil;
 import org.lambda.framework.compliance.security.container.LambdaSecurityAuthToken;
-import org.lambda.framework.common.po.SecurityLoginUser;
+import org.lambda.framework.compliance.po.SecurityLoginUser;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import reactor.core.publisher.Mono;
 

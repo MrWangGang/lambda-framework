@@ -1,4 +1,4 @@
-package org.lambda.framework.common.annotation.rsocket;
+package org.lambda.framework.rpc.annotation.rsocket;
 
 import org.springframework.util.MimeTypeUtils;
 

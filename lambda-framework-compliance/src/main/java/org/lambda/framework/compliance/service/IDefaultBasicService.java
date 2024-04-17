@@ -1,6 +1,6 @@
 package org.lambda.framework.compliance.service;
 
-import org.lambda.framework.common.po.UnifyPO;
+import org.lambda.framework.compliance.po.UnifyPO;
 import org.lambda.framework.repository.operation.Paged;
 import org.reactivestreams.Publisher;
 import org.springframework.data.domain.ExampleMatcher;

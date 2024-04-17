@@ -22,7 +22,8 @@ public enum RpcExceptionEnum implements ExceptionEnumFunction {
     ES_RPC_012("ES_RPC_012","Rsocket rpc直连模式的ip不合规"),
     ES_RPC_013("ES_RPC_013","无效的Rsocket rpc客户端"),
     ES_RPC_014("ES_RPC_014","远程调用的服务所提供的入参只能有1个"),
-    ES_RPC_015("ES_RPC_015","返回类型必须是响应式的Mono<?>或Flux<?>,? 必须要指定类型");
+    ES_RPC_015("ES_RPC_015","返回类型必须是响应式的Mono<?>或Flux<?>,? 必须要指定类型"),
+    ES_RPC_016("ES_RPC_016","将@RsocketRpc标注的接口注入到属性失败");
 // 成员变量
 
     @Getter

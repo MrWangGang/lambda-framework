@@ -16,7 +16,6 @@ public class RsocketGlobalExceptionHandler  {
     private Logger logger = LoggerFactory.getLogger(RsocketGlobalExceptionHandler.class);
 
     public  Throwable handleException(Throwable e) {
-        this.logger.error("RsocketGlobalExceptionHandler", e);
         // 处理异常并返回适当的响应
         GlobalException globalException = null;
         if(e instanceof GlobalException){

@@ -2,7 +2,7 @@ package org.lambda.framework.compliance.service.impl;
 
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.common.po.UnifyPO;
+import org.lambda.framework.compliance.po.UnifyPO;
 import org.lambda.framework.compliance.service.IDefaultBasicService;
 import org.lambda.framework.repository.operation.Paged;
 import org.lambda.framework.repository.operation.ReactiveUnifyPagingRepositoryOperation;
