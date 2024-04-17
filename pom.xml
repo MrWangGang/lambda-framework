@@ -93,6 +93,11 @@
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-rpc</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.lambda.framework</groupId>
 				<artifactId>lambda-framework-redis</artifactId>
 				<version>${project.version}</version>
 			</dependency>
