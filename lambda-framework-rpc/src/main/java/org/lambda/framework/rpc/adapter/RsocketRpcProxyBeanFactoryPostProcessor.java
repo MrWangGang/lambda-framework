@@ -5,8 +5,8 @@ import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpcMapping;
-import org.lambda.framework.common.annotation.rsocket.RsocketRpc;
-import org.lambda.framework.common.annotation.rsocket.RsocketRpcDiscorvery;
+import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
+import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
@@ -47,13 +47,13 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
             Field[] fields = clazz.getDeclaredFields();
             if(this.verifys(fields)){
                 for (Field field : fields) {
-                    if (field.isAnnotationPresent(RsocketRpc.class)) {
+                    if (field.isAnnotationPresent(RSocketRpc.class)) {
                         //@RsocketRpc 只能标记在属性上，且必须是接口类型
                         if(field.getType().isInterface()){
                             //获取这个类
                             Class<?> interfaceField = field.getType();
-                            if(interfaceField.isAnnotationPresent(RsocketRpcDiscorvery.class)){
-                                RsocketRpcDiscorvery rsocketRpcDiscorvery = AnnotationUtils.findAnnotation(interfaceField, RsocketRpcDiscorvery.class);
+                            if(interfaceField.isAnnotationPresent(RSocketRpcDiscorvery.class)){
+                                RSocketRpcDiscorvery rsocketRpcDiscorvery = AnnotationUtils.findAnnotation(interfaceField, RSocketRpcDiscorvery.class);
                                 if(rsocketRpcDiscorvery == null){
                                     throw new EventException(ES_RPC_002);
                                 }
