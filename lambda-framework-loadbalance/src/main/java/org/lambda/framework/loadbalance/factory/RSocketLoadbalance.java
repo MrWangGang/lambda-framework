@@ -64,7 +64,7 @@ public class RSocketLoadbalance {
         });
     }
 
-    public RSocketRequester.Builder setRSocketRequester(RSocketRequester.Builder requester,SecurityStash securityStash){
+    public RSocketRequester.Builder setRSocketRequester(RSocketRequester.Builder requester, SecurityStash securityStash){
         if(StringUtils.isNotBlank(securityStash.getAuthToken())){
             requester.setupMetadata(securityStash.getAuthToken(), MimeTypeUtils.parseMimeType(AUTHTOKEN_STASH_NAMING));
         }

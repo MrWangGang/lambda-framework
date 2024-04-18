@@ -1,9 +1,9 @@
 package org.lambda.framework.web.support;
 
 import jakarta.annotation.Resource;
+import org.lambda.framework.compliance.security.SecurityPrincipalHolder;
 import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.SecurityStash;
-import org.lambda.framework.compliance.security.SecurityPrincipalHolder;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 

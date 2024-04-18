@@ -1,4 +1,4 @@
-package org.lambda.framework.compliance.po;
+package org.lambda.framework.common.po;
 
 import java.util.List;
 

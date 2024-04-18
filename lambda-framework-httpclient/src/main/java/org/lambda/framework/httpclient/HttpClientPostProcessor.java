@@ -1,6 +1,5 @@
 package org.lambda.framework.httpclient;
 
-import cn.hutool.core.collection.ListUtil;
 import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.EventException;
 import org.springframework.beans.BeansException;
@@ -83,7 +82,9 @@ public class HttpClientPostProcessor implements ResourceLoaderAware, SmartInitia
                         if (rpcAttributes.get("balance") != null) {
                             boolean blance = (Boolean) rpcAttributes.get("balance");
                             if(blance){
-                                loadnBlanceConsumer = ListUtil.of(reactorLoadBalancerExchangeFilterFunction);
+                                List<ExchangeFilterFunction> list = new ArrayList<ExchangeFilterFunction>();
+                                list.add(reactorLoadBalancerExchangeFilterFunction);
+                                loadnBlanceConsumer = list;
                             }
                         }
                         if(customerConsumer!=null){
