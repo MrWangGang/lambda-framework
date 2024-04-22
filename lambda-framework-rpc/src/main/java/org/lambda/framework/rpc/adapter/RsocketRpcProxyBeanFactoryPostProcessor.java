@@ -154,9 +154,11 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                         return retrieveSpec.retrieveMono(String.class);
                     });
                 }
+
                 return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMap(req->{
                     RSocketRequester.RetrieveSpec retrieveSpec = req.route(route).data(data);
-                    return retrieveSpec.retrieveMono(actualTypeArguments[0].getClass());
+                    Class<?> userClass = (Class<?>) actualTypeArguments[0];
+                    return retrieveSpec.retrieveMono(userClass);
                 });
             }
             if (parameterizedType.getRawType() == Flux.class) {
@@ -168,7 +170,8 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                 }
                 return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMapMany(req->{
                     RSocketRequester.RetrieveSpec retrieveSpec = req.route(route).data(data);
-                    return retrieveSpec.retrieveFlux(actualTypeArguments[0].getClass());
+                    Class<?> userClass = (Class<?>) actualTypeArguments[0];
+                    return retrieveSpec.retrieveFlux(userClass);
                 });
             }
         }
