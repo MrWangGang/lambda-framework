@@ -57,7 +57,7 @@
 		<r2dbc-mysql.version>1.0.1</r2dbc-mysql.version>
 		<r2dbc-pool.version>1.0.0.RELEASE</r2dbc-pool.version>
 		<jackson-datatype-jsr310.version>2.14.2</jackson-datatype-jsr310.version>
-		<hutool-core.version>5.8.20</hutool-core.version>
+		<commons-beanutils.version>1.9.4</commons-beanutils.version>
 		<lombok.version>1.18.30</lombok.version>
 	</properties>
 	<dependencyManagement>
@@ -75,6 +75,11 @@
 				<version>${spring-cloud-alibaba.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>commons-beanutils</groupId>
+				<artifactId>commons-beanutils</artifactId>
+				<version>${commons-beanutils.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
