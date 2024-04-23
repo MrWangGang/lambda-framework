@@ -17,6 +17,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.netty.ByteBufMono;
 
+import static org.lambda.framework.common.exception.basic.GlobalException.EX_PRIEX;
 import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_000;
 
 
@@ -46,7 +47,7 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
             return result(ES_GATEWAY_000.getCode(), ES_GATEWAY_000.getMessage());
         }
         // 找到第一个冒号的位置
-        int index = e.getMessage().indexOf(':');
+        int index = e.getMessage().indexOf(EX_PRIEX);
         if (index != -1) {
             // 获取第一个冒号前面的字符串
             String firstPart = e.getMessage().substring(0, index);

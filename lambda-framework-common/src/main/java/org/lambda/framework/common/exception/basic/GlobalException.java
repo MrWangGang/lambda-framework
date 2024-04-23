@@ -34,6 +34,8 @@ public class GlobalException extends RuntimeException{
     }
 
     public String getSerializeMessage(){
-        return this.code+":"+this.message;
+        return this.code+EX_PRIEX+this.message;
     }
+
+    public static final String EX_PRIEX = "&*lambda-exception*&";
 }

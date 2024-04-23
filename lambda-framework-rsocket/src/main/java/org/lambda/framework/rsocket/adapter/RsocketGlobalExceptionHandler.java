@@ -6,6 +6,7 @@ import org.lambda.framework.common.exception.basic.GlobalException;
 import org.springframework.messaging.handler.invocation.MethodArgumentResolutionException;
 import org.springframework.stereotype.Component;
 
+import static org.lambda.framework.common.exception.basic.GlobalException.EX_PRIEX;
 import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_000;
 import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_001;
 
@@ -24,7 +25,7 @@ public class RsocketGlobalExceptionHandler  {
                 globalException = new GlobalException(ES_RSOCKET_000.getCode(), ES_RSOCKET_000.getMessage());
             }
             // 找到第一个冒号的位置
-            int index = e.getMessage().indexOf(':');
+            int index = e.getMessage().indexOf(EX_PRIEX);
             if (index != -1) {
                 // 获取第一个冒号前面的字符串
                 String firstPart = e.getMessage().substring(0, index);
