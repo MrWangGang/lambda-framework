@@ -81,8 +81,13 @@ public class RsocketRequestFactory {
                             .flatMap(body-> {
                                 // 使用RSocket客户端发送请求
                                 RSocketRequester.RetrieveSpec retrieveSpec = null;
+                                if (MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(contentType)) {
                                     retrieveSpec = requester
                                             .route(targetUri.getPath()).data(body);
+                                }else {
+                                    retrieveSpec = requester
+                                            .route(targetUri.getPath()).data(bodyFlux);
+                                }
 
                                 ServerHttpResponse rs = exchange.getResponse();
                                 switch (rsocketModel){
