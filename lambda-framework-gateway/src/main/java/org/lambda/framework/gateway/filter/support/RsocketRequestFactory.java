@@ -70,19 +70,26 @@ public class RsocketRequestFactory {
                     throw new EventException(ES_GATEWAY_011);
                 }
 
-                //获取请求里的body
-                Flux<DataBuffer> bodyFlux = exchange.getRequest().getBody();
-                ServerHttpResponse rs = exchange.getResponse();
-                return extractRequestBody(bodyFlux)
-                        .switchIfEmpty(Mono.error(new EventException(ES_GATEWAY_004)))
-                        //bodyByte是绝对不会为空的 。extract永远都会返回一个;
-                        .flatMap(body->{
-                            Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort(),contentType);
-                            return rSocketRequester.flatMap(requester->{
+
+                Mono<RSocketRequester> rSocketRequester = rSocketRequesterBuild.build(rSocketLoadbalance,targetUri.getHost(),targetUri.getPort(),contentType);
+                return rSocketRequester.flatMap(requester->{
+                    //获取请求里的body
+                    Flux<DataBuffer> bodyFlux = exchange.getRequest().getBody();
+                    return extractRequestBody(bodyFlux)
+                            .switchIfEmpty(Mono.error(new EventException(ES_GATEWAY_004)))
+                            //bodyByte是绝对不会为空的 。extract永远都会返回一个;
+                            .flatMap(body-> {
                                 // 使用RSocket客户端发送请求
-                                RSocketRequester.RetrieveSpec retrieveSpec =  requester
-                                        .route(targetUri.getPath())
-                                        .data(body);
+                                RSocketRequester.RetrieveSpec retrieveSpec = null;
+                                if (MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(contentType)) {
+                                    retrieveSpec = requester
+                                            .route(targetUri.getPath()).data(body);
+                                }else {
+                                    retrieveSpec = requester
+                                            .route(targetUri.getPath()).data(bodyFlux);
+                                }
+
+                                ServerHttpResponse rs = exchange.getResponse();
                                 switch (rsocketModel){
                                     case RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_MODEL_FIRE_AND_FORGET:
                                         switch (rsocketEcho){
@@ -105,7 +112,7 @@ public class RsocketRequestFactory {
                                     default: return Mono.error(new EventException(ES_GATEWAY_006));
                                 }
                             });
-                        });
+                       });
             }
             return chain.filter(exchange);
         }
