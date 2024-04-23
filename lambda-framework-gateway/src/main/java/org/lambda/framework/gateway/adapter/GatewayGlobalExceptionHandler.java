@@ -56,7 +56,7 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
             return result(firstPart,secondPart);
         } else {
             // 如果没有找到冒号，则输出原始错误信息
-            return result(ES_GATEWAY_000.getCode(), e.getMessage());
+            return result(ES_GATEWAY_000.getCode(), StringUtils.isBlank(e.getMessage())?ES_GATEWAY_000.getMessage():e.getMessage());
         }
     }
 
