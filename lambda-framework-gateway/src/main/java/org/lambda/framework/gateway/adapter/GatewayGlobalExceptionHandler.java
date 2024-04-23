@@ -52,7 +52,7 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
             // 获取第一个冒号前面的字符串
             String firstPart = e.getMessage().substring(0, index);
             // 获取第一个冒号后面的字符串
-            String secondPart = e.getMessage().substring(index + 1);
+            String secondPart = e.getMessage().substring(index + EX_PRIEX.length());
             return result(firstPart,secondPart);
         } else {
             // 如果没有找到冒号，则输出原始错误信息
