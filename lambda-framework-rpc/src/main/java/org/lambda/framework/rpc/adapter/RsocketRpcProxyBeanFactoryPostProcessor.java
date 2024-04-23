@@ -1,12 +1,12 @@
 package org.lambda.framework.rpc.adapter;
 
 import jakarta.annotation.Resource;
+import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
+import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
+import org.lambda.framework.common.annotation.rsocket.RSocketRpcMapping;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
-import org.lambda.framework.common.annotation.rsocket.RSocketRpcMapping;
-import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
-import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
@@ -105,7 +105,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                                 if(RPC_CONNECT_LOADBALANCE.equals(connectType)){
                                     //负载均衡模式
                                     Mono<RSocketRequester> rSocketRequesterMono =  rSocketLoadbalance.build(rsocketUrl,MediaType.valueOf(rSocketRpcMapping.MimeType()));
-                                    return getResult(route,getData(args),method,rSocketRequesterMono);
+                                    return getResult(route,getData(args),method,rSocketRequesterMono,rSocketRpcMapping.MimeType());
                                 }
                                 if(RPC_CONNECT_DIRECT.equals(connectType)){
                                     //直连模式
@@ -122,7 +122,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                                             throw new EventException(ES_RPC_012);
                                         }
                                         Mono<RSocketRequester> rSocketRequesterMono = rSocketLoadbalance.build(parts[0],port,MediaType.valueOf(rSocketRpcMapping.MimeType()));
-                                        return getResult(route,getData(args),method,rSocketRequesterMono);
+                                        return getResult(route,getData(args),method,rSocketRequesterMono,rSocketRpcMapping.MimeType());
 
                                     }
                                     throw new EventException(ES_RPC_012);
@@ -136,9 +136,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                 });
     }
 
-    private Object getResult(String route, Object data,Method method,Mono<RSocketRequester> rSocketRequesterMono){
-
-
+    private Object getResult(String route, Object data,Method method,Mono<RSocketRequester> rSocketRequesterMono,String mimeType){
         Type returnType = method.getGenericReturnType();
         if(returnType instanceof ParameterizedType parameterizedType){
             Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
@@ -147,33 +145,42 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                     return Mono.error(new EventException(ES_RPC_015));
                 }
             }
-            if (parameterizedType.getRawType() == Mono.class) {
-                if(actualTypeArguments.length == 1 && actualTypeArguments[0] == String.class){
+            if(MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(MediaType.valueOf(mimeType))){
+                if (parameterizedType.getRawType() == Mono.class) {
+                    if(actualTypeArguments.length == 1 && actualTypeArguments[0] == String.class){
+                        return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMap(req->{
+                            RSocketRequester.RetrieveSpec retrieveSpec = req.route(route).data(data);
+                            return retrieveSpec.retrieveMono(String.class);
+                        });
+                    }
                     return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMap(req->{
                         RSocketRequester.RetrieveSpec retrieveSpec = req.route(route).data(data);
-                        return retrieveSpec.retrieveMono(String.class);
+                        Class<?> userClass = (Class<?>) actualTypeArguments[0];
+                        return retrieveSpec.retrieveMono(userClass);
                     });
                 }
-
-                return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMap(req->{
-                    RSocketRequester.RetrieveSpec retrieveSpec = req.route(route).data(data);
-                    Class<?> userClass = (Class<?>) actualTypeArguments[0];
-                    return retrieveSpec.retrieveMono(userClass);
-                });
-            }
-            if (parameterizedType.getRawType() == Flux.class) {
-                if(actualTypeArguments.length == 1 && actualTypeArguments[0] == String.class){
+                if (parameterizedType.getRawType() == Flux.class) {
+                    if(actualTypeArguments.length == 1 && actualTypeArguments[0] == String.class){
+                        return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMapMany(req->{
+                            RSocketRequester.RetrieveSpec retrieveSpec = req.route(route).data(data);
+                            return retrieveSpec.retrieveFlux(String.class);
+                        });
+                    }
                     return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMapMany(req->{
                         RSocketRequester.RetrieveSpec retrieveSpec = req.route(route).data(data);
-                        return retrieveSpec.retrieveFlux(String.class);
+                        Class<?> userClass = (Class<?>) actualTypeArguments[0];
+                        return retrieveSpec.retrieveFlux(userClass);
                     });
                 }
+            }
+            if(MimeTypeUtils.APPLICATION_OCTET_STREAM.isCompatibleWith(MediaType.valueOf(mimeType))){
                 return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMapMany(req->{
                     RSocketRequester.RetrieveSpec retrieveSpec = req.route(route).data(data);
                     Class<?> userClass = (Class<?>) actualTypeArguments[0];
                     return retrieveSpec.retrieveFlux(userClass);
                 });
             }
+            throw new EventException(ES_RPC_010);
         }
         return Mono.error(new EventException(ES_RPC_015));
     }
