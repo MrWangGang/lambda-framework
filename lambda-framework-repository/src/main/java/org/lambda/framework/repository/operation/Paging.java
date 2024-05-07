@@ -6,10 +6,10 @@ import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
 @Data
-@SuperBuilder(builderMethodName = "pagaingBuilder")
+@SuperBuilder(builderMethodName = "pagingBuilder")
 @NoArgsConstructor
 @AllArgsConstructor
-public class Pagaing {
+public class Paging {
     private Long page;
 
     private Long size;

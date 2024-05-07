@@ -11,7 +11,7 @@ import java.util.List;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Paged<Entity> extends Pagaing{
+public class Paged<Entity> extends Paging{
     private Long total;
 
     private Long pages;
