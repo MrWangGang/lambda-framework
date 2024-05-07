@@ -5,16 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
-import java.util.List;
-
 @Data
-@SuperBuilder
+@SuperBuilder(builderMethodName = "pagaingBuilder")
 @NoArgsConstructor
 @AllArgsConstructor
-public class Paged<Entity> extends Pagaing{
-    private Long total;
+public class Pagaing {
+    private Long page;
 
-    private Long pages;
-
-    private List<Entity> records;
+    private Long size;
 }
