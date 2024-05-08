@@ -118,6 +118,24 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     }
 
     @Override
+    public  <Page extends Paging,Condition>Mono<Paged> pageable(Page page,PO po,Sort sort) {
+        if(po == null)throw new EventException(ES_COMPLIANCE_000);
+        ExampleMatcher matcher = ExampleMatcher.matching()
+                .withIgnoreNullValues();
+        return repository.find(page,po,sort,new UnifyPagingOperation<Condition>() {
+
+            @Override
+            public Mono<Long> count(Condition condition) {
+                return repository.count(Example.of(po,matcher));
+            }
+            @Override
+            public Flux<?> query(Pageable pageable, Condition condition) {
+                return repository.findBy(Example.of(po,matcher),pageable);
+            }
+        });
+    }
+
+    @Override
     public  <Page extends Paging,Condition>Mono<Paged> pageable(Page page,PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
         ExampleMatcher matcher = ExampleMatcher.matching()
