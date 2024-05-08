@@ -21,7 +21,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
-import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_028;
 
 public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation>  implements IDefaultBasicService<PO,ID> {
 
@@ -117,17 +116,6 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     }
 
     @Override
-    public Flux<PO> find(PO po, ExampleMatcher matcher) {
-        if(po == null)throw new EventException(ES_COMPLIANCE_000);
-        Assert.verify(matcher,ES_COMPLIANCE_028);
-        matcher.withIgnoreNullValues();
-        Example<PO> example = Example.<PO>of(po,matcher);
-        return repository.findAll(example);
-    }
-
-
-
-    @Override
     public Flux<PO> find() {
         return repository.findAll();
     }
@@ -139,14 +127,24 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
                 .withIgnoreNullValues();
         return repository.find(page,size,po,new UnifyPagingOperation<PO>() {
             @Override
-            public Mono<Long> count() {
+            public Mono<Long> count(PO po) {
                 return repository.count(Example.of(po,matcher));
             }
+
             @Override
-            public Flux<PO> query() {
-                return repository.findAll(Example.of(po,matcher));
+            public Flux<PO> query(PO po) {
+                return repository.findAll(Example.of(po));
             }
         });
+    }
+
+    @Override
+    public Flux<PO> fuzzy(PO po) {
+        ExampleMatcher matcher = ExampleMatcher.matching()
+                .withIgnoreCase()
+                .withStringMatcher(ExampleMatcher.StringMatcher.CONTAINING);
+        Example<PO> example = Example.<PO>of(po,matcher);
+        return repository.findAll(example);
     }
 
     @Override
