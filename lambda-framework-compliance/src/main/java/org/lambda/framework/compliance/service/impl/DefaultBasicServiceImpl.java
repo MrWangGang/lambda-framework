@@ -4,13 +4,10 @@ import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.po.UnifyPO;
 import org.lambda.framework.compliance.service.IDefaultBasicService;
-import org.lambda.framework.repository.operation.Paged;
-import org.lambda.framework.repository.operation.ReactiveUnifyPagingRepositoryOperation;
-import org.lambda.framework.repository.operation.UnifyPagingOperation;
+import org.lambda.framework.repository.operation.*;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Example;
-import org.springframework.data.domain.ExampleMatcher;
+import org.springframework.data.domain.*;
 import org.springframework.data.repository.query.ReactiveQueryByExampleExecutor;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.data.repository.reactive.ReactiveSortingRepository;
@@ -121,22 +118,23 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     }
 
     @Override
-    public Mono<Paged<PO>> find(Long page, Long size, PO po) {
+    public  <Page extends Paging,Condition>Mono<Paged> pageable(Page page,PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
-        return repository.find(page,size,po,new UnifyPagingOperation<PO>() {
-            @Override
-            public Mono<Long> count(PO po) {
-                return repository.count(Example.of(po,matcher));
-            }
+        return repository.find(page,po,new UnifyPagingOperation<Condition>() {
 
             @Override
-            public Flux<PO> query(PO po) {
-                return repository.findAll(Example.of(po));
+            public Mono<Long> count(Condition condition) {
+                return repository.count(Example.of(po,matcher));
+            }
+            @Override
+            public Flux<?> query(Pageable pageable, Condition condition) {
+                return repository.findBy(Example.of(po,matcher),pageable);
             }
         });
     }
+
 
     @Override
     public Flux<PO> fuzzy(PO po) {

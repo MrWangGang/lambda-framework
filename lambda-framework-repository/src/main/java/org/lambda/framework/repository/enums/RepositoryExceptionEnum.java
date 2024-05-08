@@ -13,10 +13,16 @@ public enum RepositoryExceptionEnum implements ExceptionEnumFunction {
     ES_REPOSITORY_MONGO_005("ES_REPOSITORY_MONGO_005","mongo缺少user配置"),
     ES_REPOSITORY_MONGO_006("ES_REPOSITORY_MONGO_006","mongo缺少password配置"),
     ES_REPOSITORY_MONGO_007("ES_REPOSITORY_MONGO_007","mongo缺少database配置"),
+    ES_REPOSITORY_MONGO_008("ES_REPOSITORY_MONGO_008","mongo缺少auth-database配置"),
 
     ES_REPOSITORY_100("ES_REPOSITORY_100","分页参数不规范 page 必须 >0 size必须 >0 "),
     ES_REPOSITORY_101("ES_REPOSITORY_101","对mongo的密码编码失败"),
-    ES_REPOSITORY_MONGO_008("ES_REPOSITORY_MONGO_008","mongo缺少auth-database配置");
+    ES_REPOSITORY_102("ES_REPOSITORY_102","分页页码初始值不能小于1，必须从1开始"),
+    ES_REPOSITORY_103("ES_REPOSITORY_103","分页参数缺失"),
+    ES_REPOSITORY_104("ES_REPOSITORY_104","当前页参数缺失"),
+    ES_REPOSITORY_105("ES_REPOSITORY_105","每页条数参数缺失");
+
+
 
 
     private String code;

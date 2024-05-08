@@ -11,10 +11,10 @@ import java.util.List;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Paged<Entity> extends Paging{
+public class Paged extends Paging{
     private Long total;
 
     private Long pages;
 
-    private List<Entity> records;
+    private List<?> records;
 }

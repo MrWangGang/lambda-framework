@@ -10,7 +10,7 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Paging {
-    private Long page;
+    private Integer page = 1;
 
-    private Long size;
+    private Integer size = 10;
 }

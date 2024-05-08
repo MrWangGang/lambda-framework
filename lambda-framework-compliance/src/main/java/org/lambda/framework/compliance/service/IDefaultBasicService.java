@@ -2,6 +2,7 @@ package org.lambda.framework.compliance.service;
 
 import org.lambda.framework.common.po.UnifyPO;
 import org.lambda.framework.repository.operation.Paged;
+import org.lambda.framework.repository.operation.Paging;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -29,7 +30,7 @@ public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
 
     public Flux<PO> find();
 
-    public Mono<Paged<PO>> find(Long page, Long size, PO po);
+    public  <Page extends Paging,Condition>Mono<Paged> pageable(Page page, PO po);
 
     public Flux<PO> fuzzy(PO po);
 
