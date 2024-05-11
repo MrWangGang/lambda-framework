@@ -11,14 +11,14 @@ import java.util.List;
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Paged<Entity> {
+public class Paging {
     private Integer page = 1;
 
     private Integer size = 10;
 
     private Long total;
 
-    private Integer pages;
+    private Long pages;
 
-    private List<Entity> records;
+    private List<?> records;
 }

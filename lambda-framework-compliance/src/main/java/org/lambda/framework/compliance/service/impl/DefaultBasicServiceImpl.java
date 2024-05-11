@@ -118,47 +118,47 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     }
 
     @Override
-    public  Mono<Page<PO>> find(Paged page,PO po,Sort sort) {
+    public  Mono<Paged<PO>> find(Paging paging, PO po, Sort sort) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
         if(sort == null)throw new EventException(ES_COMPLIANCE_029);
-        if(page == null)throw new EventException(ES_COMPLIANCE_030);
+        if(paging == null)throw new EventException(ES_COMPLIANCE_030);
 
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
-        return repository.jpql(page,po,sort,(_condition,_pageable,_sort)->{
+        return repository.jpql(paging,po,sort,(_condition,_pageable,_sort)->{
             return repository.findBy(Example.of(_condition),
                     x -> x.sortBy(_sort).page(PageRequest.of(_pageable.getPageNumber(), _pageable.getPageSize())));
         });
     }
 
     @Override
-    public  Mono<Page<PO>> find(Paged page,PO po) {
+    public  Mono<Paged<PO>> find(Paging paging, PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
-        if(page == null)throw new EventException(ES_COMPLIANCE_030);
+        if(paging == null)throw new EventException(ES_COMPLIANCE_030);
 
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
-        return repository.jpql(page,po,Sort.unsorted(),(_condition,_pageable,_sort)->{
+        return repository.jpql(paging,po,Sort.unsorted(),(_condition,_pageable,_sort)->{
             return repository.findBy(Example.of(_condition),
                     x -> x.sortBy(_sort).page(PageRequest.of(_pageable.getPageNumber(), _pageable.getPageSize())));
         });
     }
 
     @Override
-    public <Condition,VO> Mono<Page<VO>> find(Paged page, Condition condition, Sort sort, UnifyPagingOperation<Condition, VO> operation) {
+    public <Condition,VO> Mono<Paged<VO>> find(Paging paging, Condition condition, Sort sort, UnifyPagingOperation<Condition, VO> operation) {
         if(condition == null)throw new EventException(ES_COMPLIANCE_000);
         if(sort == null)throw new EventException(ES_COMPLIANCE_029);
-        if(page == null)throw new EventException(ES_COMPLIANCE_030);
+        if(paging == null)throw new EventException(ES_COMPLIANCE_030);
         if(operation == null)throw new EventException(ES_COMPLIANCE_031);
-        return repository.sql(page,condition,sort,operation);
+        return repository.sql(paging,condition,sort,operation);
     }
 
     @Override
-    public <Condition,VO> Mono<Page<VO>> find(Paged page, Condition condition, UnifyPagingOperation<Condition, VO> operation) {
+    public <Condition,VO> Mono<Paged<VO>> find(Paging paging, Condition condition, UnifyPagingOperation<Condition, VO> operation) {
         if(condition == null)throw new EventException(ES_COMPLIANCE_000);
-        if(page == null)throw new EventException(ES_COMPLIANCE_030);
+        if(paging == null)throw new EventException(ES_COMPLIANCE_030);
         if(operation == null)throw new EventException(ES_COMPLIANCE_031);
-        return repository.sql(page,condition,Sort.unsorted(),operation);
+        return repository.sql(paging,condition,Sort.unsorted(),operation);
     }
 
     @Override

@@ -2,9 +2,9 @@ package org.lambda.framework.compliance.service;
 
 import org.lambda.framework.common.po.UnifyPO;
 import org.lambda.framework.repository.operation.Paged;
+import org.lambda.framework.repository.operation.Paging;
 import org.lambda.framework.repository.operation.UnifyPagingOperation;
 import org.reactivestreams.Publisher;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -32,11 +32,11 @@ public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
 
     public Flux<PO> find();
 
-    public  Mono<Page<PO>> find(Paged page, PO po, Sort sort);
-    public  Mono<Page<PO>> find(Paged page,PO po);
+    public  Mono<Paged<PO>> find(Paging page, PO po, Sort sort);
+    public  Mono<Paged<PO>> find(Paging page, PO po);
 
-    public <Condition,VO>Mono<Page<VO>> find(Paged page, Condition condition, Sort sort, UnifyPagingOperation<Condition,VO> operation);
-    public <Condition,VO>Mono<Page<VO>> find(Paged page, Condition condition, UnifyPagingOperation<Condition,VO> operation);
+    public <Condition,VO>Mono<Paged<VO>> find(Paging paging, Condition condition, Sort sort, UnifyPagingOperation<Condition,VO> operation);
+    public <Condition,VO>Mono<Paged<VO>> find(Paging paging, Condition condition, UnifyPagingOperation<Condition,VO> operation);
 
     public Flux<PO> fuzzy(PO po);
 
