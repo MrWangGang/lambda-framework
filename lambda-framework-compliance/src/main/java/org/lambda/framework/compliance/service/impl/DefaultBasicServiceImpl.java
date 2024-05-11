@@ -17,9 +17,9 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
+import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
 
-public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation>  implements IDefaultBasicService<PO,ID> {
+public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation<PO>>  implements IDefaultBasicService<PO,ID> {
 
 
     public DefaultBasicServiceImpl(@Autowired Repository repository){
@@ -118,41 +118,54 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     }
 
     @Override
-    public  <Page extends Paging,Condition>Mono<Paged> pageable(Page page,PO po,Sort sort) {
+    public  Mono<Page<PO>> find(Paged page,PO po,Sort sort) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
+        if(sort == null)throw new EventException(ES_COMPLIANCE_029);
+        if(page == null)throw new EventException(ES_COMPLIANCE_030);
+
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
-        return repository.find(page,po,sort,new UnifyPagingOperation<Condition>() {
-
-            @Override
-            public Mono<Long> count(Condition condition) {
-                return repository.count(Example.of(po,matcher));
-            }
-            @Override
-            public Flux<?> query(Pageable pageable, Condition condition) {
-                return repository.findBy(Example.of(po,matcher),pageable);
-            }
+        return repository.jpql(page,po,sort,(_condition,_pageable,_sort)->{
+            return repository.findBy(Example.of(_condition),
+                    x -> x.sortBy(_sort).page(PageRequest.of(_pageable.getPageNumber(), _pageable.getPageSize())));
         });
     }
 
     @Override
-    public  <Page extends Paging,Condition>Mono<Paged> pageable(Page page,PO po) {
+    public  Mono<Page<PO>> find(Paged page,PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
+        if(page == null)throw new EventException(ES_COMPLIANCE_030);
+
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
-        return repository.find(page,po,new UnifyPagingOperation<Condition>() {
-
-            @Override
-            public Mono<Long> count(Condition condition) {
-                return repository.count(Example.of(po,matcher));
-            }
-            @Override
-            public Flux<?> query(Pageable pageable, Condition condition) {
-                return repository.findBy(Example.of(po,matcher),pageable);
-            }
+        return repository.jpql(page,po,Sort.unsorted(),(_condition,_pageable,_sort)->{
+            return repository.findBy(Example.of(_condition),
+                    x -> x.sortBy(_sort).page(PageRequest.of(_pageable.getPageNumber(), _pageable.getPageSize())));
         });
     }
 
+    @Override
+    public <Condition,VO> Mono<Page<VO>> find(Paged page, Condition condition, Sort sort, UnifyPagingOperation<Condition, VO> operation) {
+        if(condition == null)throw new EventException(ES_COMPLIANCE_000);
+        if(sort == null)throw new EventException(ES_COMPLIANCE_029);
+        if(page == null)throw new EventException(ES_COMPLIANCE_030);
+        if(operation == null)throw new EventException(ES_COMPLIANCE_031);
+
+        ExampleMatcher matcher = ExampleMatcher.matching()
+                .withIgnoreNullValues();
+        return repository.sql(page,condition,sort,operation);
+    }
+
+    @Override
+    public <Condition,VO> Mono<Page<VO>> find(Paged page, Condition condition, UnifyPagingOperation<Condition, VO> operation) {
+        if(condition == null)throw new EventException(ES_COMPLIANCE_000);
+        if(page == null)throw new EventException(ES_COMPLIANCE_030);
+        if(operation == null)throw new EventException(ES_COMPLIANCE_031);
+
+        ExampleMatcher matcher = ExampleMatcher.matching()
+                .withIgnoreNullValues();
+        return repository.sql(page,condition,Sort.unsorted(),operation);
+    }
 
     @Override
     public Flux<PO> fuzzy(PO po) {

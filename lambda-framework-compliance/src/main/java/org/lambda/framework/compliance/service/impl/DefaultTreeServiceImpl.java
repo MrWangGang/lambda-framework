@@ -5,7 +5,10 @@ import org.lambda.framework.common.po.IFlattenTreePO;
 import org.lambda.framework.common.po.UnifyPO;
 import org.lambda.framework.compliance.service.IDefaultTreeService;
 import org.lambda.framework.compliance.service.dto.*;
-import org.lambda.framework.repository.operation.mysql.ReactiveMySqlCrudRepositoryOperation;
+import org.lambda.framework.repository.operation.ReactiveUnifyPagingRepositoryOperation;
+import org.springframework.data.repository.query.ReactiveQueryByExampleExecutor;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -20,7 +23,7 @@ import static org.lambda.framework.compliance.enums.ComplianceConstant.ROOT_NODE
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
 
 
-public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
+public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,ID,Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation<PO>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
 
     private Class<PO> clazz;
 

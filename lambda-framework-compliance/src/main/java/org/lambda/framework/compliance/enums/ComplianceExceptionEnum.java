@@ -32,7 +32,12 @@ public enum ComplianceExceptionEnum implements ExceptionEnumFunction {
     ES_COMPLIANCE_025("ES_COMPLIANCE_025","lambda.security.redis.auth.host 未配置"),
     ES_COMPLIANCE_026("ES_COMPLIANCE_026","lambda.security.redis.autz.host 未配置"),
     ES_COMPLIANCE_027("ES_COMPLIANCE_027","无法访问上下文 SecurityStash"),
-    ES_COMPLIANCE_028("ES_COMPLIANCE_028","查询条件 ExampleMatcher 不能为空");
+    ES_COMPLIANCE_028("ES_COMPLIANCE_028","查询条件 ExampleMatcher 不能为空"),
+    ES_COMPLIANCE_029("ES_COMPLIANCE_029","此函数排序条件不能缺失，不需要排序可以使用无排序函数"),
+    ES_COMPLIANCE_030("ES_COMPLIANCE_030","分页参数不能缺失"),
+    ES_COMPLIANCE_031("ES_COMPLIANCE_031","分页实现不能缺失");
+
+
 
 
 

@@ -5,16 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
-import java.util.List;
-
 @Data
 @SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Paged extends Paging{
-    private Long total;
+public class Paged {
+    private Integer page = 1;
 
-    private Long pages;
-
-    private List<?> records;
+    private Integer size = 10;
 }

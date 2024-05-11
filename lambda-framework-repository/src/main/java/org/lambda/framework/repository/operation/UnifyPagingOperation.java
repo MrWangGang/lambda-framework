@@ -1,11 +1,10 @@
 package org.lambda.framework.repository.operation;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import reactor.core.publisher.Flux;
+import org.springframework.data.domain.Sort;
 import reactor.core.publisher.Mono;
 
-public interface UnifyPagingOperation<Condition> {
-    public Mono<Long> count(Condition condition);
-
-    public Flux<?> query(Pageable pageable, Condition condition);
+public interface UnifyPagingOperation<Condition,Entity> {
+    public Mono<Page<Entity>> query(Condition condition, Pageable pageable , Sort sort);
 }
