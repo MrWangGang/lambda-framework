@@ -150,9 +150,6 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
         if(sort == null)throw new EventException(ES_COMPLIANCE_029);
         if(page == null)throw new EventException(ES_COMPLIANCE_030);
         if(operation == null)throw new EventException(ES_COMPLIANCE_031);
-
-        ExampleMatcher matcher = ExampleMatcher.matching()
-                .withIgnoreNullValues();
         return repository.sql(page,condition,sort,operation);
     }
 
@@ -161,9 +158,6 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
         if(condition == null)throw new EventException(ES_COMPLIANCE_000);
         if(page == null)throw new EventException(ES_COMPLIANCE_030);
         if(operation == null)throw new EventException(ES_COMPLIANCE_031);
-
-        ExampleMatcher matcher = ExampleMatcher.matching()
-                .withIgnoreNullValues();
         return repository.sql(page,condition,Sort.unsorted(),operation);
     }
 
