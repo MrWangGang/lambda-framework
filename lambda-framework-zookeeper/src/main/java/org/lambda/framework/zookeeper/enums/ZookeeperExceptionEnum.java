@@ -13,7 +13,9 @@ public enum ZookeeperExceptionEnum implements ExceptionEnumFunction {
     ES_ZOOKEEPER_003("ES_ZOOKEEPER_003","zookeeper用户名缺失"),
     ES_ZOOKEEPER_004("ES_ZOOKEEPER_004","zookeeper密码缺失"),
     ES_ZOOKEEPER_005("ES_ZOOKEEPER_005","zookeeper最大等待时间缺失"),
-    ES_ZOOKEEPER_006("ES_ZOOKEEPER_006","zookeeper两次重试之间的等待时间缺失");
+    ES_ZOOKEEPER_006("ES_ZOOKEEPER_006","zookeeper两次重试之间的等待时间缺失"),
+    ES_ZOOKEEPER_007("ES_ZOOKEEPER_007","zookeeper不能缺失客户端实例"),
+    ES_ZOOKEEPER_008("ES_ZOOKEEPER_008","zookeeper不能缺失根目录");
 
     // 成员变量
 

@@ -43,6 +43,8 @@ public abstract class ZookeeperLockConfiguration {
     }
 
     protected ZookeeperLockRegistry lockRegistry(CuratorFramework curatorFramework,String root) {
+        Assert.verify(curatorFramework,ES_ZOOKEEPER_007);
+        Assert.verify(root,ES_ZOOKEEPER_008);
         return new ZookeeperLockRegistry(curatorFramework, root);
     }
 }
