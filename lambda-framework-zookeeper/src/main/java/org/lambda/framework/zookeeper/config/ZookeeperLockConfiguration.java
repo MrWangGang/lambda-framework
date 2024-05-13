@@ -39,11 +39,13 @@ public abstract class ZookeeperLockConfiguration {
         String password = this.getPassword();
         String authString = username + ":" + password;
         String authEncoded = DigestAuthenticationProvider.generateDigest(authString);
-        return CuratorFrameworkFactory.builder()
+        CuratorFramework curatorFramework = CuratorFrameworkFactory.builder()
                 .connectString(connectString)
                 .retryPolicy(new RetryUntilElapsed(getMaxElapsedTimeMs(), getSleepMsBetweenRetries()))
                 .authorization("digest", authEncoded.getBytes())
                 .build();
+        curatorFramework.start();
+        return curatorFramework;
     }
     public static final String ZK_LOCK_ROOT = "/locks";
 
