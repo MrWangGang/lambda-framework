@@ -2,10 +2,10 @@ package org.lambda.framework.zookeeper.config;
 
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex;
 import org.apache.curator.retry.RetryUntilElapsed;
 import org.apache.zookeeper.server.auth.DigestAuthenticationProvider;
 import org.lambda.framework.common.exception.Assert;
-import org.springframework.integration.zookeeper.lock.ZookeeperLockRegistry;
 
 import static org.lambda.framework.zookeeper.enums.ZookeeperExceptionEnum.*;
 
@@ -49,14 +49,14 @@ public abstract class ZookeeperLockConfiguration {
     }
     public static final String ZK_LOCK_ROOT = "/locks";
 
-    protected ZookeeperLockRegistry lockRegistry(CuratorFramework curatorFramework,String root) {
+    protected InterProcessSemaphoreMutex lockRegistry(CuratorFramework curatorFramework,String root) {
         Assert.verify(curatorFramework,ES_ZOOKEEPER_007);
         Assert.verify(root,ES_ZOOKEEPER_008);
-        return new ZookeeperLockRegistry(curatorFramework, root);
+        return new InterProcessSemaphoreMutex(curatorFramework, ZK_LOCK_ROOT);
     }
 
-    protected ZookeeperLockRegistry lockRegistry(CuratorFramework curatorFramework) {
+    protected InterProcessSemaphoreMutex lockRegistry(CuratorFramework curatorFramework) {
         Assert.verify(curatorFramework,ES_ZOOKEEPER_007);
-        return new ZookeeperLockRegistry(curatorFramework, this.getRoot());
+        return new InterProcessSemaphoreMutex(curatorFramework, ZK_LOCK_ROOT);
     }
 }
