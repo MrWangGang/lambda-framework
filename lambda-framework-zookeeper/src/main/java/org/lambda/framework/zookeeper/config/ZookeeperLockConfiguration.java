@@ -54,7 +54,7 @@ public abstract class ZookeeperLockConfiguration {
         Assert.verify(root,ES_ZOOKEEPER_008);
         return new InterProcessSemaphoreMutex(curatorFramework, ZK_LOCK_ROOT);
     }
-
+    //这是跨jvm的实现
     protected InterProcessSemaphoreMutex lockRegistry(CuratorFramework curatorFramework) {
         Assert.verify(curatorFramework,ES_ZOOKEEPER_007);
         return new InterProcessSemaphoreMutex(curatorFramework, ZK_LOCK_ROOT);
