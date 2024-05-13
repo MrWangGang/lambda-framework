@@ -22,6 +22,10 @@ public abstract class ZookeeperLockConfiguration {
 
     protected abstract Integer getSleepMsBetweenRetries();
 
+    protected  String getRoot(){
+        return ZK_LOCK_ROOT;
+    }
+
     protected CuratorFramework build() throws Exception {
         Assert.verify(getHost(),ES_ZOOKEEPER_001);
         Assert.verify(getPort(),ES_ZOOKEEPER_002);
@@ -41,10 +45,11 @@ public abstract class ZookeeperLockConfiguration {
                 .authorization("digest", authEncoded.getBytes())
                 .build();
     }
+    public static final String ZK_LOCK_ROOT = "/locks";
 
     protected ZookeeperLockRegistry lockRegistry(CuratorFramework curatorFramework,String root) {
         Assert.verify(curatorFramework,ES_ZOOKEEPER_007);
         Assert.verify(root,ES_ZOOKEEPER_008);
-        return new ZookeeperLockRegistry(curatorFramework, root);
+        return new ZookeeperLockRegistry(curatorFramework, this.getRoot());
     }
 }
