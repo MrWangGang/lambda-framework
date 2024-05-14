@@ -2,6 +2,7 @@ package org.lambda.framework.redis.config;
 
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.apache.logging.log4j.util.Strings;
+import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
@@ -15,6 +16,9 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
+
+import static org.lambda.framework.redis.enums.RedisExceptionEnum.*;
+
 public abstract class AbstractReactiveRedisRepositoryConfig {
 
         //##Redis服务器地址
@@ -55,6 +59,15 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
         }
 
         private ReactiveRedisConnectionFactory redisConnectionFactory(){
+            //密码不需要校验
+            Assert.verify(this.host(),ES_REDIS_000);
+            Assert.verify(this.port(),ES_REDIS_001);
+            Assert.verify(this.maxActive(),ES_REDIS_002);
+            Assert.verify(this.maxWaitSeconds(),ES_REDIS_003);
+            Assert.verify(this.maxIdle(),ES_REDIS_004);
+            Assert.verify(this.minIdle(),ES_REDIS_005);
+            Assert.verify(this.database(),ES_REDIS_006);
+
             RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration();
             redisStandaloneConfiguration.setDatabase(database());
             redisStandaloneConfiguration.setHostName(host());

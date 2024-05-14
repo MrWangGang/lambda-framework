@@ -59,8 +59,7 @@
 		<jackson-datatype-jsr310.version>2.14.2</jackson-datatype-jsr310.version>
 		<commons-beanutils.version>1.9.4</commons-beanutils.version>
 		<lombok.version>1.18.30</lombok.version>
-		<spring-integration.version>6.2.4</spring-integration.version>
-		<zookeeper.version>3.9.2</zookeeper.version>
+		<redisson.version>3.30.0</redisson.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -224,21 +223,9 @@
 				<version>${lombok.version}</version>
 			</dependency>
 			<dependency>
-				<groupId>org.springframework.integration</groupId>
-				<artifactId>spring-integration-core</artifactId>
-				<version>${spring-integration.version}</version>
-			</dependency>
-			<!-- 包含Curator组件 -->
-			<dependency>
-				<groupId>org.springframework.integration</groupId>
-				<artifactId>spring-integration-zookeeper</artifactId>
-				<version>${spring-integration.version}</version>
-			</dependency>
-			<!-- Zookeeper组件 -->
-			<dependency>
-				<groupId>org.apache.zookeeper</groupId>
-				<artifactId>zookeeper</artifactId>
-				<version>${zookeeper.version}</version>
+				<groupId>org.redisson</groupId>
+				<artifactId>redisson</artifactId>
+				<version>${redisson.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
@@ -264,7 +251,7 @@
 		<module>lambda-framework-repository</module>
 		<module>lambda-framework-openai</module>
 		<module>lambda-framework-compliance</module>
-		<module>lambda-framework-zookeeper</module>
+		<module>lambda-framework-lock</module>
 	</modules>
 
 	<distributionManagement>

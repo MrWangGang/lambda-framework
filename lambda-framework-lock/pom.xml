@@ -2,9 +2,9 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<artifactId>lambda-framework-zookeeper</artifactId>
-	<name>lambda-framework-zookeeper</name>
-	<description>lambda-framework-zookeeper</description>
+	<artifactId>lambda-framework-lock</artifactId>
+	<name>lambda-framework-lock</name>
+	<description>lambda-framework-lock</description>
 	<parent>
 		<groupId>org.lambda.framework</groupId>
 		<artifactId>lambda-framework</artifactId>
@@ -17,18 +17,8 @@
 			<artifactId>lambda-framework-common</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.integration</groupId>
-			<artifactId>spring-integration-core</artifactId>
-		</dependency>
-		<!-- 包含Curator组件 -->
-		<dependency>
-			<groupId>org.springframework.integration</groupId>
-			<artifactId>spring-integration-zookeeper</artifactId>
-		</dependency>
-		<!-- Zookeeper组件 -->
-		<dependency>
-			<groupId>org.apache.zookeeper</groupId>
-			<artifactId>zookeeper</artifactId>
+			<groupId>org.redisson</groupId>
+			<artifactId>redisson</artifactId>
 		</dependency>
 	</dependencies>
 </project>
