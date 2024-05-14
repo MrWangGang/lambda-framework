@@ -154,7 +154,7 @@
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
-				<artifactId>lambda-framework-zookeeper</artifactId>
+				<artifactId>lambda-framework-lock</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
