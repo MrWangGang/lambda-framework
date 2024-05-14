@@ -6,7 +6,7 @@ import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 
-import static org.lambda.framework.lock.enums.ZookeeperExceptionEnum.*;
+import static org.lambda.framework.lock.enums.LockExceptionEnum.*;
 
 public abstract class AbstractReactiveRedissonConfig {
     //##Redis服务器地址
