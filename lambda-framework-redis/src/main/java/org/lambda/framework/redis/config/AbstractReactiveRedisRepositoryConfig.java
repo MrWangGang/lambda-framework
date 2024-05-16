@@ -3,11 +3,11 @@ package org.lambda.framework.redis.config;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.apache.logging.log4j.util.Strings;
 import org.lambda.framework.common.exception.Assert;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.util.sample.JsonUtil;
+import org.lambda.framework.common.enums.RedisDeployModelEnum;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
-import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
-import org.springframework.data.redis.connection.RedisPassword;
-import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.*;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
@@ -21,29 +21,27 @@ import static org.lambda.framework.redis.enums.RedisExceptionEnum.*;
 
 public abstract class AbstractReactiveRedisRepositoryConfig {
 
-        //##Redis服务器地址
+        //##Redis服务器地址 xxxx:xx
         protected abstract String host();
-        //## Redis服务器连接端口
-        protected abstract Integer port();
-
         //连接池密码
         protected abstract String password();
-
         //# 连接池最大连接数
         protected abstract Integer maxActive();
-
         //# 连接池最大阻塞等待时间（使用负值表示没有限制）
         protected abstract Integer maxWaitSeconds();
-
         //# 连接池中的最大空闲连接
         protected abstract Integer maxIdle();
-
         //# 连接池中的最小空闲连接
         protected abstract Integer minIdle();
         //##数据库序号
         protected abstract Integer database();
 
+        protected abstract String deployModel();
+
+        protected abstract String masterName();
+
         public ReactiveRedisOperation buildRedisOperation() {
+            Assert.verify(this.deployModel(),ES_REDIS_020);
             RedisSerializationContext.SerializationPair<String> stringSerializationPair = RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer.UTF_8);
             Jackson2JsonRedisSerializer<Object> valueSerializer = new Jackson2JsonRedisSerializer<>(JsonUtil.getJsonFactory(),Object.class);
             RedisSerializationContext.RedisSerializationContextBuilder builder =
@@ -54,27 +52,122 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
             builder.hashValue(valueSerializer);
             builder.string(stringSerializationPair);
             RedisSerializationContext build = builder.build();
-            ReactiveRedisOperation reactiveRedisOperation = new ReactiveRedisOperation(redisConnectionFactory(), build);
+            ReactiveRedisOperation reactiveRedisOperation = new ReactiveRedisOperation(redisConnectionFactory(this.deployModel()), build);
             return reactiveRedisOperation;
         }
 
-        private ReactiveRedisConnectionFactory redisConnectionFactory(){
+        private ReactiveRedisConnectionFactory redisConnectionFactory(String deployModel){
+            Assert.verify(deployModel,ES_REDIS_020);
+            RedisDeployModelEnum.isValid(deployModel);
+            LettuceConnectionFactory lettuceConnectionFactory = null;
+            switch (RedisDeployModelEnum.valueOf(deployModel)) {
+                case single:
+                    lettuceConnectionFactory = new LettuceConnectionFactory(this.single(),lettuceClientConfiguration());
+                    break;
+                case master_slave:
+                    lettuceConnectionFactory = new LettuceConnectionFactory(this.masterSlave(),lettuceClientConfiguration());
+                    break;
+                case cluster:
+                    lettuceConnectionFactory = new LettuceConnectionFactory(this.cluster(),lettuceClientConfiguration());
+                    break;
+                case sentinel:
+                    lettuceConnectionFactory = new LettuceConnectionFactory(this.sentinel(),lettuceClientConfiguration());
+                    break;
+                default:
+                    throw new EventException(ES_REDIS_021);
+            }
+            lettuceConnectionFactory.setShareNativeConnection(true);
+            lettuceConnectionFactory.setValidateConnection(false);
+            lettuceConnectionFactory.afterPropertiesSet();
+            return lettuceConnectionFactory;
+        }
+
+    private RedisStaticMasterReplicaConfiguration masterSlave() {
+        Assert.verify(this.host(), ES_REDIS_000);
+        Assert.verify(this.database(), ES_REDIS_006);
+        String[] nodes = this.host().split(",");
+        boolean firstNode = true;
+        RedisStaticMasterReplicaConfiguration redisStaticMasterReplicaConfiguration = null;
+        for (String node : nodes) {
+            String[] parts = node.split(":");
+            String host = parts[0];
+            int port = Integer.parseInt(parts[1]);
+            if (firstNode) {
+                redisStaticMasterReplicaConfiguration = new RedisStaticMasterReplicaConfiguration(host,port);
+                firstNode = false;
+            } else {
+                redisStaticMasterReplicaConfiguration.addNode(host, port);
+            }
+        }
+        redisStaticMasterReplicaConfiguration.setDatabase(this.database());
+        if (Strings.isNotBlank(this.password())) {
+            redisStaticMasterReplicaConfiguration.setPassword(RedisPassword.of(this.password()));
+        }
+        return redisStaticMasterReplicaConfiguration;
+    }
+
+
+
+    private RedisSentinelConfiguration sentinel() {
+        Assert.verify(this.host(), ES_REDIS_000);
+        Assert.verify(this.database(), ES_REDIS_006);
+        Assert.verify(this.masterName(), ES_REDIS_022);
+        String[] nodes = this.host().split(",");
+        RedisSentinelConfiguration sentinelConfiguration = new RedisSentinelConfiguration();
+        sentinelConfiguration.setMaster(this.masterName());
+        for (String node : nodes) {
+            String[] parts = node.split(":");
+            String host = parts[0];
+            int port = Integer.parseInt(parts[1]);
+            sentinelConfiguration.sentinel(host, port);
+        }
+        sentinelConfiguration.setDatabase(this.database());
+        if (Strings.isNotBlank(this.password())) {
+            sentinelConfiguration.setPassword(RedisPassword.of(this.password()));
+        }
+        return sentinelConfiguration;
+    }
+
+    private RedisClusterConfiguration cluster(){
+        //密码不需要校验
+        Assert.verify(this.host(),ES_REDIS_000);
+        Assert.verify(this.database(),ES_REDIS_006);
+        String[] nodes = this.host().split(",");
+
+        RedisClusterConfiguration redisClusterConfiguration = new RedisClusterConfiguration();
+        for (String node : nodes) {
+            String[] parts = node.split(":");
+            String host = parts[0];
+            int port = Integer.parseInt(parts[1]);
+            RedisNode redisNode = new RedisNode(host, port);
+            redisClusterConfiguration.addClusterNode(redisNode);
+        }
+        if (Strings.isNotBlank(password())) {
+            redisClusterConfiguration.setPassword(RedisPassword.of(password()));
+        }
+        return redisClusterConfiguration;
+    }
+
+        private RedisStandaloneConfiguration single(){
             //密码不需要校验
             Assert.verify(this.host(),ES_REDIS_000);
-            Assert.verify(this.port(),ES_REDIS_001);
+            Assert.verify(this.database(),ES_REDIS_006);
+            String[] nodes = this.host().split(":");
+            RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration();
+            redisStandaloneConfiguration.setDatabase(database());
+            redisStandaloneConfiguration.setHostName(nodes[0]);
+            redisStandaloneConfiguration.setPort(Integer.valueOf(nodes[1]));
+            if (Strings.isNotBlank(password())) {
+                redisStandaloneConfiguration.setPassword(RedisPassword.of(password()));
+            }
+            return redisStandaloneConfiguration;
+        }
+
+        private LettuceClientConfiguration lettuceClientConfiguration() {
             Assert.verify(this.maxActive(),ES_REDIS_002);
             Assert.verify(this.maxWaitSeconds(),ES_REDIS_003);
             Assert.verify(this.maxIdle(),ES_REDIS_004);
             Assert.verify(this.minIdle(),ES_REDIS_005);
-            Assert.verify(this.database(),ES_REDIS_006);
-
-            RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration();
-            redisStandaloneConfiguration.setDatabase(database());
-            redisStandaloneConfiguration.setHostName(host());
-            redisStandaloneConfiguration.setPort(port());
-            if (Strings.isNotBlank(password())) {
-                redisStandaloneConfiguration.setPassword(RedisPassword.of(password()));
-            }
             // 连接池配置
             GenericObjectPoolConfig genericObjectPoolConfig = new GenericObjectPoolConfig();
             genericObjectPoolConfig.setMaxTotal(maxActive());
@@ -85,11 +178,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
             LettuceClientConfiguration clientConfig = LettucePoolingClientConfiguration.builder()
                     .poolConfig(genericObjectPoolConfig)
                     .build();
-            LettuceConnectionFactory lettuceConnectionFactory = new LettuceConnectionFactory(redisStandaloneConfiguration, clientConfig);
-            lettuceConnectionFactory.setShareNativeConnection(true);
-            lettuceConnectionFactory.setValidateConnection(false);
-            lettuceConnectionFactory.afterPropertiesSet();
-            return lettuceConnectionFactory;
+            return clientConfig;
         }
 }
 

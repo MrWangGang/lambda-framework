@@ -1,30 +1,25 @@
 package org.lambda.framework.compliance.security.config;
 
-import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.redis.config.AbstractReactiveRedisRepositoryConfig;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_026;
-
 @Configuration
 public class SecurityAutzRedisRepositoryConfig extends AbstractReactiveRedisRepositoryConfig {
 
     //##Redis服务器地址
+    @Value("${lambda.security.redis.autz.host:}")
     protected String host;
-    @Value("${lambda.security.redis.autz.host:0}")
-    public void setHost(String host) {
-        if("0".equals(host))throw new EventException(ES_COMPLIANCE_026);
-        this.host = host;
-    }
-    //## Redis服务器连接端口
-    @Value("${lambda.security.redis.autz.port:6379}")
-    protected Integer port;
     //连接池密码
     @Value("${lambda.security.redis.autz.password:}")
     protected String password;
+    @Value("${lambda.security.redis.autz.deploy:single}")
+    protected String deployModel;
+
+    @Value("${lambda.security.redis.autz.master:master}")
+    protected String masterName;
     //# 连接池最大连接数
     @Value("${lambda.security.redis.autz.lettuce.pool.max-active:8}")
     protected Integer maxActive;
@@ -54,15 +49,19 @@ public class SecurityAutzRedisRepositoryConfig extends AbstractReactiveRedisRepo
         return this.database;
     }
 
+    @Override
+    protected String deployModel() {
+        return this.deployModel;
+    }
+
+    @Override
+    protected String masterName() {
+        return this.masterName;
+    }
 
     @Override
     protected String host() {
         return this.host;
-    }
-
-    @Override
-    protected Integer port() {
-        return this.port;
     }
 
     @Override

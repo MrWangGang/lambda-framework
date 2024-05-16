@@ -35,7 +35,9 @@ public enum CommonExceptionEnum implements ExceptionEnumFunction {
     ES_COMMON_025("ES_COMMON_025","MD5加密失败"),
     ES_COMMON_026("ES_COMMON_026","反射获取属性错误"),
     ES_COMMON_027("ES_COMMON_027","请先配置PrincipalStash"),
-    ES_COMMON_028("ES_COMMON_028","beanUtil复制bean失败");
+    ES_COMMON_028("ES_COMMON_028","beanUtil复制bean失败"),
+    ES_COMMON_029("ES_COMMON_029","无效的redis部署模式");
+
 
     // 成员变量
     private String code;
