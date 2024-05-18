@@ -60,6 +60,7 @@
 		<commons-beanutils.version>1.9.4</commons-beanutils.version>
 		<lombok.version>1.18.30</lombok.version>
 		<redisson.version>3.30.0</redisson.version>
+		<curator.version>5.6.0</curator.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -226,6 +227,11 @@
 				<groupId>org.redisson</groupId>
 				<artifactId>redisson</artifactId>
 				<version>${redisson.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.curator</groupId>
+				<artifactId>curator-recipes</artifactId>
+				<version>${curator.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>

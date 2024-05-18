@@ -5,6 +5,7 @@ import lombok.Setter;
 import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
 public enum LockExceptionEnum implements ExceptionEnumFunction {
+    ES_LOCK_000("ES_LOCK_000","缺失lockPath"),
 
     //系统异常-普通异常 0-99
     ES_LOCK_REDISSON_000("ES_LOCK_REDISSON_000","redisson host缺失"),
@@ -16,7 +17,21 @@ public enum LockExceptionEnum implements ExceptionEnumFunction {
     ES_LOCK_REDISSON_006("ES_LOCK_REDISSON_006","redisson database缺失"),
     ES_LOCK_REDISSON_007("ES_LOCK_REDISSON_007","redisson masterName缺失"),
     ES_LOCK_REDISSON_008("ES_LOCK_REDISSON_008","redis 部署模型不能缺失"),
-    ES_LOCK_REDISSON_009("ES_LOCK_REDISSON_009","无效的redis部署模式");
+    ES_LOCK_REDISSON_009("ES_LOCK_REDISSON_009","无效的redis部署模式"),
+
+    ES_LOCK_ZOOKEEPER_010("ES_LOCK_ZOOKEEPER_010","zookeeper host缺失"),
+    ES_LOCK_ZOOKEEPER_011("ES_LOCK_ZOOKEEPER_011","zookeeper sessionTimeoutMs缺失"),
+    ES_LOCK_ZOOKEEPER_012("ES_LOCK_ZOOKEEPER_012","zookeeper connectionTimeoutMs缺失"),
+    ES_LOCK_ZOOKEEPER_013("ES_LOCK_ZOOKEEPER_013","zookeeper baseSleepTimeMs缺失"),
+    ES_LOCK_ZOOKEEPER_014("ES_LOCK_ZOOKEEPER_014","zookeeper maxRetries缺失"),
+    ES_LOCK_ZOOKEEPER_015("ES_LOCK_ZOOKEEPER_015","zookeeper 连接失败"),
+    ES_LOCK_ZOOKEEPER_017("ES_LOCK_ZOOKEEPER_017","zookeeper 加锁失败"),
+    ES_LOCK_ZOOKEEPER_018("ES_LOCK_ZOOKEEPER_018","zookeeper 释放锁失败");
+
+
+
+
+
 
 
 
