@@ -18,6 +18,13 @@ public enum LockExceptionEnum implements ExceptionEnumFunction {
     ES_LOCK_REDISSON_007("ES_LOCK_REDISSON_007","redisson masterName缺失"),
     ES_LOCK_REDISSON_008("ES_LOCK_REDISSON_008","redis 部署模型不能缺失"),
     ES_LOCK_REDISSON_009("ES_LOCK_REDISSON_009","无效的redis部署模式"),
+    ES_LOCK_REDISSON_010("ES_LOCK_REDISSON_010","redisson RLock 未初始化"),
+    ES_LOCK_REDISSON_011("ES_LOCK_REDISSON_011","redisson RReadWriteLock 未初始化"),
+    ES_LOCK_REDISSON_012("ES_LOCK_REDISSON_012","redisson RLockReactive 未初始化"),
+    ES_LOCK_REDISSON_013("ES_LOCK_REDISSON_013","redisson RReadWriteLockReactive 未初始化"),
+    ES_LOCK_REDISSON_017("ES_LOCK_REDISSON_017","redisson 加锁失败"),
+    ES_LOCK_REDISSON_018("ES_LOCK_REDISSON_018","redisson 释放锁失败"),
+
 
     ES_LOCK_ZOOKEEPER_010("ES_LOCK_ZOOKEEPER_010","zookeeper host缺失"),
     ES_LOCK_ZOOKEEPER_011("ES_LOCK_ZOOKEEPER_011","zookeeper sessionTimeoutMs缺失"),
@@ -26,7 +33,10 @@ public enum LockExceptionEnum implements ExceptionEnumFunction {
     ES_LOCK_ZOOKEEPER_014("ES_LOCK_ZOOKEEPER_014","zookeeper maxRetries缺失"),
     ES_LOCK_ZOOKEEPER_015("ES_LOCK_ZOOKEEPER_015","zookeeper 连接失败"),
     ES_LOCK_ZOOKEEPER_017("ES_LOCK_ZOOKEEPER_017","zookeeper 加锁失败"),
-    ES_LOCK_ZOOKEEPER_018("ES_LOCK_ZOOKEEPER_018","zookeeper 释放锁失败");
+    ES_LOCK_ZOOKEEPER_018("ES_LOCK_ZOOKEEPER_018","zookeeper 释放锁失败"),
+    ES_LOCK_ZOOKEEPER_019("ES_LOCK_ZOOKEEPER_019","zookeeper InterProcessMutex未初始化"),
+    ES_LOCK_ZOOKEEPER_020("ES_LOCK_ZOOKEEPER_020","zookeeper InterProcessReadWriteLock 未初始化");
+
 
 
 
