@@ -14,7 +14,7 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
 
 
     //利用jpa规范生成的jpql，面向对象查询方式
-    default <Condition>Mono<Paged<Entity>> jpql(Paging paging, Condition condition, Sort sort, UnifyPagingOperation<Condition,Entity> operation){
+    default <Condition>Mono<Paged<Entity>> jpql(Paging paging, Condition condition, Sort sort, UnifyPagingJpqlOperation<Condition,Entity> operation){
         Assert.verify(paging,ES_REPOSITORY_103);
         Assert.verify(paging.getPage(),ES_REPOSITORY_104);
         Assert.verify(paging.getSize(),ES_REPOSITORY_105);
@@ -44,6 +44,31 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
         return Mono.zip(
                         operation.count(condition).defaultIfEmpty(0L), // 计算 count
                         operation.query(condition,pageRequest).collectList() // 查询数据
+                )
+                .flatMap(tuple -> {
+                    Long count = tuple.getT1(); // 获取 count 结果
+                    List<VO> records = tuple.getT2(); // 获取查询结果
+                    Paged<VO> paged = Paged.<VO>builder()
+                            .page(paging.getPage())
+                            .size(paging.getSize())
+                            .total(count)
+                            .pages((int) Math.ceil((double) count / (double) paging.getSize()))
+                            .records(records)
+                            .build();
+                    return Mono.just(paged);
+                });
+    }
+
+    default <Condition,VO>Mono<Paged<VO>> find(Paging paging,UnifyPagingSqlDefaultOperation<VO> operation){
+        Assert.verify(paging,ES_REPOSITORY_103);
+        Assert.verify(paging.getPage(),ES_REPOSITORY_104);
+        Assert.verify(paging.getSize(),ES_REPOSITORY_105);
+        if(paging.getPage()<= 0 || paging.getSize() <=0)throw new EventException(ES_REPOSITORY_100);
+        //使用mono.zip执行并行处理，瓶颈来到了 i/o上。对于分页查询来说，这非常快。最后获得结果的时间由时间最长的线程处理决定
+        PageRequest pageRequest = PageRequest.of(paging.getPage() - 1, paging.getSize());
+        return Mono.zip(
+                        operation.count().defaultIfEmpty(0L), // 计算 count
+                        operation.query(pageRequest).collectList() // 查询数据
                 )
                 .flatMap(tuple -> {
                     Long count = tuple.getT1(); // 获取 count 结果

@@ -153,6 +153,13 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     }
 
     @Override
+    public <VO> Mono<Paged<VO>> find(Paging paging, UnifyPagingSqlDefaultOperation<VO> operation) {
+        if(paging == null)throw new EventException(ES_COMPLIANCE_030);
+        if(operation == null)throw new EventException(ES_COMPLIANCE_031);
+        return repository.find(paging,operation);
+    }
+
+    @Override
     public Mono<Long> count(PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
         ExampleMatcher matcher = ExampleMatcher.matching()
