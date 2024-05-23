@@ -145,21 +145,13 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     }
 
     @Override
-    public <Condition,VO> Mono<Paged<VO>> find(Paging paging, Condition condition, Sort sort, UnifyPagingOperation<Condition, VO> operation) {
+    public <Condition, VO> Mono<Paged<VO>> find(Paging paging, Condition condition, UnifyPagingSqlOperation<Condition, VO> operation) {
         if(condition == null)throw new EventException(ES_COMPLIANCE_000);
-        if(sort == null)throw new EventException(ES_COMPLIANCE_029);
         if(paging == null)throw new EventException(ES_COMPLIANCE_030);
         if(operation == null)throw new EventException(ES_COMPLIANCE_031);
-        return repository.sql(paging,condition,sort,operation);
+        return repository.find(paging,condition,operation);
     }
 
-    @Override
-    public <Condition,VO> Mono<Paged<VO>> find(Paging paging, Condition condition, UnifyPagingOperation<Condition, VO> operation) {
-        if(condition == null)throw new EventException(ES_COMPLIANCE_000);
-        if(paging == null)throw new EventException(ES_COMPLIANCE_030);
-        if(operation == null)throw new EventException(ES_COMPLIANCE_031);
-        return repository.sql(paging,condition,Sort.unsorted(),operation);
-    }
 
     @Override
     public Flux<PO> fuzzy(PO po) {
