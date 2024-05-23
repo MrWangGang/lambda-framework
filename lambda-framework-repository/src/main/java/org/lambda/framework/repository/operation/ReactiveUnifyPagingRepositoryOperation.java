@@ -40,10 +40,9 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
         Assert.verify(paging.getSize(),ES_REPOSITORY_105);
         if(paging.getPage()<= 0 || paging.getSize() <=0)throw new EventException(ES_REPOSITORY_100);
         //使用mono.zip执行并行处理，瓶颈来到了 i/o上。对于分页查询来说，这非常快。最后获得结果的时间由时间最长的线程处理决定
-        PageRequest pageRequest = PageRequest.of(paging.getPage() - 1, paging.getSize());
         return Mono.zip(
                         operation.count(condition).defaultIfEmpty(0L), // 计算 count
-                        operation.query(condition,pageRequest).collectList() // 查询数据
+                        operation.query(condition).collectList() // 查询数据
                 )
                 .flatMap(tuple -> {
                     Long count = tuple.getT1(); // 获取 count 结果
