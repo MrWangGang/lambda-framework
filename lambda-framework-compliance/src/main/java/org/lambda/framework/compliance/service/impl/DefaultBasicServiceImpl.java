@@ -152,6 +152,14 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
         return repository.find(paging,condition,operation);
     }
 
+    @Override
+    public Mono<Long> count(PO po) {
+        if(po == null)throw new EventException(ES_COMPLIANCE_000);
+        ExampleMatcher matcher = ExampleMatcher.matching()
+                .withIgnoreNullValues();
+        Example example = Example.of(po,matcher);
+        return repository.count(example);
+    }
 
     @Override
     public Flux<PO> fuzzy(PO po) {

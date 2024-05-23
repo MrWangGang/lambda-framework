@@ -37,6 +37,8 @@ public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
 
     public <Condition,VO>Mono<Paged<VO>> find(Paging paging, Condition condition, UnifyPagingSqlOperation<Condition,VO> operation);
 
+    public Mono<Long> count(PO po);
+
     public Flux<PO> fuzzy(PO po);
 
     public Mono<PO> get(ID id);
