@@ -1,8 +1,8 @@
-package org.lambda.framework.common.enums;
+package org.lambda.framework.redis.enums;
 
 import org.lambda.framework.common.exception.EventException;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_029;
+import static org.lambda.framework.redis.enums.RedisExceptionEnum.ES_REDIS_029;
 
 public enum RedisDeployModelEnum {
     single,
@@ -16,6 +16,6 @@ public enum RedisDeployModelEnum {
                 return true;
             }
         }
-        throw new EventException(ES_COMMON_029);
+        throw new EventException(ES_REDIS_029);
     }
 }

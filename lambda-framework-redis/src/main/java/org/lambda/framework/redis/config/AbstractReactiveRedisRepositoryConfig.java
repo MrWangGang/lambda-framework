@@ -5,7 +5,7 @@ import org.apache.logging.log4j.util.Strings;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.util.sample.JsonUtil;
-import org.lambda.framework.common.enums.RedisDeployModelEnum;
+import org.lambda.framework.redis.enums.RedisDeployModelEnum;
 import org.lambda.framework.redis.operation.ReactiveRedisOperation;
 import org.springframework.data.redis.connection.*;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;

@@ -1,9 +1,9 @@
 package org.lambda.framework.lock.config;
 
-import org.lambda.framework.common.enums.RedisDeployModelEnum;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.lock.RedissonBuilder;
+import org.lambda.framework.lock.enums.RedissonDeployModelEnum;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
@@ -29,8 +29,8 @@ public abstract class AbstractRedissonConfig {
 
     protected RedissonBuilder redissonConnectionFactory(){
         Assert.verify(this.deployModel(),ES_LOCK_REDISSON_008);
-        RedisDeployModelEnum.isValid(this.deployModel());
-        switch (RedisDeployModelEnum.valueOf(this.deployModel())) {
+        RedissonDeployModelEnum.isValid(this.deployModel());
+        switch (RedissonDeployModelEnum.valueOf(this.deployModel())) {
             case single:
                 return single();
             case master_slave:

@@ -14,7 +14,28 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
     private String password;
 
     private String database;
+
     private String authDatabase;
+
+    private String replicaSetName;
+
+    private String deployModel;
+
+    @Value("${lambda.repository.mongo.deploy:-1}")
+    public void setDeployModel(String deployModel) {
+        if(deployModel == null || StringUtils.isBlank(deployModel) || "-1".equals(deployModel)){
+            throw new EventException(ES_REPOSITORY_MONGO_010);
+        }
+        this.deployModel = deployModel;
+    }
+
+    @Value("${lambda.repository.mongo.replica:-1}")
+    public void setReplicaSetName(String replicaSetName) {
+        if(replicaSetName == null || StringUtils.isBlank(replicaSetName) || "-1".equals(replicaSetName)){
+            throw new EventException(ES_REPOSITORY_MONGO_009);
+        }
+        this.replicaSetName = replicaSetName;
+    }
 
     @Value("${lambda.repository.mongo.host:-1}")
     private void setHost(String host) {
@@ -60,8 +81,6 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
         return this.authDatabase;
     }
 
-    @Value("${lambda.repository.mongo.port:27017}")
-    private Integer port;
     @Value("${lambda.repository.mongo.connect-timeout-seconds:60}")
     private Integer connectTimeoutSeconds;
     @Value("${lambda.repository.mongo.max-idle-time-seconds:30}")
@@ -84,17 +103,9 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
         return this.password;
     }
 
-
-
-
     @Override
     protected String database() {
         return this.database;
-    }
-
-    @Override
-    protected Integer port() {
-        return this.port;
     }
 
     @Override
@@ -110,6 +121,16 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
     @Override
     protected Integer maxSize() {
         return this.maxSize;
+    }
+
+    @Override
+    protected String replicaSetName() {
+        return this.replicaSetName;
+    }
+
+    @Override
+    protected String deployModel() {
+        return this.deployModel;
     }
 
 }

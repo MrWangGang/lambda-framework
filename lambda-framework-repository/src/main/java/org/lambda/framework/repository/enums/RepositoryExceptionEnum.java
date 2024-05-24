@@ -14,6 +14,14 @@ public enum RepositoryExceptionEnum implements ExceptionEnumFunction {
     ES_REPOSITORY_MONGO_006("ES_REPOSITORY_MONGO_006","mongo缺少password配置"),
     ES_REPOSITORY_MONGO_007("ES_REPOSITORY_MONGO_007","mongo缺少database配置"),
     ES_REPOSITORY_MONGO_008("ES_REPOSITORY_MONGO_008","mongo缺少auth-database配置"),
+    ES_REPOSITORY_MONGO_009("ES_REPOSITORY_MONGO_009","mongo缺少replica"),
+    ES_REPOSITORY_MONGO_010("ES_REPOSITORY_MONGO_010","mongo缺少deploy"),
+    ES_REPOSITORY_MONGO_011("ES_REPOSITORY_MONGO_011","mongo缺少connect-timeout-seconds"),
+    ES_REPOSITORY_MONGO_012("ES_REPOSITORY_MONGO_012","mongo缺少max-idle-time-seconds"),
+    ES_REPOSITORY_MONGO_013("ES_REPOSITORY_MONGO_013","mongo缺少max-size"),
+    ES_REPOSITORY_MONGO_014("ES_REPOSITORY_MONGO_014","无效的mongo部署模式"),
+
+
 
     ES_REPOSITORY_100("ES_REPOSITORY_100","分页参数不规范 page 必须 >0 size必须 >0 "),
     ES_REPOSITORY_101("ES_REPOSITORY_101","对mongo的密码编码失败"),

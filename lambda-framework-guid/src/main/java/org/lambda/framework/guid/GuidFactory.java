@@ -30,7 +30,7 @@ public class GuidFactory {
     private final static long DATACENTER_LEFT = SEQUENCE_BIT + MACHINE_BIT;
     private final static long TIMESTMP_LEFT = DATACENTER_LEFT + DATACENTER_BIT;
 
-    @Value("${lambda.guid.datacenter-id:-1}")
+    @Value("${lambda.guid.data-center-id:-1}")
     public void setDatacenterId(Long datacenterId) {
         if(datacenterId == null || datacenterId == -1L){
             throw new EventException(ES_GUID_002);

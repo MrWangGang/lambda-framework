@@ -24,6 +24,7 @@ public enum LockExceptionEnum implements ExceptionEnumFunction {
     ES_LOCK_REDISSON_013("ES_LOCK_REDISSON_013","redisson RReadWriteLockReactive 未初始化"),
     ES_LOCK_REDISSON_017("ES_LOCK_REDISSON_017","redisson 加锁失败"),
     ES_LOCK_REDISSON_018("ES_LOCK_REDISSON_018","redisson 释放锁失败"),
+    ES_LOCK_REDISSON_019("ES_LOCK_REDISSON_019","无效的redis部署模式"),
 
 
     ES_LOCK_ZOOKEEPER_010("ES_LOCK_ZOOKEEPER_010","zookeeper host缺失"),
