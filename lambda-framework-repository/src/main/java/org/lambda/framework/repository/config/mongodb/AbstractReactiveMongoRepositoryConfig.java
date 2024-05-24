@@ -9,6 +9,9 @@ import com.mongodb.reactivestreams.client.MongoClients;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.repository.enums.MongoDeployModelEnum;
+import org.springframework.boot.autoconfigure.mongo.MongoProperties;
+import org.springframework.boot.autoconfigure.mongo.PropertiesMongoConnectionDetails;
+import org.springframework.context.annotation.Bean;
 
 import java.util.concurrent.TimeUnit;
 
@@ -80,5 +83,29 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
                 .credential(MongoCredential.createCredential(user(), authDatabase(), password().toCharArray()))
                 .build();
         return MongoClients.create(settings);
+    }
+
+
+    @Bean
+    public PropertiesMongoConnectionDetails mongoConnectionDetails() {
+        String[] hosts = this.host().split(","); // 如果主机是以逗号分隔的字符串，则将其拆分为一个主机数组
+        // 构建包含多个主机的URI
+        StringBuilder uriBuilder = new StringBuilder("mongodb://");
+        for (int i = 0; i < hosts.length; i++) {
+            uriBuilder.append(hosts[i]);
+            if (i < hosts.length - 1) {
+                uriBuilder.append(",");
+            }
+        }
+        String databaseName = this.database();
+        if (databaseName != null && !databaseName.isEmpty()) {
+            uriBuilder.append("/").append(databaseName);
+        }
+        MongoProperties mongoProperties = new MongoProperties();
+        mongoProperties.setUri(uriBuilder.toString());
+        mongoProperties.setUsername(this.user());
+        mongoProperties.setPassword(this.password().toCharArray());
+        mongoProperties.setAuthenticationDatabase(this.authDatabase());
+        return new PropertiesMongoConnectionDetails(mongoProperties);
     }
 }
