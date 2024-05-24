@@ -49,15 +49,15 @@ public class GuidFactory {
     private Long machineId;
     private long sequence = 0L; // 序列号
     private long lastStmp = -1L;// 上一次时间戳
-    public String GUID(){
+    public String nextId(){
          try {
-             return String.valueOf(nextId());
+             return String.valueOf(next());
          }catch (Exception e){
                 throw new EventException(ES_GUID_001);
          }
     }
     //产生下一个ID
-    private synchronized long nextId() {
+    private synchronized long next() {
         long currStmp = getNewstmp();
         if (currStmp < lastStmp) {
             throw new EventException(ES_GUID_000);
