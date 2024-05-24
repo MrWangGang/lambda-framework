@@ -3,10 +3,13 @@ package org.lambda.framework.redis.operation;
 
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.List;
 
 
 /**
@@ -27,6 +30,14 @@ public class ReactiveRedisOperation extends ReactiveRedisTemplate{
 
     public <K,V>Mono<Boolean> set(K k, V t, Long timeout){
         return super.opsForValue().set(k,t, Duration.ofSeconds(timeout));
+    }
+
+    public <T> Flux<T> script(RedisScript<T> script){
+        return super.execute(script);
+    }
+
+    public <K,T> Flux<T> script(RedisScript<T> script, List<K> keys){
+        return super.execute(script,keys);
     }
 
     public <K,V>Mono<Boolean> set(K k, V t){
