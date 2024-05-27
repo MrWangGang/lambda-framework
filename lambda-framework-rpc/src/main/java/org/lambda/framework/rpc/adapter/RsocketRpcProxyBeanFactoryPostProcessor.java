@@ -192,6 +192,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
         while (clazz != null) {
             Field[] declaredFields = clazz.getDeclaredFields();
             for (Field field : declaredFields) {
+                field.setAccessible(true); // Make private fields accessible
                 fields.add(field);
             }
             clazz = clazz.getSuperclass();
