@@ -188,16 +188,22 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
     }
 
     public static List<Field> getAllFields(Class<?> clazz) {
-        List<Field> fields = new ArrayList<>();
-        while (clazz != null) {
+        List<Field> allFields = new ArrayList<>();
+        getAllFieldsRecursive(clazz, allFields);
+        return allFields;
+    }
+
+    private static void getAllFieldsRecursive(Class<?> clazz, List<Field> fields) {
+        if (clazz != null && clazz != Object.class) {
             Field[] declaredFields = clazz.getDeclaredFields();
             for (Field field : declaredFields) {
-                field.setAccessible(true); // Make private fields accessible
-                fields.add(field);
+                if(field.isAnnotationPresent(RSocketRpc.class)){
+                    field.setAccessible(true);
+                    fields.add(field);
+                }
             }
-            clazz = clazz.getSuperclass();
+            getAllFieldsRecursive(clazz.getSuperclass(), fields);
         }
-        return fields;
     }
 
     private Object getData(Object...datas){
