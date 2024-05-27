@@ -18,6 +18,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,7 +46,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
 
     public void inspectClassProperties(Class<?> clazz,Object bean) throws BeansException {
         if(clazz!=null){
-            Field[] fields = clazz.getDeclaredFields();
+            List<Field> fields = getAllFields(clazz);
             if(this.verifys(fields)){
                 for (Field field : fields) {
                     if (field.isAnnotationPresent(RSocketRpc.class)) {
@@ -183,6 +185,18 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
             throw new EventException(ES_RPC_010);
         }
         return Mono.error(new EventException(ES_RPC_015));
+    }
+
+    public static List<Field> getAllFields(Class<?> clazz) {
+        List<Field> fields = new ArrayList<>();
+        while (clazz != null) {
+            Field[] declaredFields = clazz.getDeclaredFields();
+            for (Field field : declaredFields) {
+                fields.add(field);
+            }
+            clazz = clazz.getSuperclass();
+        }
+        return fields;
     }
 
     private Object getData(Object...datas){
