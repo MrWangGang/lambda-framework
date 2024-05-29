@@ -28,7 +28,9 @@ import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_01
  **/
 public class JsonUtil {
 
-    public static ObjectMapper getJsonFactory(){
+    private static final ObjectMapper objectMapper = createObjectMapper();
+
+    private static ObjectMapper createObjectMapper() {
         ObjectMapper objectMapper = JsonMapper.builder()
                 .build();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
@@ -40,9 +42,13 @@ public class JsonUtil {
         javaTimeModule.addSerializer(LocalDate.class, new LocalDateSerializer(DateTimeFormatter.ISO_LOCAL_DATE));
         javaTimeModule.addDeserializer(LocalDate.class, new LocalDateDeserializer(DateTimeFormatter.ISO_LOCAL_DATE));
         objectMapper.registerModule(javaTimeModule);
-
         return objectMapper;
     }
+
+    public static ObjectMapper getJsonFactory() {
+        return objectMapper;
+    }
+
     public static String objToString(Object data){
         try {
             ObjectMapper objectMapper = getJsonFactory();

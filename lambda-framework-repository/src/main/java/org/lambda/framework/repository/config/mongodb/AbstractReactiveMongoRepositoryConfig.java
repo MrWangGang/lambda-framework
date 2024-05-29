@@ -8,11 +8,15 @@ import com.mongodb.reactivestreams.client.MongoClient;
 import com.mongodb.reactivestreams.client.MongoClients;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.repository.config.mongodb.converter.EnumReadConverter;
+import org.lambda.framework.repository.config.mongodb.converter.EnumWriteConverter;
 import org.lambda.framework.repository.enums.MongoDeployModelEnum;
 import org.springframework.boot.autoconfigure.mongo.MongoProperties;
 import org.springframework.boot.autoconfigure.mongo.PropertiesMongoConnectionDetails;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.*;
@@ -84,7 +88,10 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
                 .build();
         return MongoClients.create(settings);
     }
-
+    @Bean
+    public MongoCustomConversions customConversions() {
+        return new MongoCustomConversions(Arrays.asList(new EnumReadConverter(),new EnumWriteConverter())); // 注册你的自定义转换器
+    }
 
     @Bean
     public PropertiesMongoConnectionDetails mongoConnectionDetails() {
