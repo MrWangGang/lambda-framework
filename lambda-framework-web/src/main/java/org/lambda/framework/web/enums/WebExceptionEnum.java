@@ -7,7 +7,9 @@ import org.lambda.framework.common.exception.ExceptionEnumFunction;
 public enum WebExceptionEnum implements ExceptionEnumFunction {
 
     //系统异常-普通异常 0-99
-    ES_WEB_000("ES_WEB_000","系统错误[未知]");
+    ES_WEB_000("ES_WEB_000","系统错误[未知]"),
+    ES_WEB_001("ES_WEB_001","请求参数解析enum类型错误");
+
 
 
 

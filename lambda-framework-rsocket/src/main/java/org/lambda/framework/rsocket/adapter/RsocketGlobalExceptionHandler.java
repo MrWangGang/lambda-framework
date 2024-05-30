@@ -1,5 +1,6 @@
 package org.lambda.framework.rsocket.adapter;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.exception.basic.GlobalException;
@@ -7,8 +8,7 @@ import org.springframework.messaging.handler.invocation.MethodArgumentResolution
 import org.springframework.stereotype.Component;
 
 import static org.lambda.framework.common.exception.basic.GlobalException.EX_PRIEX;
-import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_000;
-import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_001;
+import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.*;
 
 @Component
 public class RsocketGlobalExceptionHandler  {
@@ -20,6 +20,9 @@ public class RsocketGlobalExceptionHandler  {
         }else if (e instanceof MethodArgumentResolutionException) {
             // 如果是方法参数解析异常，可能是客户端请求参数错误导致的，返回参数错误的信息
             globalException =   new EventException(ES_RSOCKET_001);
+        }else if (e instanceof InvalidFormatException) {
+            // 如果是方法参数解析异常，可能是客户端请求参数错误导致的，返回参数错误的信息
+            globalException =   new EventException(ES_RSOCKET_002);
         }else {
             if(StringUtils.isBlank(e.getMessage())){
                 globalException = new GlobalException(ES_RSOCKET_000.getCode(), ES_RSOCKET_000.getMessage());
