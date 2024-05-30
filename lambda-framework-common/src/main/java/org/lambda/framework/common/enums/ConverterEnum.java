@@ -5,5 +5,5 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public interface ConverterEnum {
     public String getDescription();
     @JsonValue
-    public String getValue();
+    public Integer getValue();
 }
