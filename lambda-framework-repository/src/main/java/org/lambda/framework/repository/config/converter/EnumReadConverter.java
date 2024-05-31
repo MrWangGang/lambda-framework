@@ -4,9 +4,10 @@ import org.lambda.framework.common.enums.ConverterEnum;
 import org.lambda.framework.common.exception.EventException;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.convert.converter.ConverterFactory;
+import org.springframework.data.convert.ReadingConverter;
 
 import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.ES_REPOSITORY_106;
-
+@ReadingConverter
 public class EnumReadConverter<T extends ConverterEnum> implements ConverterFactory<String, T> {
 
 
