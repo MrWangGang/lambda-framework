@@ -6,6 +6,7 @@ import com.mongodb.MongoCredential;
 import com.mongodb.connection.ConnectionPoolSettings;
 import com.mongodb.reactivestreams.client.MongoClient;
 import com.mongodb.reactivestreams.client.MongoClients;
+import org.lambda.framework.common.enums.ConverterEnum;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.repository.config.converter.EnumReadConverter;
@@ -90,7 +91,7 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
     }
     @Bean
     public MongoCustomConversions customConversions() {
-        return new MongoCustomConversions(Arrays.asList(new EnumReadConverter(),new EnumWriteConverter())); // 注册你的自定义转换器
+        return new MongoCustomConversions(Arrays.asList(new EnumReadConverter<ConverterEnum>(),new EnumWriteConverter())); // 注册你的自定义转换器
     }
 
     @Bean
