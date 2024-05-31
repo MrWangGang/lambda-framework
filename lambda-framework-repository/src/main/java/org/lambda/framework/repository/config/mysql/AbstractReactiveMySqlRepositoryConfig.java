@@ -5,7 +5,6 @@ import io.r2dbc.pool.ConnectionPoolConfiguration;
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
-import org.lambda.framework.common.enums.ConverterEnum;
 import org.lambda.framework.repository.config.converter.EnumReadConverter;
 import org.lambda.framework.repository.config.converter.EnumWriteConverter;
 import org.springframework.context.annotation.Bean;
@@ -49,7 +48,7 @@ public abstract class AbstractReactiveMySqlRepositoryConfig {
         return new ConnectionPool(configuration);
     }
     @Bean
-    public <V>R2dbcCustomConversions r2dbcCustomConversions() {
-        return new R2dbcCustomConversions(CustomConversions.StoreConversions.NONE,Arrays.asList(new EnumReadConverter<ConverterEnum<V>,V>(),new EnumWriteConverter<V>()));
+    public R2dbcCustomConversions r2dbcCustomConversions() {
+        return new R2dbcCustomConversions(CustomConversions.StoreConversions.NONE,Arrays.asList(new EnumReadConverter(),new EnumWriteConverter()));
     }
 }
