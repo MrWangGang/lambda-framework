@@ -49,7 +49,7 @@ public abstract class AbstractReactiveMySqlRepositoryConfig {
         return new ConnectionPool(configuration);
     }
     @Bean
-    public R2dbcCustomConversions r2dbcCustomConversions() {
-        return new R2dbcCustomConversions(CustomConversions.StoreConversions.NONE,Arrays.asList(new EnumReadConverter<ConverterEnum>(),new EnumWriteConverter()));
+    public <V>R2dbcCustomConversions r2dbcCustomConversions() {
+        return new R2dbcCustomConversions(CustomConversions.StoreConversions.NONE,Arrays.asList(new EnumReadConverter<ConverterEnum<V>,V>(),new EnumWriteConverter<V>()));
     }
 }

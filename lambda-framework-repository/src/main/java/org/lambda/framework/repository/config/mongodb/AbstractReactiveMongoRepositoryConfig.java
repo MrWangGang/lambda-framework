@@ -90,8 +90,8 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
         return MongoClients.create(settings);
     }
     @Bean
-    public MongoCustomConversions customConversions() {
-        return new MongoCustomConversions(Arrays.asList(new EnumReadConverter<ConverterEnum>(),new EnumWriteConverter())); // 注册你的自定义转换器
+    public <V>MongoCustomConversions customConversions() {
+        return new MongoCustomConversions(Arrays.asList(new EnumReadConverter<ConverterEnum<V>,V>(),new EnumWriteConverter<V>())); // 注册你的自定义转换器
     }
 
     @Bean
