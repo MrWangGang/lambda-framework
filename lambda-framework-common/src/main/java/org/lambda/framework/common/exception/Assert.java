@@ -8,46 +8,16 @@ import java.util.List;
 import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_026;
 
 public class Assert {
+
+
     public static void verify(ExceptionEnumFunction exceptionEnumFunction,Object...objects){
         for (Object object:objects){
-            if(object == null)throw new EventException(exceptionEnumFunction);
-
-            if(object instanceof String){
-                if(StringUtils.isBlank((String) object)){
-                    throw new EventException(exceptionEnumFunction);
-                }
-            }
-            if(object instanceof List){
-                if(object == null){
-                    throw new EventException(exceptionEnumFunction);
-                }
-                if(((List)object).size() == 0){
-                    throw new EventException(exceptionEnumFunction);
-                }
-                if(((List)object).get(0) ==  null){
-                    throw new EventException(exceptionEnumFunction);
-                }
-            }
+            verify(exceptionEnumFunction, object);
         }
     }
     public static void verify(Object object,ExceptionEnumFunction exceptionEnumFunction){
-        if(object == null)throw new EventException(exceptionEnumFunction);
-
-        if(object instanceof String){
-            if(StringUtils.isBlank((String) object)){
-                throw new EventException(exceptionEnumFunction);
-            }
-        }
-        if(object instanceof List){
-            if(object == null){
-                throw new EventException(exceptionEnumFunction);
-            }
-            if(((List)object).size() == 0){
-                throw new EventException(exceptionEnumFunction);
-            }
-            if(((List)object).get(0) ==  null){
-                throw new EventException(exceptionEnumFunction);
-            }
+        if(!verify(object)){
+            throw new EventException(exceptionEnumFunction);
         }
     }
 
@@ -73,10 +43,21 @@ public class Assert {
         return true;
     }
 
-    public static boolean verifyField(Object obj) {
-        if (obj == null) {
-            return false;
+    public static void check(Object obj,ExceptionEnumFunction exceptionEnumFunction) {
+        if(!check(obj)){
+            throw new EventException(exceptionEnumFunction);
         }
+    }
+
+    public static <T>T review(T obj) {
+        if(!check(obj)){
+            return null;
+        }
+        return obj;
+    }
+
+    public static boolean check(Object obj) {
+        if(obj == null)return false;
 
         Class<?> clazz = obj.getClass();
         Field[] fields = clazz.getDeclaredFields();
@@ -84,7 +65,27 @@ public class Assert {
         for (Field field : fields) {
             field.setAccessible(true);
             try {
+                Object object = field.get(obj);
                 if (field.get(obj) != null) {
+
+                    if(object instanceof String){
+                        if(StringUtils.isBlank((String) object)){
+                            return false;
+                        }
+                    }
+
+                    if(object instanceof List){
+                        if(object == null){
+                            return false;
+                        }
+                        if(((List)object).size() == 0){
+                            return false;
+                        }
+                        if(((List)object).get(0) ==  null){
+                            return false;
+                        }
+                    }
+
                     return true;
                 }
             } catch (IllegalAccessException e) {
