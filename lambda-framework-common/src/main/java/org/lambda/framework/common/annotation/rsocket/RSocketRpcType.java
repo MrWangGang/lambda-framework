@@ -9,7 +9,6 @@ import java.lang.annotation.Target;
 
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface RSocketRpcMapping {
-    String value();
+public @interface RSocketRpcType {
     String MimeType() default MimeTypeUtils.APPLICATION_JSON_VALUE;
 }

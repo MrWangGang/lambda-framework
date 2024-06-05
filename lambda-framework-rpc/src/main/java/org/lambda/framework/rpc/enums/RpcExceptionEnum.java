@@ -24,7 +24,20 @@ public enum RpcExceptionEnum implements ExceptionEnumFunction {
     ES_RPC_014("ES_RPC_014","远程调用的服务所提供的入参只能有1个"),
     ES_RPC_015("ES_RPC_015","返回类型必须是响应式的Mono<?>或Flux<?>,? 必须要指定类型"),
     ES_RPC_016("ES_RPC_016","将@RsocketRpc标注的接口注入到属性失败"),
-    ES_RPC_017("ES_RPC_017","获取@RsocketRpc标注的属性，递归获取失败");
+    ES_RPC_017("ES_RPC_017","获取@RsocketRpc标注的属性，递归获取失败"),
+    ES_RPC_018("ES_RPC_018","ASM没有找到class,无法操作字节码"),
+    ES_RPC_019("ES_RPC_019","ASM读取字节码失败"),
+    ES_RPC_020("ES_RPC_020","ASM获取类路径失败"),
+    ES_RPC_021("ES_RPC_020","ASM获取类路径包失败"),
+    ES_RPC_022("ES_RPC_022","@SpringBootApplication 没有表记载启动类上，无法获取扫描路径"),
+    ES_RPC_023("ES_RPC_023","只能继承一个@RsocketRpcDiscorvery标注的接口"),
+    ES_RPC_024("ES_RPC_024","@RsocketRpcDiscorvery的实现类同名的方法不能添加@MessageMaping"),
+    ES_RPC_025("ES_RPC_025","@RsocketRpcDiscorvery的实现类只能由@RSocketApi来进行标注");
+
+
+
+
+
 
 // 成员变量
 

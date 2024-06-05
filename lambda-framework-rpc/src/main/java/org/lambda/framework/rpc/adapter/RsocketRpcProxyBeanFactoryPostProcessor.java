@@ -1,11 +1,12 @@
 package org.lambda.framework.rpc.adapter;
 
 import jakarta.annotation.Resource;
-import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
-import org.lambda.framework.common.annotation.rsocket.RSocketRpcMapping;
+import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
+import org.lambda.framework.common.annotation.rsocket.RSocketRpcType;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.common.util.sample.MD5Util;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
@@ -98,39 +99,35 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                 new InvocationHandler() {
                     @Override
                     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                        RSocketRpcMapping rSocketRpcMapping = AnnotationUtils.findAnnotation(method, RSocketRpcMapping.class);
-                        if (rSocketRpcMapping != null) {
-                            if(Assert.verify(rSocketRpcMapping.value())){
-                                //校验头
-                                verifyType(rSocketRpcMapping.MimeType());
-                                String route = rSocketRpcMapping.value();
-                                if(RPC_CONNECT_LOADBALANCE.equals(connectType)){
-                                    //负载均衡模式
-                                    Mono<RSocketRequester> rSocketRequesterMono =  rSocketLoadbalance.build(rsocketUrl,MediaType.valueOf(rSocketRpcMapping.MimeType()));
-                                    return getResult(route,getData(args),method,rSocketRequesterMono,rSocketRpcMapping.MimeType());
-                                }
-                                if(RPC_CONNECT_DIRECT.equals(connectType)){
-                                    //直连模式
-                                    //直连模式需要把地址解析出来
-                                    //因为invoke之前已经校验了rsocketUrl 必须是ip类型，不要在这里做校验，减少调用时候的代码复杂度
-                                    String[] parts = rsocketUrl.split(":");
-                                    if(verifys(parts)){
-                                        Assert.verify(parts[0],ES_RPC_012);
-                                        Assert.verify(parts[1],ES_RPC_012);
-                                        Integer port = null;
-                                        try {
-                                            port = Integer.valueOf(parts[1]);
-                                        }catch (Exception e){
-                                            throw new EventException(ES_RPC_012);
-                                        }
-                                        Mono<RSocketRequester> rSocketRequesterMono = rSocketLoadbalance.build(parts[0],port,MediaType.valueOf(rSocketRpcMapping.MimeType()));
-                                        return getResult(route,getData(args),method,rSocketRequesterMono,rSocketRpcMapping.MimeType());
+                        RSocketRpcType rSocketRpcType = AnnotationUtils.findAnnotation(method, RSocketRpcType.class);
+                        if (rSocketRpcType != null) {
+                          //校验头
+                          verifyType(rSocketRpcType.MimeType());
+                          if(RPC_CONNECT_LOADBALANCE.equals(connectType)){
+                              //负载均衡模式
+                              Mono<RSocketRequester> rSocketRequesterMono =  rSocketLoadbalance.build(rsocketUrl,MediaType.valueOf(rSocketRpcType.MimeType()));
+                              return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, rSocketRpcType.MimeType());
+                          }
+                          if(RPC_CONNECT_DIRECT.equals(connectType)){
+                              //直连模式
+                              //直连模式需要把地址解析出来
+                              //因为invoke之前已经校验了rsocketUrl 必须是ip类型，不要在这里做校验，减少调用时候的代码复杂度
+                              String[] parts = rsocketUrl.split(":");
+                              if(verifys(parts)){
+                                  Assert.verify(parts[0],ES_RPC_012);
+                                  Assert.verify(parts[1],ES_RPC_012);
+                                  Integer port = null;
+                                  try {
+                                      port = Integer.valueOf(parts[1]);
+                                  }catch (Exception e){
+                                      throw new EventException(ES_RPC_012);
+                                  }
+                                  Mono<RSocketRequester> rSocketRequesterMono = rSocketLoadbalance.build(parts[0],port,MediaType.valueOf(rSocketRpcType.MimeType()));
+                                  return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, rSocketRpcType.MimeType());
 
-                                    }
-                                    throw new EventException(ES_RPC_012);
-                                }
-                            }
-                            throw new EventException(ES_RPC_006);
+                              }
+                              throw new EventException(ES_RPC_012);
+                          }
                         }
                         throw new EventException(ES_RPC_003);
                     }
@@ -138,7 +135,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                 });
     }
 
-    private Object getResult(String route, Object data,Method method,Mono<RSocketRequester> rSocketRequesterMono,String mimeType){
+    private Object getResult(String serviceName, Object data,Method method,Mono<RSocketRequester> rSocketRequesterMono,String mimeType){
         Type returnType = method.getGenericReturnType();
         if(returnType instanceof ParameterizedType parameterizedType){
             Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
@@ -147,6 +144,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                     return Mono.error(new EventException(ES_RPC_015));
                 }
             }
+            String route = MD5Util.hash(serviceName + "@" + method.getName());
             if(MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(MediaType.valueOf(mimeType))){
                 if (parameterizedType.getRawType() == Mono.class) {
                     if(actualTypeArguments.length == 1 && actualTypeArguments[0] == String.class){
