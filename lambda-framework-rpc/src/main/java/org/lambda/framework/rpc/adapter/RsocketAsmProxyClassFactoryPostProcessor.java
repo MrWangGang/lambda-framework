@@ -1,6 +1,7 @@
 package org.lambda.framework.rpc.adapter;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.logging.LogFactory;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpcApi;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
 import org.lambda.framework.common.exception.Assert;
@@ -28,6 +29,7 @@ import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.logging.Logger;
 
 import static org.lambda.framework.rpc.enums.RpcExceptionEnum.*;
 import static org.springframework.asm.Opcodes.ASM7;
@@ -35,6 +37,9 @@ import static org.springframework.asm.Opcodes.ASM7;
 
 @Component
 public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionRegistryPostProcessor, ApplicationContextAware {
+
+    private static final Logger logger = Logger.getLogger(LogFactory.class.getName());
+
     public static CustomClassLoader customClassLoader = new CustomClassLoader();
 
     private ApplicationContext applicationContext;
@@ -74,9 +79,13 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
                         if(StringUtils.isBlank(serviceName)){
                             throw new EventException(ES_RPC_004);
                         }
+                        logger.info("ASM开始执行addMessageMappingToImplementedMethods");
                         byte[] modifiedClassBytes = addMessageMappingToImplementedMethods(beanClass,serviceName);
+                        logger.info("ASM开始执行addControllerAnnotation");
                         byte[] clazz = addControllerAnnotation(modifiedClassBytes);
+                        logger.info("ASM开始执行customClassLoader");
                         Class classt = customClassLoader.defineClassFromBytes(beanClass.getName(),clazz);
+                        logger.info("ASM结束执行customClassLoader");
                         //输出到文件方便调试
                         //Files.write(Paths.get("ModifiedClass.class"), clazz);
                         registerClassWithAnnotations(toCamelCase(beanClass.getSimpleName()),classt, registry);
@@ -85,7 +94,6 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
             } catch (ClassNotFoundException e) {
                 throw new EventException(ES_RPC_018);
             } catch (IOException e) {
-                e.printStackTrace();
                 throw new EventException(ES_RPC_019);
             }
         }
@@ -218,6 +226,7 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
         InputStream inputStream = clazz.getResourceAsStream(clazz.getSimpleName() + ".class");
         Assert.verify(inputStream,ES_RPC_018);
         ClassReader classReader = new ClassReader(inputStream);
+        logger.info("ASM开始执行addMessageMappingToImplementedMethods.classReader");
         ClassWriter classWriter = new ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES);
         classReader.accept(new ClassVisitor(ASM7, classWriter) {
             @Override
