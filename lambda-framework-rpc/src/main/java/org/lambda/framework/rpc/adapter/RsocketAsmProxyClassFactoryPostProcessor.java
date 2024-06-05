@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
@@ -84,6 +85,7 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
             } catch (ClassNotFoundException e) {
                 throw new EventException(ES_RPC_018);
             } catch (IOException e) {
+                e.printStackTrace();
                 throw new EventException(ES_RPC_019);
             }
         }
@@ -213,7 +215,9 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
         // 获取接口上带有 @RSocketRpcDiscorvery 注解的方法列表
         Set<Method> interfaceMethods = getInterfaceMethodsAnnotatedWithRSocketRpcDiscovery(clazz);
         // 遍历类中的所有方法
-        ClassReader classReader = new ClassReader(clazz.getName());
+        InputStream inputStream = clazz.getResourceAsStream(clazz.getSimpleName() + ".class");
+        Assert.verify(inputStream,ES_RPC_018);
+        ClassReader classReader = new ClassReader(inputStream);
         ClassWriter classWriter = new ClassWriter(classReader, ClassWriter.COMPUTE_FRAMES);
         classReader.accept(new ClassVisitor(ASM7, classWriter) {
             @Override
