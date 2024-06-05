@@ -85,7 +85,6 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
                         byte[] clazz = addControllerAnnotation(modifiedClassBytes);
                         logger.info("ASM开始执行customClassLoader");
                         logger.info("beanClass.getName():"+beanClass.getName());
-                        logger.info("classPath:"+System.getProperty("java.class.path"));
                         Class classt = customClassLoader.defineClassFromBytes(beanClass.getName(),clazz);
                         logger.info("ASM结束执行customClassLoader");
                         //输出到文件方便调试
