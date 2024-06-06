@@ -6,7 +6,6 @@ import org.lambda.framework.common.annotation.rsocket.RSocketRpcApi;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.common.util.sample.MD5Util;
 import org.lambda.framework.rpc.adapter.support.CustomClassLoader;
 import org.springframework.asm.*;
 import org.springframework.beans.BeansException;
@@ -28,9 +27,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.logging.Logger;
 
+import static org.lambda.framework.rpc.adapter.support.CamelCase.buildMessageMapping;
 import static org.lambda.framework.rpc.adapter.support.CamelCase.xtoCamelCase;
 import static org.lambda.framework.rpc.enums.RpcExceptionEnum.*;
 import static org.springframework.asm.Opcodes.ASM7;
@@ -89,7 +91,7 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
                         Class classt = customClassLoader.loadClass(clazz);
                         logger.info("ASM结束执行customClassLoader");
                         //输出到文件方便调试
-                        //Files.write(Paths.get("ModifiedClass.class"), clazz);
+                        Files.write(Paths.get("ModifiedClass.class"), clazz);
                         registerClassWithAnnotations(xtoCamelCase(beanClass.getSimpleName()),classt, registry);
                     }
                 }
@@ -249,7 +251,9 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
                                 // 访问注解的value属性
                                 AnnotationVisitor valueAv = av.visitArray("value");
                                 // 设置数组元素值
-                                valueAv.visit(null, MD5Util.hash(serviceName)+"."+xtoCamelCase(clazz.getSimpleName())+"."+interfaceMethod.getName());
+                                String route = buildMessageMapping(serviceName,interfaceMethod.getDeclaringClass(),interfaceMethod);
+
+                                valueAv.visit(null, route);
                                 // 如果您有多个值，可以重复上面的步骤
                                 // valueAv.visit(null, "/another/rpc/test");
                                 valueAv.visitEnd(); // 结束数组访问

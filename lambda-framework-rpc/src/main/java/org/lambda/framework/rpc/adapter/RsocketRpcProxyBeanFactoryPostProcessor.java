@@ -1,12 +1,11 @@
 package org.lambda.framework.rpc.adapter;
 
 import jakarta.annotation.Resource;
-import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
+import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpcType;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.common.util.sample.MD5Util;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
@@ -25,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.lambda.framework.rpc.adapter.support.CamelCase.xtoCamelCase;
+import static org.lambda.framework.rpc.adapter.support.CamelCase.buildMessageMapping;
 import static org.lambda.framework.rpc.enums.RpcConstant.RPC_CONNECT_DIRECT;
 import static org.lambda.framework.rpc.enums.RpcConstant.RPC_CONNECT_LOADBALANCE;
 import static org.lambda.framework.rpc.enums.RpcExceptionEnum.*;
@@ -145,9 +144,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                     return Mono.error(new EventException(ES_RPC_015));
                 }
             }
-
-            String route = MD5Util.hash(serviceName)+"."+xtoCamelCase(interfaceField.getSimpleName())+"."+method.getName();
-
+            String route = buildMessageMapping(serviceName,interfaceField,method);
             if(MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(MediaType.valueOf(mimeType))){
                 if (parameterizedType.getRawType() == Mono.class) {
                     if(actualTypeArguments.length == 1 && actualTypeArguments[0] == String.class){
