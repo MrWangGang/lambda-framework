@@ -38,7 +38,6 @@ public class ReactiveZookeeperLock {
             interProcessMutex.release();
             return Mono.empty();
         } catch (Exception e) {
-            e.printStackTrace();
             throw new EventException(ES_LOCK_ZOOKEEPER_018);
         }
     }
