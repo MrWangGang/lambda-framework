@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.lambda.framework.rpc.adapter.support.CamelCase.xtoCamelCase;
 import static org.lambda.framework.rpc.enums.RpcConstant.RPC_CONNECT_DIRECT;
 import static org.lambda.framework.rpc.enums.RpcConstant.RPC_CONNECT_LOADBALANCE;
 import static org.lambda.framework.rpc.enums.RpcExceptionEnum.*;
@@ -106,7 +107,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                           if(RPC_CONNECT_LOADBALANCE.equals(connectType)){
                               //负载均衡模式
                               Mono<RSocketRequester> rSocketRequesterMono =  rSocketLoadbalance.build(rsocketUrl,MediaType.valueOf(rSocketRpcType.MimeType()));
-                              return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, rSocketRpcType.MimeType());
+                              return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, rSocketRpcType.MimeType(),interfaceField);
                           }
                           if(RPC_CONNECT_DIRECT.equals(connectType)){
                               //直连模式
@@ -123,7 +124,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                                       throw new EventException(ES_RPC_012);
                                   }
                                   Mono<RSocketRequester> rSocketRequesterMono = rSocketLoadbalance.build(parts[0],port,MediaType.valueOf(rSocketRpcType.MimeType()));
-                                  return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, rSocketRpcType.MimeType());
+                                  return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, rSocketRpcType.MimeType(),interfaceField);
 
                               }
                               throw new EventException(ES_RPC_012);
@@ -135,7 +136,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                 });
     }
 
-    private Object getResult(String serviceName, Object data,Method method,Mono<RSocketRequester> rSocketRequesterMono,String mimeType){
+    private Object getResult(String serviceName, Object data,Method method,Mono<RSocketRequester> rSocketRequesterMono,String mimeType,Class<?> interfaceField){
         Type returnType = method.getGenericReturnType();
         if(returnType instanceof ParameterizedType parameterizedType){
             Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
@@ -144,7 +145,9 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                     return Mono.error(new EventException(ES_RPC_015));
                 }
             }
-            String route = MD5Util.hash(serviceName + "@" + method.getName());
+
+            String route = MD5Util.hash(serviceName)+"."+xtoCamelCase(interfaceField.getSimpleName())+"."+method.getName();
+
             if(MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(MediaType.valueOf(mimeType))){
                 if (parameterizedType.getRawType() == Mono.class) {
                     if(actualTypeArguments.length == 1 && actualTypeArguments[0] == String.class){

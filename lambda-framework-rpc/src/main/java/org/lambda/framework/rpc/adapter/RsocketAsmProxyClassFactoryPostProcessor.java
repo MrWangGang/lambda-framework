@@ -31,6 +31,7 @@ import java.lang.reflect.Method;
 import java.util.*;
 import java.util.logging.Logger;
 
+import static org.lambda.framework.rpc.adapter.support.CamelCase.xtoCamelCase;
 import static org.lambda.framework.rpc.enums.RpcExceptionEnum.*;
 import static org.springframework.asm.Opcodes.ASM7;
 
@@ -89,7 +90,7 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
                         logger.info("ASM结束执行customClassLoader");
                         //输出到文件方便调试
                         //Files.write(Paths.get("ModifiedClass.class"), clazz);
-                        registerClassWithAnnotations(toCamelCase(beanClass.getSimpleName()),classt, registry);
+                        registerClassWithAnnotations(xtoCamelCase(beanClass.getSimpleName()),classt, registry);
                     }
                 }
             } catch (ClassNotFoundException e) {
@@ -136,12 +137,6 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
         throw new EventException(ES_RPC_022);
     }
 
-    private static String toCamelCase(String className) {
-        if (className == null || className.isEmpty()) {
-            return className;
-        }
-        return Character.toLowerCase(className.charAt(0)) + className.substring(1);
-    }
     private static boolean hasInterfaceAnnotatedWithRSocket(Class<?> clazz) {
         for (Class<?> interfaze : clazz.getInterfaces()) {
             if (interfaze.isAnnotationPresent(RSocketRpcDiscorvery.class)) {
@@ -254,7 +249,7 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
                                 // 访问注解的value属性
                                 AnnotationVisitor valueAv = av.visitArray("value");
                                 // 设置数组元素值
-                                valueAv.visit(null, MD5Util.hash(serviceName+"@"+interfaceMethod.getName()));
+                                valueAv.visit(null, MD5Util.hash(serviceName)+"."+xtoCamelCase(clazz.getSimpleName())+"."+interfaceMethod.getName());
                                 // 如果您有多个值，可以重复上面的步骤
                                 // valueAv.visit(null, "/another/rpc/test");
                                 valueAv.visitEnd(); // 结束数组访问
