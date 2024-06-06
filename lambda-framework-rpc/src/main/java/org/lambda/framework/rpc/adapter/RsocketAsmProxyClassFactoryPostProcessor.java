@@ -27,8 +27,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -91,7 +89,7 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
                         Class classt = customClassLoader.loadClass(clazz);
                         logger.info("ASM结束执行customClassLoader");
                         //输出到文件方便调试
-                        Files.write(Paths.get("ModifiedClass.class"), clazz);
+                        //Files.write(Paths.get("ModifiedClass.class"), clazz);
                         registerClassWithAnnotations(xtoCamelCase(beanClass.getSimpleName()),classt, registry);
                     }
                 }
