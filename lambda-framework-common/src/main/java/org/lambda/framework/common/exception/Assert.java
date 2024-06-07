@@ -86,8 +86,9 @@ public class Assert {
                             return false;
                         }
                     }
+                }else {
+                    return false;
                 }
-                return false;
             } catch (IllegalAccessException e) {
                 // 处理异常，如果有需要
                 throw new EventException(ES_COMMON_026);
