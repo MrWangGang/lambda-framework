@@ -6,7 +6,6 @@ import java.lang.reflect.Field;
 import java.util.List;
 
 import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_026;
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_029;
 
 public class Assert {
 
@@ -51,8 +50,9 @@ public class Assert {
     }
 
     public static <T>T review(T obj) {
+        if(obj == null) return null;
         if(!check(obj)){
-            throw new EventException(ES_COMMON_029);
+            return null;
         }
         return obj;
     }
