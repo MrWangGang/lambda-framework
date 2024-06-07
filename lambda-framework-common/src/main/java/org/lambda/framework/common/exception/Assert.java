@@ -67,7 +67,6 @@ public class Assert {
             try {
                 Object object = field.get(obj);
                 if (field.get(obj) != null) {
-
                     if(object instanceof String){
                         if(StringUtils.isBlank((String) object)){
                             return false;
@@ -85,15 +84,14 @@ public class Assert {
                             return false;
                         }
                     }
-
-                    return true;
                 }
+                return false;
             } catch (IllegalAccessException e) {
                 // 处理异常，如果有需要
                 throw new EventException(ES_COMMON_026);
             }
         }
 
-        return false;
+        return true;
     }
 }
