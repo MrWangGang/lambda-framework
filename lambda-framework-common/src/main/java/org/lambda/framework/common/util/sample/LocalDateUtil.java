@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter;
 public class LocalDateUtil {
     public static LocalTime of(String time){
         if(StringUtils.isBlank(time))throw new GlobalException("ES_COMMON_000","time不能为空");
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
         return LocalTime.parse(time, formatter);
     }
 }
