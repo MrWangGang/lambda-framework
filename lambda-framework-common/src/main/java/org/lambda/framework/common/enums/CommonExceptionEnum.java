@@ -8,6 +8,7 @@ import org.lambda.framework.common.exception.ExceptionEnumFunction;
  * The final interpretation of this procedure is owned by the author
  */
 public enum CommonExceptionEnum implements ExceptionEnumFunction {
+    ES_COMMON_000("ES_COMMON_000","未知错误"),
     ES_COMMON_001("ES_COMMON_001","链接点参数为空"),
     ES_COMMON_002("ES_COMMON_002","类或对象访问权限限制"),
     ES_COMMON_003("ES_COMMON_003","I/O异常"),
