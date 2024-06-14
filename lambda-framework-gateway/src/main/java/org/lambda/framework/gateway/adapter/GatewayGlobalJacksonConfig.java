@@ -8,11 +8,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class GatewayGlobalJacksonConfig {
     @Bean
-    public ObjectMapper objectMapper(ObjectMapper globalObjectMapper) {
-        return globalObjectMapper.copy();
-    }
-
-    @Bean
     public ObjectMapper globalObjectMapper() {
         return JsonUtil.getJsonFactory();
     }
