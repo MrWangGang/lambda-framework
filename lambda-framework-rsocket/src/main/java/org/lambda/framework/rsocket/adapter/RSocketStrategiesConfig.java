@@ -10,7 +10,7 @@ import org.springframework.messaging.rsocket.RSocketStrategies;
 @Configuration
 public class RSocketStrategiesConfig {
     @Bean
-    public RSocketStrategies customRSocketStrategies() {
+    public RSocketStrategies rSocketStrategies() {
         return org.springframework.messaging.rsocket.RSocketStrategies.builder()
                 .decoder(new Jackson2JsonDecoder(JsonUtil.getJsonFactory()))
                 .encoder(new Jackson2JsonEncoder(JsonUtil.getJsonFactory()))
