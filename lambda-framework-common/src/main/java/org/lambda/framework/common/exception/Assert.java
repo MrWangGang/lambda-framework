@@ -97,4 +97,38 @@ public class Assert {
 
         return true;
     }
+
+    public  boolean has(Object obj) {
+        if (obj == null) {
+            return false;
+        }
+
+        Field[] fields = obj.getClass().getDeclaredFields();
+
+        try {
+            for (Field field : fields) {
+                field.setAccessible(true);
+                Object value = field.get(obj);
+
+                if (value instanceof String) {
+                    if (value != null && !((String) value).isEmpty()) {
+                        return true;
+                    }
+                } else if (value instanceof List) {
+                    List<?> list = (List<?>) value;
+                    if (list != null && !list.isEmpty() && list.get(0) != null) {
+                        return true;
+                    }
+                } else {
+                    if (value != null) {
+                        return true;
+                    }
+                }
+            }
+        } catch (IllegalAccessException e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
 }
