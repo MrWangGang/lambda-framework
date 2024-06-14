@@ -98,7 +98,7 @@ public class Assert {
         return true;
     }
 
-    public  boolean has(Object obj) {
+    public static boolean has(Object obj) {
         if (obj == null) {
             return false;
         }
