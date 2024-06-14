@@ -126,7 +126,7 @@ public class Assert {
                 }
             }
         } catch (IllegalAccessException e) {
-            e.printStackTrace();
+            throw new EventException(ES_COMMON_026);
         }
 
         return false;
