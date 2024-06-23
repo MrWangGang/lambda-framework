@@ -38,7 +38,11 @@ public enum CommonExceptionEnum implements ExceptionEnumFunction {
     ES_COMMON_027("ES_COMMON_027","请先配置PrincipalStash"),
     ES_COMMON_028("ES_COMMON_028","beanUtil复制bean失败"),
     ES_COMMON_029("ES_COMMON_029","对象属性必须都被设置"),
-    ES_COMMON_030("ES_COMMON_030","深拷贝生成对象cglib对象失败");
+    ES_COMMON_030("ES_COMMON_030","深拷贝生成对象cglib对象失败"),
+    ES_COMMON_031("ES_COMMON_031","源对象不能为空"),
+    ES_COMMON_032("ES_COMMON_032","目标class不能为空");
+
+
 
     // 成员变量
     private String code;

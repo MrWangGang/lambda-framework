@@ -3,16 +3,16 @@ package org.lambda.framework.common.util.sample;
 import net.sf.cglib.beans.BeanCopier;
 import org.lambda.framework.common.exception.EventException;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_030;
+import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
 
 public class BeanUtil {
-    private static final BeanUtil INSTANCE = new BeanUtil();
-    public static BeanUtil getInstance() {
-        return INSTANCE;
-    }
-    public <T> T deepCopy(T source, Class<T> targetClass) {
+
+    public static <T> T deepCopy(T source, Class<T> targetClass) {
         if (source == null) {
-            return null;
+            throw new EventException(ES_COMMON_031);
+        }
+        if (targetClass == null) {
+            throw new EventException(ES_COMMON_032);
         }
         T target = instantiateTarget(targetClass);
         BeanCopier beanCopier = BeanCopier.create(source.getClass(), target.getClass(), false);
@@ -20,7 +20,7 @@ public class BeanUtil {
         return target;
     }
 
-    private <T> T instantiateTarget(Class<T> targetClass) {
+    private static <T> T instantiateTarget(Class<T> targetClass) {
         try {
             return targetClass.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
