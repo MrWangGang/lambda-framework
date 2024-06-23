@@ -7,7 +7,7 @@ import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
 
 public class BeanUtil {
 
-    public static  <T> T deepCopy(T source, Class<T> targetClass) {
+    public static  <T> T deepCopy(T source, Class<? extends T> targetClass) {
         if (source == null) {
             throw new EventException(ES_COMMON_031);
         }
@@ -20,7 +20,7 @@ public class BeanUtil {
         return target;
     }
 
-    private static  <T> T instantiateTarget(Class<T> targetClass) {
+    private static  <T> T instantiateTarget(Class<? extends T> targetClass) {
         try {
             return targetClass.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
