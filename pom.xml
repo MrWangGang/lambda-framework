@@ -61,6 +61,7 @@
 		<lombok.version>1.18.30</lombok.version>
 		<redisson.version>3.30.0</redisson.version>
 		<curator.version>5.6.0</curator.version>
+		<copiers.version>2.5.4</copiers.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -232,6 +233,11 @@
 				<groupId>org.apache.curator</groupId>
 				<artifactId>curator-recipes</artifactId>
 				<version>${curator.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.github.drtrang</groupId>
+				<artifactId>copiers</artifactId>
+				<version>${copiers.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>

@@ -1,21 +1,30 @@
 package org.lambda.framework.common.util.sample;
 
-import org.apache.commons.beanutils.BeanUtils;
+import net.sf.cglib.beans.BeanCopier;
 import org.lambda.framework.common.exception.EventException;
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
-
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_028;
+import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_030;
 
 public class BeanUtil {
-    public static <T> T convertHashMapToEntity(HashMap<String, Object> map, Class<T> clazz) {
+    private static final BeanUtil INSTANCE = new BeanUtil();
+    public static BeanUtil getInstance() {
+        return INSTANCE;
+    }
+    public <T> T deepCopy(T source, Class<T> targetClass) {
+        if (source == null) {
+            return null;
+        }
+        T target = instantiateTarget(targetClass);
+        BeanCopier beanCopier = BeanCopier.create(source.getClass(), target.getClass(), false);
+        beanCopier.copy(source, target, null);
+        return target;
+    }
+
+    private <T> T instantiateTarget(Class<T> targetClass) {
         try {
-            T entity = clazz.newInstance(); // 创建实体类对象
-            BeanUtils.populate(entity, map); // 使用BeanUtils将HashMap中的键值对映射到实体类的属性上
-            return entity;
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-            throw new EventException(ES_COMMON_028);
+            return targetClass.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new EventException(ES_COMMON_030);
         }
     }
 }
