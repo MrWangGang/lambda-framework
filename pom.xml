@@ -234,11 +234,6 @@
 				<artifactId>curator-recipes</artifactId>
 				<version>${curator.version}</version>
 			</dependency>
-			<dependency>
-				<groupId>com.github.drtrang</groupId>
-				<artifactId>copiers</artifactId>
-				<version>${copiers.version}</version>
-			</dependency>
 		</dependencies>
 	</dependencyManagement>
 	<dependencies>
