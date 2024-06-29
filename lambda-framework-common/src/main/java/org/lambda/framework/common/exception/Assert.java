@@ -50,6 +50,12 @@ public class Assert {
         }
     }
 
+    public static void ifExistCheckNotNull(Object obj,ExceptionEnumFunction exceptionEnumFunction){
+        if(obj!=null){
+            check(obj,exceptionEnumFunction);
+        }
+    }
+
     public static <T>T review(T obj) {
         if(obj == null) return null;
         if(!check(obj)){
