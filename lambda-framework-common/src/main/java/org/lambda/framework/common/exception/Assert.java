@@ -11,14 +11,15 @@ import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_02
 public class Assert {
 
 
-    public static void verify(ExceptionEnumFunction exceptionEnumFunction,Object...objects){
-        for (Object object:objects){
-            verify(exceptionEnumFunction, object);
-        }
-    }
     public static void verify(Object object,ExceptionEnumFunction exceptionEnumFunction){
         if(!verify(object)){
             throw new EventException(exceptionEnumFunction);
+        }
+    }
+
+    public static void verify(Object object,ExceptionEnumFunction exceptionEnumFunction,String message){
+        if(!verify(object)){
+            throw new EventException(exceptionEnumFunction,message);
         }
     }
 
@@ -50,9 +51,21 @@ public class Assert {
         }
     }
 
+    public static void check(Object obj,ExceptionEnumFunction exceptionEnumFunction,String message) {
+        if(!check(obj)){
+            throw new EventException(exceptionEnumFunction,message);
+        }
+    }
+
     public static void ifExistCheckNotNull(Object obj,ExceptionEnumFunction exceptionEnumFunction){
         if(obj!=null){
             check(obj,exceptionEnumFunction);
+        }
+    }
+
+    public static void ifExistCheckNotNull(Object obj,ExceptionEnumFunction exceptionEnumFunction,String message){
+        if(obj!=null){
+            check(obj,exceptionEnumFunction,message);
         }
     }
 
