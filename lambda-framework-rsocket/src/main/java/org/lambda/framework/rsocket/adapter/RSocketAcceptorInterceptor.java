@@ -56,6 +56,12 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
 
     @Resource
     private RsocketGlobalExceptionHandler rsocketGlobalExceptionHandler;
+    /*创建每个新的 RSocket 实例本身并不会特别耗费性能，因为 RSocket 本身是一个轻量级的协议实现，
+    不会在创建实例时引入显著的性能开销。但是，频繁地创建和销毁连接可能会对性能产生一定的影响，
+    这主要取决于底层传输层的实现和连接的复用情况。和httpclient不同的是，rsocket底层复用了链接，httpclient是链接池
+    所以这只是简单的new一个对象的操作，而没有去创建和销毁链接，链接是rsocket底层去维护和复用的 rsocket接口只是告诉
+    你们如何去发消息
+    */
     private RSocket createRSocket(RSocket sendingSocket,SecurityStash securityStash) {
         return new RSocket() {
             @Override
