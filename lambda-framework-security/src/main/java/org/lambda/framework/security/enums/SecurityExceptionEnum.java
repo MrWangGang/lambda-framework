@@ -13,7 +13,7 @@ public enum SecurityExceptionEnum implements ExceptionEnumFunction {
     ES_SECURITY_000("ES_SECURITY_000","身份认证失败"), //AuthenticationException
     ES_SECURITY_001("ES_SECURITY_001","拒绝访问"), //AccessDeniedException
     ES_SECURITY_002("ES_SECURITY_002","访问用户为空"),
-    ES_SECURITY_003("ES_SECURITY_003","无效令牌"),
+    ES_SECURITY_003("ES_SECURITY_003","该请求需要令牌访问(缺失令牌)"),
     ES_SECURITY_004("ES_SECURITY_004","用户信息不存在"),
     ES_SECURITY_005("ES_SECURITY_005","无效的用户签名值"),
     ES_SECURITY_006("ES_SECURITY_006","用户类型不存在"),

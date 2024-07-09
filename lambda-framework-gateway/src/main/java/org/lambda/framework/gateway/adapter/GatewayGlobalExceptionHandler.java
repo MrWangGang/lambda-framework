@@ -2,6 +2,7 @@ package org.lambda.framework.gateway.adapter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.slf4j.Logger;
@@ -43,6 +44,12 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
 
     private ResponseTemplete handleTransferException(Throwable e) {
         logger.error("GatewayGlobalExceptionHandler",e);
+        //抛出内部的错误
+        if(e instanceof GlobalException) {
+            GlobalException globalException = (GlobalException)e;
+            return result(globalException.getCode(), globalException.getMessage());
+        }
+
         if(StringUtils.isBlank(e.getMessage())){
             return result(ES_GATEWAY_000.getCode(), ES_GATEWAY_000.getMessage());
         }
@@ -69,7 +76,8 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
 
     private Mono<Void> writeResponse(ServerWebExchange exchange, ResponseTemplete errorBody) {
         ServerHttpResponse response = exchange.getResponse();
-        response.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
+        //对于服务端的异常，都封装成200 这样可以区别于socket底层的错误
+        response.setStatusCode(HttpStatus.OK);
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON_UTF8);
         DataBuffer dataBuffer = response.bufferFactory()
                 .allocateBuffer().write(JsonUtil.objToString(errorBody).getBytes());
