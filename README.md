@@ -1,4 +1,4 @@
-# 🚀 lamb-framework
+# 🚀  lamb-framework
 
 [![License: apache2.0](https://img.shields.io/github/license/tensorflow/tensorflow.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ## 📖  简介
