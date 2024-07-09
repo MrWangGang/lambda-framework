@@ -1,7 +1,7 @@
 # 🚀 lamb-framework
 
 [![License: apache2.0](https://img.shields.io/github/license/tensorflow/tensorflow.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-## 📖 简介
+## 📖  简介
 
 Welcome to lambda-framework,I hope more practitioners can join me in improving the lambda-framework, making the framework simpler and more user-friendly. This will allow programmers to focus on their business code, without having to worry about the complex configuration of each component.
 
