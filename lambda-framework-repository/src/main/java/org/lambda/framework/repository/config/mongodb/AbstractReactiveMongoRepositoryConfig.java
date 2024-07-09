@@ -15,6 +15,8 @@ import org.lambda.framework.repository.enums.MongoDeployModelEnum;
 import org.springframework.boot.autoconfigure.mongo.MongoProperties;
 import org.springframework.boot.autoconfigure.mongo.PropertiesMongoConnectionDetails;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
+import org.springframework.data.mongodb.ReactiveMongoTransactionManager;
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
 
 import java.util.Arrays;
@@ -115,5 +117,10 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
         mongoProperties.setPassword(this.password().toCharArray());
         mongoProperties.setAuthenticationDatabase(this.authDatabase());
         return new PropertiesMongoConnectionDetails(mongoProperties);
+    }
+
+    @Bean
+    public ReactiveMongoTransactionManager transactionManager(ReactiveMongoDatabaseFactory dbFactory) {
+        return new ReactiveMongoTransactionManager(dbFactory);
     }
 }

@@ -11,6 +11,8 @@ import org.lambda.framework.repository.config.converter.EnumWriteConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.convert.CustomConversions;
 import org.springframework.data.r2dbc.convert.R2dbcCustomConversions;
+import org.springframework.r2dbc.connection.R2dbcTransactionManager;
+import org.springframework.transaction.ReactiveTransactionManager;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -51,5 +53,10 @@ public abstract class AbstractReactiveMySqlRepositoryConfig {
     @Bean
     public R2dbcCustomConversions r2dbcCustomConversions() {
         return new R2dbcCustomConversions(CustomConversions.StoreConversions.NONE,Arrays.asList(new EnumReadConverter<ConverterEnum>(),new EnumWriteConverter()));
+    }
+
+    @Bean
+    public ReactiveTransactionManager transactionManager(ConnectionFactory connectionFactory) {
+        return new R2dbcTransactionManager(connectionFactory);
     }
 }
