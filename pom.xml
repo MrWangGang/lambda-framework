@@ -62,6 +62,7 @@
 		<redisson.version>3.30.0</redisson.version>
 		<curator.version>5.6.0</curator.version>
 		<copiers.version>2.5.4</copiers.version>
+		<rabbitmq.version>1.5.6</rabbitmq.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -160,6 +161,11 @@
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
+				<groupId>org.lambda.framework</groupId>
+				<artifactId>lambda-framework-mq</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
 				<groupId>com.theokanning.openai-gpt3-java</groupId>
 				<artifactId>service</artifactId>
 				<version>${openai-service.version}</version>
@@ -234,6 +240,11 @@
 				<artifactId>curator-recipes</artifactId>
 				<version>${curator.version}</version>
 			</dependency>
+			<dependency>
+				<groupId>io.projectreactor.rabbitmq</groupId>
+				<artifactId>reactor-rabbitmq</artifactId>
+				<version>${rabbitmq.version}</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 	<dependencies>
@@ -259,6 +270,7 @@
 		<module>lambda-framework-openai</module>
 		<module>lambda-framework-compliance</module>
 		<module>lambda-framework-lock</module>
+		<module>lambda-framework-mq</module>
 	</modules>
 
 	<distributionManagement>
