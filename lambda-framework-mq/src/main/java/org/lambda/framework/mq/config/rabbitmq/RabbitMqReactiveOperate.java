@@ -30,26 +30,26 @@ public class RabbitMqReactiveOperate {
     private Receiver receiver;
 
     public Mono<Void> sendDelay(Declare declare, Long delayMillis,String message) {
-        return this.sendDelay(declare,delayMillis,null,message);
+        return this.sendDelay(declare,delayMillis,message,new HashMap<>());
     }
 
-        public Mono<Void> sendDelay(Declare declare, Long delayMillis,String messageId,String message){
+
+    public Mono<Void> sendDelay(Declare declare, Long delayMillis,String message,Map<String, Object> headers){
         Assert.check(declare,ES_MQ_RABBITMQ_004);
         Assert.verify(delayMillis,ES_MQ_RABBITMQ_005);
-        Assert.verify(messageId,ES_MQ_RABBITMQ_006);
         Assert.verify(message,ES_MQ_RABBITMQ_007);
+        Assert.verify(headers,ES_MQ_RABBITMQ_008);
         //声明主队列交换机
         // 依次声明交换机、队列，并绑定
 
         Flux<OutboundMessage> messages = Flux.defer(()->{
             // 设置消息的延迟时间
-            Map<String, Object> headers = new HashMap<>();
-            headers.put("x-delay", delayMillis);
-            AMQP.BasicProperties props = new AMQP.BasicProperties.Builder()
-                    .headers(headers)
-                    .messageId(messageId)
-                    .build();
+            Map<String, Object> mutableHeaders = new HashMap<>(headers);
 
+            mutableHeaders.put("x-delay", delayMillis);
+            AMQP.BasicProperties props = new AMQP.BasicProperties.Builder()
+                    .headers(mutableHeaders)
+                    .build();
 
             // 创建 OutboundMessage 对象
             OutboundMessage outboundMessage = new OutboundMessage(

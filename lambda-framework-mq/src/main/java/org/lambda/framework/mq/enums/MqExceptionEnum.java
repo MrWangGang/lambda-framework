@@ -12,6 +12,7 @@ public enum MqExceptionEnum implements ExceptionEnumFunction {
     ES_MQ_RABBITMQ_005("ES_MQ_RABBITMQ_005","延迟队列缺少时间"),
     ES_MQ_RABBITMQ_006("ES_MQ_RABBITMQ_006","延迟队列缺少消息ID"),
     ES_MQ_RABBITMQ_007("ES_MQ_RABBITMQ_007","延迟队列缺少消息主体"),
+    ES_MQ_RABBITMQ_008("ES_MQ_RABBITMQ_008","延迟队列缺少消息头"),
 
     ES_MQ_000("ES_MQ_000","mq消息发送失败");
 
