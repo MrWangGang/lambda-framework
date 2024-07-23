@@ -10,6 +10,8 @@ public enum RsocketExceptionEnum implements ExceptionEnumFunction {
     ES_RSOCKET_000("ES_RSOCKET_000","系统错误[未知]"),
     ES_RSOCKET_001("ES_RSOCKET_001","请求参数解析错误"),
     ES_RSOCKET_002("ES_RSOCKET_002","请求参数解析enum类型错误"),
+    ES_RSOCKET_003("ES_RSOCKET_003","解析SecurityStash失败"),
+    ES_RSOCKET_004("ES_RSOCKET_004","socket setup帧传输负载对象必须为SecurityStash"),
     ES_RSOCKET_099("ES_RSOCKET_099","@Controller注解标注的类动态继承RsocketGlobalExceptionHandlers失败");
 
 

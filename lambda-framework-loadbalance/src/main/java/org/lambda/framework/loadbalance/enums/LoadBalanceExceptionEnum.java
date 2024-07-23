@@ -20,7 +20,6 @@ public enum LoadBalanceExceptionEnum implements ExceptionEnumFunction {
 
 
 
-
     // 成员变量
 
     @Getter

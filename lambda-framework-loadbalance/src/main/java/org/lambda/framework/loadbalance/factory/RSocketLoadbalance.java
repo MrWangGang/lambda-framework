@@ -8,7 +8,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.SecurityStash;
@@ -18,15 +17,12 @@ import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.messaging.rsocket.RSocketStrategies;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
-import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.lambda.framework.common.enums.ConmonContract.AUTHTOKEN_STASH_NAMING;
-import static org.lambda.framework.common.enums.ConmonContract.PRINCIPAL_STASH_NAMING;
 import static org.lambda.framework.loadbalance.enums.LoadBalanceExceptionEnum.*;
 
 @Component
@@ -65,13 +61,10 @@ public class RSocketLoadbalance {
     }
 
     public RSocketRequester.Builder setRSocketRequester(RSocketRequester.Builder requester, SecurityStash securityStash){
-        if(StringUtils.isNotBlank(securityStash.getAuthToken())){
-            requester.setupMetadata(securityStash.getAuthToken(), MimeTypeUtils.parseMimeType(AUTHTOKEN_STASH_NAMING));
-        }
-        if(StringUtils.isNotBlank(securityStash.getPrincipal())){
-            requester.setupMetadata(securityStash.getPrincipal(), MimeTypeUtils.parseMimeType(PRINCIPAL_STASH_NAMING));
-        }
+        if(securityStash!=null){
+            requester.setupData(securityStash);
 
+        }
         return requester;
     }
 

@@ -1,21 +1,24 @@
 package org.lambda.framework.rsocket.adapter;
 
-import io.netty.buffer.ByteBuf;
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.SocketAcceptor;
-import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.plugins.SocketAcceptorInterceptor;
 import jakarta.annotation.Resource;
+import org.apache.commons.lang3.StringUtils;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.SecurityStash;
+import org.lambda.framework.common.util.sample.JsonUtil;
 import org.reactivestreams.Publisher;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.context.Context;
 
-import static org.lambda.framework.common.enums.ConmonContract.AUTHTOKEN_STASH_NAMING;
-import static org.lambda.framework.common.enums.ConmonContract.PRINCIPAL_STASH_NAMING;
+import java.io.IOException;
+import java.util.Optional;
+
+import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_003;
 
 @Component
 public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
@@ -23,35 +26,29 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
     @Override
     public SocketAcceptor apply(SocketAcceptor socketAcceptor) {
         return (setup, sendingSocket) -> {
-            SecurityStash securityStash = getValueFromMetadata(setup.metadata());
+            SecurityStash securityStash = null;
+            try {
+                securityStash = getValueFromMetadata(setup.getDataUtf8());
+            } catch (IOException e) {
+                e.printStackTrace();
+                throw new EventException(ES_RSOCKET_003);
+            } catch (ClassNotFoundException e) {
+                throw new EventException(ES_RSOCKET_003);
+            }
+            SecurityStash finalSecurityStash = securityStash;
             return socketAcceptor.accept(setup,sendingSocket).map(rsocket->{
-                return createRSocket(rsocket,securityStash);
+                return createRSocket(rsocket, finalSecurityStash);
             });
         };
     }
 
-    private SecurityStash getValueFromMetadata(ByteBuf metadata) {
-        SecurityStash securityStash = SecurityStash.builder().build();
-        if(metadata!=null){
-            CompositeMetadata compositeMetadata = new CompositeMetadata(metadata, false);
-            if(compositeMetadata!=null){
-                compositeMetadata.stream()
-                        .forEach(entry -> {
-                            if(AUTHTOKEN_STASH_NAMING.equals(entry.getMimeType())){
-                                ByteBuf content = entry.getContent();
-                                String _authtoken = content.toString(io.netty.util.CharsetUtil.UTF_8);
-                                securityStash.setAuthToken(_authtoken);
-                            }
-                            if(PRINCIPAL_STASH_NAMING.equals(entry.getMimeType())){
-                                ByteBuf content = entry.getContent();
-                                String _principal = content.toString(io.netty.util.CharsetUtil.UTF_8);
-                                securityStash.setPrincipal(_principal);
-                            }
-                        });
-                return securityStash;
-            }
+    private SecurityStash getValueFromMetadata(String metadata) throws IOException, ClassNotFoundException {
+        if(StringUtils.isBlank(metadata)){
+            return SecurityStash.builder().build();
         }
-        return securityStash;
+        Optional<SecurityStash> obj =   JsonUtil.stringToObj(metadata, SecurityStash.class);
+
+        return obj.orElseThrow(()->new EventException(ES_RSOCKET_003));
     }
 
     @Resource
