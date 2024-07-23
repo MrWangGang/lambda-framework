@@ -93,28 +93,28 @@ public class RabbitMqReactiveOperate {
                 .autoDelete(false)
                 .arguments(Map.of("x-delayed-type", "direct"));
 
-        // 声明死信交换机
+        /*        // 声明死信交换机
         ExchangeSpecification dlxExchangeSpec = new ExchangeSpecification()
                 .type("direct") // 死信交换机的类型可以根据需求设置
                 .name(declare.getDlxExchangeName())
                 .durable(true)
-                .autoDelete(false);
+                .autoDelete(false);*/
 
         // 声明主队列
         QueueSpecification primaryQueueSpec = new QueueSpecification()
                 .name(declare.getQueueName())
                 .durable(true)
-                .autoDelete(false)
-                .arguments(Map.of(
+                .autoDelete(false);
+                /*.arguments(Map.of(
                         "x-dead-letter-exchange", declare.getDlxExchangeName(),
                         "x-dead-letter-routing-key", declare.getDlxRoutingKey()
-                ));
+                ));*/
 
-        // 声明死信队列
+        /*// 声明死信队列
         QueueSpecification dlxQueueSpec = new QueueSpecification()
                 .name(declare.getDlxQueueName())
                 .durable(true)
-                .autoDelete(false);
+                .autoDelete(false);*/
 
         // 绑定主队列到主交换机
         BindingSpecification primaryBindingSpec = BindingSpecification.binding()
@@ -122,19 +122,19 @@ public class RabbitMqReactiveOperate {
                 .queue(declare.getQueueName())
                 .routingKey(declare.getRoutingKey());
 
-        // 绑定死信队列到死信交换机
+        /*// 绑定死信队列到死信交换机
         BindingSpecification dlxBindingSpec = BindingSpecification.binding()
                 .exchange(declare.getDlxExchangeName())
                 .queue(declare.getDlxQueueName())
-                .routingKey(declare.getDlxRoutingKey());
+                .routingKey(declare.getDlxRoutingKey());*/
 
         // 依次声明交换机、队列，并绑定
         return sender.declare(primaryExchangeSpec)
-                .then(sender.declare(dlxExchangeSpec))
+                //.then(sender.declare(dlxExchangeSpec))
                 .then(sender.declare(primaryQueueSpec))
-                .then(sender.declare(dlxQueueSpec))
-                .then(sender.bind(primaryBindingSpec))
-                .then(sender.bind(dlxBindingSpec));
+                //.then(sender.declare(dlxQueueSpec))
+                .then(sender.bind(primaryBindingSpec));
+                //.then(sender.bind(dlxBindingSpec));
     }
 
 
@@ -145,16 +145,10 @@ public class RabbitMqReactiveOperate {
     public static class Declare{
         //路由键
         private String routingKey;
-        //死信路由键
-        private String dlxRoutingKey;
         //名称
         private String exchangeName;
-        //死信交换机
-        private String dlxExchangeName;
         //名称
         private String queueName;
-        //死信队列名称
-        private String dlxQueueName;
     }
 
 }
