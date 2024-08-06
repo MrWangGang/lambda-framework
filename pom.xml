@@ -57,7 +57,6 @@
 		<r2dbc-mysql.version>1.0.1</r2dbc-mysql.version>
 		<r2dbc-pool.version>1.0.0.RELEASE</r2dbc-pool.version>
 		<jackson-datatype-jsr310.version>2.14.2</jackson-datatype-jsr310.version>
-		<commons-beanutils.version>1.9.4</commons-beanutils.version>
 		<lombok.version>1.18.30</lombok.version>
 		<redisson.version>3.30.0</redisson.version>
 		<curator.version>5.6.0</curator.version>
