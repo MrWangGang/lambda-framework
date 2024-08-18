@@ -40,7 +40,10 @@ public enum CommonExceptionEnum implements ExceptionEnumFunction {
     ES_COMMON_029("ES_COMMON_029","对象属性必须都被设置"),
     ES_COMMON_030("ES_COMMON_030","深拷贝生成对象cglib对象失败"),
     ES_COMMON_031("ES_COMMON_031","源对象不能为空"),
-    ES_COMMON_032("ES_COMMON_032","目标class不能为空");
+    ES_COMMON_032("ES_COMMON_032","目标class不能为空"),
+    ES_COMMON_033("ES_COMMON_033","异常码不能为空"),
+    ES_COMMON_034("ES_COMMON_034","异常信息不能为空");
+
 
 
 

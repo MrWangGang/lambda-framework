@@ -1,15 +1,29 @@
 package org.lambda.framework.common.exception;
 
 import org.apache.commons.lang3.StringUtils;
+import org.lambda.framework.common.exception.basic.GlobalException;
 
 import java.lang.reflect.Field;
 import java.util.List;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_026;
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_029;
+import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
 
 public class Assert {
+    public static void verify(Object object,String code,String message){
+        if(StringUtils.isBlank(code))throw new EventException(ES_COMMON_033);
+        if(StringUtils.isBlank(message))throw new EventException(ES_COMMON_034);
+        if(!verify(object)){
+            throw new GlobalException(code,message);
+        }
+    }
 
+    public static void check(Object obj,String code,String message) {
+        if(StringUtils.isBlank(code))throw new EventException(ES_COMMON_033);
+        if(StringUtils.isBlank(message))throw new EventException(ES_COMMON_034);
+        if(!check(obj)){
+            throw new GlobalException(code,message);
+        }
+    }
 
     public static void verify(Object object,ExceptionEnumFunction exceptionEnumFunction){
         if(!verify(object)){
