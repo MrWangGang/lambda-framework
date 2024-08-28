@@ -116,6 +116,7 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
         mongoProperties.setUsername(this.user());
         mongoProperties.setPassword(this.password().toCharArray());
         mongoProperties.setAuthenticationDatabase(this.authDatabase());
+        mongoProperties.setAutoIndexCreation(true);
         return new PropertiesMongoConnectionDetails(mongoProperties);
     }
 
