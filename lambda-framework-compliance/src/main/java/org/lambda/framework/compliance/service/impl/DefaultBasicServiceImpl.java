@@ -31,6 +31,11 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
 
     @Override
+    public <Repository extends ReactiveCrudRepository<PO, ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation<PO>> Repository repository() {
+        return (Repository) repository;
+    }
+
+    @Override
     public Mono<PO> update(PO po) {
         if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
         po.setUpdateTime(LocalDateTime.now());

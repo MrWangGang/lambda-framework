@@ -1,18 +1,19 @@
 package org.lambda.framework.compliance.service;
 
 import org.lambda.framework.common.po.UnifyPO;
-import org.lambda.framework.repository.operation.Paged;
-import org.lambda.framework.repository.operation.Paging;
-import org.lambda.framework.repository.operation.UnifyPagingSqlDefaultOperation;
-import org.lambda.framework.repository.operation.UnifyPagingSqlOperation;
+import org.lambda.framework.repository.operation.*;
 import org.reactivestreams.Publisher;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.repository.query.ReactiveQueryByExampleExecutor;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
+import org.springframework.data.repository.reactive.ReactiveSortingRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
 
 public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
+    public <Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation<PO>>Repository repository();
 
     public Mono<PO> update(PO po);
 
