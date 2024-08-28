@@ -6,6 +6,8 @@ import com.mongodb.MongoCredential;
 import com.mongodb.connection.ConnectionPoolSettings;
 import com.mongodb.reactivestreams.client.MongoClient;
 import com.mongodb.reactivestreams.client.MongoClients;
+import jakarta.annotation.Resource;
+import org.apache.commons.logging.LogFactory;
 import org.lambda.framework.common.enums.ConverterEnum;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
@@ -14,16 +16,25 @@ import org.lambda.framework.repository.config.converter.EnumWriteConverter;
 import org.lambda.framework.repository.enums.MongoDeployModelEnum;
 import org.springframework.boot.autoconfigure.mongo.MongoProperties;
 import org.springframework.boot.autoconfigure.mongo.PropertiesMongoConnectionDetails;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
 import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
 import org.springframework.data.mongodb.ReactiveMongoTransactionManager;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.convert.MongoConverter;
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
+import org.springframework.data.mongodb.core.index.MongoPersistentEntityIndexResolver;
+import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
+import org.springframework.data.mongodb.core.mapping.MongoPersistentEntity;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.*;
-
 public abstract class AbstractReactiveMongoRepositoryConfig {
     protected abstract String host();
     protected abstract String user();
@@ -96,6 +107,8 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
         return new MongoCustomConversions(Arrays.asList(new EnumReadConverter<ConverterEnum>(),new EnumWriteConverter())); // 注册你的自定义转换器
     }
 
+
+
     @Bean
     public PropertiesMongoConnectionDetails mongoConnectionDetails() {
         String[] hosts = this.host().split(","); // 如果主机是以逗号分隔的字符串，则将其拆分为一个主机数组
@@ -124,4 +137,36 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
     public ReactiveMongoTransactionManager transactionManager(ReactiveMongoDatabaseFactory dbFactory) {
         return new ReactiveMongoTransactionManager(dbFactory);
     }
+
+    private static final Logger logger = Logger.getLogger(LogFactory.class.getName());
+
+    @Configuration
+    public static class CreationIndex{
+        @Resource
+        private ReactiveMongoTemplate reactiveMongoTemplate;
+        @Resource
+        private MongoConverter mongoConverter;
+
+        @EventListener(ApplicationReadyEvent.class)
+        public void initIndicesAfterStartup() {
+
+            logger.info("Mongo InitIndicesAfterStartup init");
+            var init = System.currentTimeMillis();
+            var mappingContext = this.mongoConverter.getMappingContext();
+            if (mappingContext instanceof MongoMappingContext) {
+                MongoMappingContext mongoMappingContext = (MongoMappingContext) mappingContext;
+                for (MongoPersistentEntity<?> persistentEntity : mongoMappingContext.getPersistentEntities()) {
+                    var clazz = persistentEntity.getType();
+                    if (clazz.isAnnotationPresent(Document.class)) {
+                        var resolver = new MongoPersistentEntityIndexResolver(mongoMappingContext);
+                        var indexOps = reactiveMongoTemplate.indexOps(clazz);
+                        resolver.resolveIndexFor(clazz).forEach(i->indexOps.ensureIndex(i).subscribe());
+                    }
+                }
+            }
+
+            logger.info("Mongo InitIndicesAfterStartup take: {}"+(System.currentTimeMillis() - init));
+        }
+    }
+
 }
