@@ -52,6 +52,16 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     }
 
     @Override
+    public Mono<PO> upsert(PO po) {
+        if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
+        if(po.getId() == null){
+            return insert(po);
+        }
+        return update(po);
+    }
+
+
+    @Override
     public Flux<PO> update(Publisher<PO> pos) {
         if(pos == null) throw new EventException(ES_COMPLIANCE_000);
         LocalDateTime now = LocalDateTime.now();

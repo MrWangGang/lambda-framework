@@ -19,6 +19,8 @@ public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
 
     public Mono<PO> insert(PO po);
 
+    public Mono<PO> upsert(PO po);
+
     public Flux<PO> update(Publisher<PO> pos);
 
     public Flux<PO> insert(Publisher<PO> pos);
