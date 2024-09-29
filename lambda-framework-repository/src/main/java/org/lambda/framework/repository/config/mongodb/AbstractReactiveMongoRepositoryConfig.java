@@ -166,7 +166,7 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
                     MongoMappingContext mongoMappingContext = (MongoMappingContext) mappingContext;
                     for (MongoPersistentEntity<?> persistentEntity : mongoMappingContext.getPersistentEntities()) {
                         var clazz = persistentEntity.getType();
-                        if (clazz.isAnnotationPresent(Document.class)) {
+                        if (clazz.isAnnotationPresent(Document.class) &&!clazz.getSuperclass().isAnnotationPresent(org.springframework.data.mongodb.core.mapping.Document.class)) {
                             var resolver = new MongoPersistentEntityIndexResolver(mongoMappingContext);
                             var indexOps = reactiveMongoTemplate.indexOps(clazz);
                             resolver.resolveIndexFor(clazz).forEach(i->indexOps.ensureIndex(i).subscribe());
@@ -177,5 +177,4 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
             }
         }
     }
-
 }
