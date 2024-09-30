@@ -98,6 +98,20 @@ public abstract class PrincipalFactory {
             return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_019)));
         }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
     }
+
+    //不要使用这个方法去获取，请使用子类中的 getAuth和fetch方法去获取，这个方法获取的数据，会再次查询redis
+    //这个方法只给只使用token 来校验使用的
+    @Deprecated
+    public   <T extends SecurityLoginUser<?>>Mono<T> getPrincipal(String token,Class<T> clazz) {
+        return this.getSecurityAuthTokenKey(token).flatMap(key->{
+            return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
+                return Mono.just(securityAuthToken.getPrincipal());
+            }).flatMap(e -> {
+                return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_019)));
+            }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
+        });
+    }
+
     public  Mono<String> fetchPrincipal() {
         return this.fetchSubject().switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_019)));
     }
