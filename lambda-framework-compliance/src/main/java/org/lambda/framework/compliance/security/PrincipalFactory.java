@@ -50,7 +50,7 @@ public abstract class PrincipalFactory {
     public  <T extends SecurityLoginUser<?>> Mono<Void> updatePrincipal(T t) {
         return this.getAuthToken().flatMap(reqKey->{
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
-                return this.getSecurityAuthToken(key).flatMap(token->{
+                return this.getSecurityAuthToken(reqKey,key).flatMap(token->{
                     String principal = JsonUtil.objToString(t);
                     token.setPrincipal(principal);
                     return securityAuthRedisOperation.update(key,token,LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue())
@@ -78,7 +78,7 @@ public abstract class PrincipalFactory {
     protected Mono<String> getPrincipal() {
         return this.getAuthToken().flatMap(reqKey->{
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
-                return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
+                return this.getSecurityAuthToken(reqKey,key).flatMap(securityAuthToken->{
                     return Mono.just(securityAuthToken.getPrincipal());
                 });
             });
@@ -90,7 +90,7 @@ public abstract class PrincipalFactory {
     protected <T extends SecurityLoginUser<?>>Mono<T> getPrincipal(Class<T> clazz) {
         return this.getAuthToken().flatMap(reqKey->{
             return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
-                return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
+                return this.getSecurityAuthToken(reqKey,key).flatMap(securityAuthToken->{
                     return Mono.just(securityAuthToken.getPrincipal());
                 });
             });
@@ -102,9 +102,9 @@ public abstract class PrincipalFactory {
     //不要使用这个方法去获取，请使用子类中的 getAuth和fetch方法去获取，这个方法获取的数据，会再次查询redis
     //这个方法只给只使用token 来校验使用的
     @Deprecated
-    public   <T extends SecurityLoginUser<?>>Mono<T> getPrincipal(String token,Class<T> clazz) {
-        return this.getSecurityAuthTokenKey(token).flatMap(key->{
-            return this.getSecurityAuthToken(key).flatMap(securityAuthToken->{
+    public   <T extends SecurityLoginUser<?>>Mono<T> getPrincipal(String rqtoken,Class<T> clazz) {
+        return this.getSecurityAuthTokenKey(rqtoken).flatMap(key->{
+            return this.getSecurityAuthToken(rqtoken,key).flatMap(securityAuthToken->{
                 return Mono.just(securityAuthToken.getPrincipal());
             }).flatMap(e -> {
                 return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_019)));
@@ -137,9 +137,8 @@ public abstract class PrincipalFactory {
         token = token + TOKEN_SUFFIX;
         return Mono.just(token);
     }
-    private <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken> getSecurityAuthToken(String key) {
+    private <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken> getSecurityAuthToken(String rqtoken,String key) {
         Assert.verify(key,ES_COMPLIANCE_021);
-        return this.getAuthToken().flatMap(rqtoken->{
             return securityAuthRedisOperation.get(key).flatMap(tokenBean -> {
                 LambdaSecurityAuthToken lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_COMPLIANCE_021));
                 if (StringUtils.isBlank(lambdaSecurityAuthToken.getToken())) {
@@ -155,6 +154,5 @@ public abstract class PrincipalFactory {
                     return Mono.error(new EventException(ES_COMPLIANCE_021));
                 return Mono.just(lambdaSecurityAuthToken);
             }).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_021)));
-        });
     }
 }

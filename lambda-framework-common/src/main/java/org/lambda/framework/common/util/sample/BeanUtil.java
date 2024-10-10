@@ -20,6 +20,20 @@ public class BeanUtil {
         return target;
     }
 
+    public static  <T> T shallowCopy
+            (T source, Class<? extends T> targetClass) {
+        if (source == null) {
+            throw new EventException(ES_COMMON_031);
+        }
+        if (targetClass == null) {
+            throw new EventException(ES_COMMON_032);
+        }
+        T target = instantiateTarget(targetClass);
+        BeanCopier.create(source.getClass(), target.getClass(), false)
+                .copy(source.getClass(),target.getClass(),null);
+        return target;
+    }
+
     private static  <T> T instantiateTarget(Class<? extends T> targetClass) {
         try {
             return targetClass.getDeclaredConstructor().newInstance();
