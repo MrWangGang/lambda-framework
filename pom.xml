@@ -62,6 +62,7 @@
 		<curator.version>5.6.0</curator.version>
 		<copiers.version>2.5.4</copiers.version>
 		<rabbitmq.version>1.5.6</rabbitmq.version>
+		<jnanoid.version>2.0.0</jnanoid.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -238,6 +239,11 @@
 				<groupId>io.projectreactor.rabbitmq</groupId>
 				<artifactId>reactor-rabbitmq</artifactId>
 				<version>${rabbitmq.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.aventrix.jnanoid</groupId>
+				<artifactId>jnanoid</artifactId>
+				<version>${jnanoid.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
