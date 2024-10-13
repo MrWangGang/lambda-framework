@@ -42,8 +42,8 @@ public enum CommonExceptionEnum implements ExceptionEnumFunction {
     ES_COMMON_031("ES_COMMON_031","源对象不能为空"),
     ES_COMMON_032("ES_COMMON_032","目标class不能为空"),
     ES_COMMON_033("ES_COMMON_033","异常码不能为空"),
-    ES_COMMON_034("ES_COMMON_034","异常信息不能为空");
-
+    ES_COMMON_034("ES_COMMON_034","异常信息不能为空"),
+    ES_COMMON_035("ES_COMMON_035","序列化Object失败");
 
 
 
