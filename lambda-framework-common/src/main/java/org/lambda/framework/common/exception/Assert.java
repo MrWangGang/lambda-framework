@@ -4,7 +4,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.basic.GlobalException;
 
 import java.lang.reflect.Field;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
 
@@ -56,6 +58,20 @@ public class Assert {
                 return false;
             }
         }
+
+        if (object instanceof HashSet) {
+            if (object == null) {
+                return false;
+            }
+            HashSet<?> set = (HashSet<?>) object;
+            if (set.isEmpty()) {
+                return false;
+            }
+            if (set.iterator().hasNext() && set.iterator().next() == null) {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -119,6 +135,19 @@ public class Assert {
                             return false;
                         }
                     }
+                    if (object instanceof HashSet) {
+                        if (object == null) {
+                            return false;
+                        }
+                        HashSet<?> set = (HashSet<?>) object;
+                        if (set.isEmpty()) {
+                            return false;
+                        }
+                        if (set.iterator().hasNext() && set.iterator().next() == null) {
+                            return false;
+                        }
+                    }
+
                 }else {
                     return false;
                 }
@@ -150,6 +179,11 @@ public class Assert {
                 } else if (value instanceof List) {
                     List<?> list = (List<?>) value;
                     if (list != null && !list.isEmpty() && list.get(0) != null) {
+                        return true;
+                    }
+                }  else if (value instanceof Set) {
+                    Set<?> sets = (Set<?>) value;
+                    if (sets != null && !sets.isEmpty() && sets.iterator().next() != null) {
                         return true;
                     }
                 } else {
