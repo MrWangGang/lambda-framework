@@ -4,7 +4,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.basic.GlobalException;
 
 import java.lang.reflect.Field;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -59,11 +58,11 @@ public class Assert {
             }
         }
 
-        if (object instanceof HashSet) {
+        if (object instanceof Set) {
             if (object == null) {
                 return false;
             }
-            HashSet<?> set = (HashSet<?>) object;
+            Set<?> set = (Set<?>) object;
             if (set.isEmpty()) {
                 return false;
             }
@@ -135,11 +134,11 @@ public class Assert {
                             return false;
                         }
                     }
-                    if (object instanceof HashSet) {
+                    if (object instanceof Set) {
                         if (object == null) {
                             return false;
                         }
-                        HashSet<?> set = (HashSet<?>) object;
+                        Set<?> set = (Set<?>) object;
                         if (set.isEmpty()) {
                             return false;
                         }
