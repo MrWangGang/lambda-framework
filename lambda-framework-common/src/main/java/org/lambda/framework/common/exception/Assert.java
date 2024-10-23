@@ -182,7 +182,7 @@ public class Assert {
                     }
                 }  else if (value instanceof Set) {
                     Set<?> sets = (Set<?>) value;
-                    if (sets != null && !sets.isEmpty() && sets.iterator().next() != null) {
+                    if (sets != null && !sets.isEmpty() && !sets.iterator().hasNext()  && sets.iterator().next() != null) {
                         return true;
                     }
                 } else {
