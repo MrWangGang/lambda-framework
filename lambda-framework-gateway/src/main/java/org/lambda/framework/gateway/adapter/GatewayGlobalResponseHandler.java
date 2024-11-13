@@ -13,7 +13,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_016;
+import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_000;
 
 @Configuration
 @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
@@ -30,7 +30,7 @@ public class GatewayGlobalResponseHandler {
             METHOD_PARAMETER = new MethodParameter(
                     GatewayGlobalResponseHandler.class.getDeclaredMethod("methodForParams"), -1);
         } catch (NoSuchMethodException e) {
-            throw new EventException(ES_GATEWAY_016);
+            throw new EventException(ES_GATEWAY_000,"GatewayGlobalResponseHandler NoSuchMethodException methodForParams");
         }
     }
 
