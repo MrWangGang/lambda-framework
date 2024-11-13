@@ -35,7 +35,8 @@ public class GatewayFilter implements GlobalFilter,Ordered{
             if (RB_SCHEME.equals(targetUri.getScheme())) {
                 return rsocketRequestFactory.execute(exchange,chain,targetUri);
             }
-            throw new EventException(ES_GATEWAY_000,"scheme 仅支持rb与lb的配置");
+            //给http原生用的
+            return chain.filter(exchange);
         }
         throw new EventException(ES_GATEWAY_000,"请求协议仅支持http与https");
     }
