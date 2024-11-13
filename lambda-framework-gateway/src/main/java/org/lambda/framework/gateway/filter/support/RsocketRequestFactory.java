@@ -101,7 +101,7 @@ public class RsocketRequestFactory {
                                 return Mono.error(new EventException(ES_GATEWAY_000,"请求头:RSocket-Model无效,仅支持(request/response,request/stream)"));
                         }
                     });
-               }).then(chain.filter(exchange));
+               });
     }
 
     private boolean verifyQueryParamsIsNotNull(Map queryParams){
