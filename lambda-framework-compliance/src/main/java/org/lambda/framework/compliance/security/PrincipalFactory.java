@@ -129,7 +129,7 @@ public abstract class PrincipalFactory {
         // 在字符串中查找最后一个点的位置
         int lastDotIndex = requestToken.lastIndexOf('.');
         // 如果找到了点，则返回点之前的子字符串，否则返回原始字符串
-        String token = lastDotIndex != -1 ? requestToken.substring(0, lastDotIndex + 1) : null;
+        String token = lastDotIndex != -1 ? requestToken.substring(0, lastDotIndex) : null;
         if (StringUtils.isBlank(token)) {
             return Mono.error(new EventException(ES_COMPLIANCE_000,"令牌在提取关键部分时为空，可能是格式错误或缺少必要组件"));
         }
@@ -154,7 +154,7 @@ public abstract class PrincipalFactory {
                 // 查找最后一个点的位置
                 int lastIndex = rqtoken.lastIndexOf('.');
                 // 如果找到了点，则返回点之后的子字符串，否则返回空字符串或其他适当的默认值
-                String realToken = lastIndex != -1 ? rqtoken.substring(lastIndex + 1) : null;
+                String realToken = lastIndex != -1 ? rqtoken.substring(lastIndex+1) : null;
                 if (StringUtils.isBlank(realToken)) return Mono.error(new EventException(ES_COMPLIANCE_000,"令牌在提取关键部分时为空，可能是格式错误或缺少必要组件"));
                 //比较token
                 if (!lambdaSecurityAuthToken.getToken().equals(realToken))
