@@ -49,7 +49,7 @@ public class GatewayFilter implements GlobalFilter,Ordered{
                 throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由信息");
             }
 
-            if (RB_SCHEME.equals(targetUri.getScheme())) {
+            if (RB_SCHEME.equals(targetRoute.getScheme())) {
                 return rsocketRequestFactory.execute(exchange, chain, new GlobalFilterRoute() {
                     @Override
                     public String host() {
@@ -63,7 +63,7 @@ public class GatewayFilter implements GlobalFilter,Ordered{
                 });
             }
 
-            if (LB_SCHEME.equals(targetUri.getScheme())) {
+            if (LB_SCHEME.equals(targetRoute.getScheme())) {
                 return chain.filter(exchange);
             }
             throw new EventException(ES_GATEWAY_000,"scheme仅支持rb与lb");
