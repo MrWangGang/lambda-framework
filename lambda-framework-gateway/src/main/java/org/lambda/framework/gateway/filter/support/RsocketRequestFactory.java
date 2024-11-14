@@ -5,6 +5,7 @@ import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.sample.JsonUtil;
+import org.lambda.framework.gateway.filter.GatewayFilter;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -22,7 +23,6 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -36,11 +36,12 @@ public class RsocketRequestFactory {
     @Resource
     private RSocketLoadbalance rSocketLoadbalance;
 
-    public Mono<Void> execute(ServerWebExchange exchange, GatewayFilterChain chain,URI targetUri){
-        Assert.verify(targetUri,ES_GATEWAY_000,"未知的请求协议");
-        Assert.verify(targetUri.getHost(),ES_GATEWAY_000,"未知的服务名");
-        Assert.verify(targetUri.getScheme(),ES_GATEWAY_000,"未知的scheme");
-        Assert.verify(targetUri.getPath(),ES_GATEWAY_000,"未知的路由");
+
+
+    public Mono<Void> execute(ServerWebExchange exchange, GatewayFilterChain chain, GatewayFilter.GlobalFilterRoute route){
+        Assert.verify(route,ES_GATEWAY_000,"未知的路由信息");
+        Assert.verify(route.host(),ES_GATEWAY_000,"未知的服务名");
+        Assert.verify(route.path(),ES_GATEWAY_000,"未知的路由");
 
         HttpHeaders reqHeaders = exchange.getRequest().getHeaders();
         Assert.verify(reqHeaders,ES_GATEWAY_000,"请求头缺失");
@@ -60,7 +61,7 @@ public class RsocketRequestFactory {
         if(verifyQueryParamsIsNotNull(queryParams)){
             throw new EventException(ES_GATEWAY_000,"rsocket协议不支持query params");
         }
-        Mono<RSocketRequester> rSocketRequester =rSocketLoadbalance.build(targetUri.getHost(),contentType);
+        Mono<RSocketRequester> rSocketRequester =rSocketLoadbalance.build(route.host(),contentType);
         return rSocketRequester.flatMap(requester->{
             //获取请求里的body
             Flux<DataBuffer> bodyFlux = exchange.getRequest().getBody();
@@ -72,10 +73,10 @@ public class RsocketRequestFactory {
                         RSocketRequester.RetrieveSpec retrieveSpec = null;
                         if (MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(contentType)) {
                             retrieveSpec = requester
-                                    .route(targetUri.getPath()).data(body);
+                                    .route(route.path()).data(body);
                         }else {
                             retrieveSpec = requester
-                                    .route(targetUri.getPath()).data(bodyFlux);
+                                    .route(route.path()).data(bodyFlux);
                         }
                         ServerHttpResponse rs = exchange.getResponse();
                         switch (rsocketModel){

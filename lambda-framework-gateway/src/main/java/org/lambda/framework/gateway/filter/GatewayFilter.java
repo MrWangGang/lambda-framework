@@ -3,7 +3,6 @@ package org.lambda.framework.gateway.filter;
 import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.compliance.security.SecurityPrincipalHolder;
 import org.lambda.framework.gateway.filter.support.RsocketRequestFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -22,12 +21,13 @@ import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY
 @Component
 public class GatewayFilter implements GlobalFilter,Ordered{
 
+    public static interface GlobalFilterRoute {
+        String host();
+        String path();
+    }
+
     @Resource
     private RsocketRequestFactory rsocketRequestFactory;
-
-    @Resource
-    private SecurityPrincipalHolder securityPrincipalHolder;
-
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -39,14 +39,30 @@ public class GatewayFilter implements GlobalFilter,Ordered{
             if(route == null){
                 throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由配置信息");
             }
-            URI targetUri = route.getUri();
-            if(targetUri == null){
+            URI targetRoute = route.getUri();
+            if(targetRoute == null){
                 throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由配置信息");
             }
 
-            if (RB_SCHEME.equals(targetUri.getScheme())) {
-                return rsocketRequestFactory.execute(exchange,chain,targetUri);
+            URI targetUri = (URI)exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR);
+            if(targetUri == null){
+                throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由信息");
             }
+
+            if (RB_SCHEME.equals(targetUri.getScheme())) {
+                return rsocketRequestFactory.execute(exchange, chain, new GlobalFilterRoute() {
+                    @Override
+                    public String host() {
+                        return targetRoute.getHost();
+                    }
+
+                    @Override
+                    public String path() {
+                        return targetUri.getPath();
+                    }
+                });
+            }
+
             if (LB_SCHEME.equals(targetUri.getScheme())) {
                 return chain.filter(exchange);
             }
