@@ -35,19 +35,17 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
         //converter
         ServerWebExchange exchange = authorizationContext.getExchange();
         String authToken = exchange.getRequest().getHeaders().getFirst(AUTH_TOKEN_NAMING);
-        Assert.verify(authToken,ES_SECURITY_003);
-        Map map = exchange.getAttributes();
-        Assert.verify(map,ES_SECURITY_008);
+        Assert.verify(authToken,ES_SECURITY_000,"该资源需要令牌才能访问");
+        Map<String, Object> map = exchange.getAttributes();
+        Assert.verify(map,ES_SECURITY_000,"缺少身份认证信息");
         exchange.getAttributes().put(AUTHTOKEN_STASH_NAMING,authToken);
-        if(StringUtils.isBlank(authToken))throw new EventException(ES_SECURITY_003);
+        if(StringUtils.isBlank(authToken))throw new EventException(ES_SECURITY_000,"该资源需要令牌才能访问");
         return securityPrincipalFactory.principal().flatMap(principal -> {
-            if(StringUtils.isBlank(principal.toString()))return Mono.error(new EventException(ES_SECURITY_000));
-            //刷新TOKEN存活时间 保持登陆
+            if(StringUtils.isBlank(principal.toString()))return Mono.error(new EventException(ES_SECURITY_000,"用户信息不存在"));
             //更新SecurityContext中的Authentication信息
-            if(verify(principal) == false) return Mono.error(new EventException(ES_SECURITY_000));
+            if(verify(principal) == false) return Mono.error(new EventException(ES_SECURITY_000,"身份认证失败"));
                SecurityAuthToken securityAuthToken = SecurityAuthToken.builder().principal(principal.toString()).credentials(authToken).authenticated(true).build();
-               return securityAuthRedisOperation.expire(authToken, LAMBDA_SECURITY_TOKEN_TIME_SECOND)
-                           .then(Mono.just(securityAuthToken)).flatMap(token->{
+               return Mono.just(securityAuthToken).flatMap(token->{
                                 return putToken(token).map(e->{
                                     return token;
                                 });
@@ -59,11 +57,11 @@ public abstract class SecurityAuthManager implements SecurityAuthVerify {
         return Mono.deferContextual(Mono::just)
                 .map(contextView ->{
                     ServerWebExchange serverWebExchange = contextView.get(ServerWebExchange.class);
-                    Assert.verify(serverWebExchange,ES_SECURITY_008);
+                    Assert.verify(serverWebExchange,ES_SECURITY_000,"缺少身份认证信息");
                     serverWebExchange.getAttributes().put(PRINCIPAL_STASH_NAMING,token.getPrincipal());
                     serverWebExchange.getAttributes().put(AUTHTOKEN_STASH_NAMING,token.getCredentials());
                     return contextView;
                 })
-                .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_008)));
+                .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_000,"缺少身份认证信息")));
     }
 }

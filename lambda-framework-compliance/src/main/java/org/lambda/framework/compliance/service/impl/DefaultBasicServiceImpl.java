@@ -135,8 +135,8 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     @Override
     public  Mono<Paged<PO>> find(Paging paging, PO po, Sort sort) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
-        if(sort == null)throw new EventException(ES_COMPLIANCE_029);
-        if(paging == null)throw new EventException(ES_COMPLIANCE_030);
+        if(sort == null)throw new EventException(ES_COMPLIANCE_000,"排序类型不能为空");
+        if(paging == null)throw new EventException(ES_COMPLIANCE_000,"分页参数不能缺失");
 
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
@@ -149,7 +149,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     @Override
     public  Mono<Paged<PO>> find(Paging paging, PO po) {
         if(po == null)throw new EventException(ES_COMPLIANCE_000);
-        if(paging == null)throw new EventException(ES_COMPLIANCE_030);
+        if(paging == null)throw new EventException(ES_COMPLIANCE_000,"分页参数不能缺失");
 
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
@@ -162,15 +162,15 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     @Override
     public <Condition, VO> Mono<Paged<VO>> find(Paging paging, Condition condition, UnifyPagingSqlOperation<Condition, VO> operation) {
         if(condition == null)throw new EventException(ES_COMPLIANCE_000);
-        if(paging == null)throw new EventException(ES_COMPLIANCE_030);
-        if(operation == null)throw new EventException(ES_COMPLIANCE_031);
+        if(paging == null)throw new EventException(ES_COMPLIANCE_000,"分页参数不能缺失");
+        if(operation == null)throw new EventException(ES_COMPLIANCE_000,"分页实现不能缺失");
         return repository.find(paging,condition,operation);
     }
 
     @Override
     public <VO> Mono<Paged<VO>> find(Paging paging, UnifyPagingSqlDefaultOperation<VO> operation) {
-        if(paging == null)throw new EventException(ES_COMPLIANCE_030);
-        if(operation == null)throw new EventException(ES_COMPLIANCE_031);
+        if(paging == null)throw new EventException(ES_COMPLIANCE_000,"分页参数不能缺失");
+        if(operation == null)throw new EventException(ES_COMPLIANCE_000,"分页实现不能缺失");
         return repository.find(paging,operation);
     }
 

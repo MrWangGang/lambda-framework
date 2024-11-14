@@ -35,10 +35,10 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
             if (typeArguments.length >= 1 && typeArguments[0] instanceof Class) {
                 this.clazz = (Class<PO>) typeArguments[0];
             } else {
-                throw new EventException(ES_COMPLIANCE_018);
+                throw new EventException(ES_COMPLIANCE_000,"获取节点类型失败");
             }
         } else {
-            throw new EventException(ES_COMPLIANCE_018);
+            throw new EventException(ES_COMPLIANCE_000,"获取节点类型失败");
         }
     }
 
@@ -46,7 +46,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
     //使用递归构建树
     //使用po参数是为了校验机构号这个必要的参数
     public Mono<List<PO>> findTree(FindTreeDTO<ID> dto) {
-        if(dto == null || dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
+        if(dto == null || dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_000,"节点所属机构ID不能为空");
         PO po = this.instance(clazz);
         po.setOrganizationId(dto.getOrganizationId());
         return super.find(po).collectList().flatMap(e->{
@@ -70,7 +70,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
         try {
             return clazz.getDeclaredConstructor().newInstance();
         } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-            throw new EventException(ES_COMPLIANCE_014);
+            throw new EventException(ES_COMPLIANCE_000,"实例化tree对象失败");
         }
     };
 
@@ -101,18 +101,18 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
           全部的更新都是用批处理
          */
     public Mono<Void> moveNode(MoveNodeDTO<ID> dto) {
-        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
-        if(dto.getCurrentNodeId() == null)throw new EventException(ES_COMPLIANCE_011);
-        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
+        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_000,"目标节点传入值不符合规范 targetNodeId < -1");
+        if(dto.getCurrentNodeId() == null)throw new EventException(ES_COMPLIANCE_000,"当前节点不能为空");
+        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_000,"节点所属机构ID不能为空");
         PO _currentNode =  instance(clazz);
         _currentNode.setId(dto.getCurrentNodeId());
         _currentNode.setOrganizationId(dto.getOrganizationId());
         //校验
         return super.get(_currentNode)
-                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_006)))
+                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_000,"当前节点不存在")))
                 .flatMap(e -> {
                     if (e.getParentId().equals(ROOT_NODE_DEFAULT)) {
-                        return Mono.error(new EventException(ES_COMPLIANCE_008));
+                        return Mono.error(new EventException(ES_COMPLIANCE_000,"不能移动根节点"));
                     }
                     return Mono.just(e);
                 })
@@ -148,7 +148,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
                     _target.setId(dto.getTargetNodeId());
                     _target.setOrganizationId(dto.getOrganizationId());
                     return super.get(_target)
-                            .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
+                            .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_000,"目标节点不存在")))
                             .then(Mono.just(e)).flatMap(x->{
                                 ID oldParentId = x.getParentId();
                                 x.setParentId(dto.getTargetNodeId());
@@ -169,14 +169,14 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
 
     @Override
     public Mono<Void> buildRoot(BuildRootDTO<PO,ID> dto) {
-        if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
-        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
+        if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_000,"创建节点时,节点信息必须存在");
+        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_000,"节点所属机构ID不能为空");
         //要创建一个根节点,先检查之前有无根节点
         PO po = instance(clazz);
         po.setOrganizationId(dto.getOrganizationId());
         //有数据则表示已经存在根节点了，不能创建根节点
         return super.find(po).hasElements().flatMap(e->{
-                    if(e)return Mono.error(new EventException(ES_COMPLIANCE_003));
+                    if(e)return Mono.error(new EventException(ES_COMPLIANCE_000,"此机构已经创建了树模型，无法创建根"));
                     //设置项
                     dto.getNode().setParentId((ID) ROOT_NODE_DEFAULT);
                     dto.getNode().setOrganizationId(dto.getOrganizationId());
@@ -186,15 +186,15 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
 
     @Override
     public Mono<Void> buildNode(BuildNodeDTO<PO,ID> dto) {
-        if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
-        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
-        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
+        if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_000,"创建节点时,节点信息必须存在");
+        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_000,"目标节点传入值不符合规范 targetNodeId < -1");
+        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_000,"节点所属机构ID不能为空");
         //先检查 targetNodeId 代表的节点有无存在
         PO po = instance(clazz);
         po.setId(dto.getTargetNodeId());
         po.setOrganizationId(dto.getOrganizationId());
         return super.find(po)
-                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
+                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_000,"目标节点不存在")))
                 .flatMap(e->{
                     //设置目标节点为父节点
                     dto.getNode().setParentId(e.getId());
@@ -205,16 +205,16 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
 
     @Override
     public Mono<Void> editNode(EditNodeDTO<PO,ID> dto) {
-        if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_001);
-        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
-        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
+        if(dto == null || dto.getNode() == null)throw new EventException(ES_COMPLIANCE_000,"创建节点时,节点信息必须存在");
+        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_000,"目标节点传入值不符合规范 targetNodeId < -1");
+        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_000,"节点所属机构ID不能为空");
         PO po = instance(clazz);
         po.setId(dto.getTargetNodeId());
         po.setOrganizationId(dto.getOrganizationId());
         //先检查当前节点是否存在
         return super.find(po)
                  //不存在则抛出异常
-                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
+                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_000,"目标节点不存在")))
                 .flatMap(e->{
                     //存在则更新
                     //组装3要素
@@ -230,16 +230,16 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
     }
     @Override
     public Mono<Void> removeNode(RemoveNodeDTO<ID> dto) {
-        if(dto == null)throw new EventException(ES_COMPLIANCE_001);
-        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_010);
-        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_013);
+        if(dto == null)throw new EventException(ES_COMPLIANCE_000,"创建节点时,节点信息必须存在");
+        if(dto.getTargetNodeId() == null)throw new EventException(ES_COMPLIANCE_000,"目标节点传入值不符合规范 targetNodeId < -1");
+        if(dto.getOrganizationId() == null)throw new EventException(ES_COMPLIANCE_000,"节点所属机构ID不能为空");
         //先判断是不是根节点，根节点不允许删除
         PO po = instance(clazz);
         po.setId(dto.getTargetNodeId());
         po.setOrganizationId(dto.getOrganizationId());
         return super.find(po)
                 //不存在则抛出异常
-                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_007)))
+                .switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_000,"目标节点不存在")))
                 .flatMap(e->{
                     //存在则判断是否为根节点
                     if(ROOT_NODE_DEFAULT.equals(e.getParentId())){
@@ -249,7 +249,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
                         _rootChildren.setOrganizationId(e.getOrganizationId());
                         return super.find(_rootChildren).hasElements().flatMap(hasChildren->{
                             //有子节点，不让删除
-                            if(hasChildren)return Mono.error(new EventException(ES_COMPLIANCE_016));
+                            if(hasChildren)return Mono.error(new EventException(ES_COMPLIANCE_000,"此根节点拥有子树，不允许删除"));
                             //没有可以删除
                             PO _rootDelete = instance(clazz);
                             _rootDelete.setId(e.getId());

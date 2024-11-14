@@ -1,7 +1,6 @@
 package org.lambda.framework.security.config;
 
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.lambda.framework.security.manger.SecurityAuthManager;
 import org.lambda.framework.security.manger.SecurityAutzManager;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +20,8 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.stream.Stream;
+
+import static org.lambda.framework.security.enums.SecurityExceptionEnum.ES_SECURITY_000;
 
 
 /**
@@ -99,8 +100,8 @@ public class SecurityConfig {
         //禁用请求换成，禁用session
         http.requestCache(e->e.requestCache(NoOpServerRequestCache.getInstance()));
         http.securityContextRepository(NoOpServerSecurityContextRepository.getInstance());
-        http.exceptionHandling(e->e.authenticationEntryPoint((a,b)->{throw new EventException(SecurityExceptionEnum.ES_SECURITY_000);}));
-        http.exceptionHandling(e->e.accessDeniedHandler((a,b)->{throw new EventException(SecurityExceptionEnum.ES_SECURITY_001);}));
+        http.exceptionHandling(e->e.authenticationEntryPoint((a,b)->{throw new EventException(ES_SECURITY_000,"身份认证失败");}));
+        http.exceptionHandling(e->e.accessDeniedHandler((a,b)->{throw new EventException(ES_SECURITY_000,"拒绝访问");}));
         http.authorizeExchange(e->e.pathMatchers(this.mergeArrays(creditUrl,permitUrls)).permitAll());
         //http.addFilterAt(authenticationWebFilter, SecurityWebFiltersOrder.AUTHENTICATION);
         http.authorizeExchange(e->e.anyExchange().access(autzManager));

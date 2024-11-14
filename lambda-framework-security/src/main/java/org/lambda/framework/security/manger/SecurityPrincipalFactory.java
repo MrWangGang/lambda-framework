@@ -29,12 +29,12 @@ class SecurityPrincipalFactory extends PrincipalFactory {
         return Mono.deferContextual(Mono::just)
                 .map(contextView ->{
                     ServerWebExchange serverWebExchange = contextView.get(ServerWebExchange.class);
-                    Assert.verify(serverWebExchange,ES_SECURITY_008);
+                    Assert.verify(serverWebExchange,ES_SECURITY_000,"缺少身份认证信息");
                     Object token = serverWebExchange.getAttributes().get(key);
-                    Assert.verify(token,ES_SECURITY_0014);
+                    Assert.verify(token,ES_SECURITY_000,"该资源需要令牌才能访问");
                     String value = token.toString();
                    return value;
                 })
-                .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_0014)));
+                .switchIfEmpty(Mono.error(new EventException(ES_SECURITY_000,"该资源需要令牌才能访问")));
     }
 }

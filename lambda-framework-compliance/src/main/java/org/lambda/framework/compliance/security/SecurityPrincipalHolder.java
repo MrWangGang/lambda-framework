@@ -39,18 +39,18 @@ public class SecurityPrincipalHolder extends PrincipalFactory {
     private Mono<String> getRequest(String key) {
         return Mono.deferContextual(Mono::just)
                 .map(contextView -> {
-                    Object securityStash = contextView.get(SecurityStash.class);
-                    Assert.verify(securityStash, ES_COMPLIANCE_027);
+                    SecurityStash securityStash = contextView.get(SecurityStash.class);
+                    Assert.verify(securityStash, ES_COMPLIANCE_000,"SecurityStash(认证信息)不存在");
                     switch (key){
                         case AUTHTOKEN_STASH_NAMING:
-                            String authToken = ((SecurityStash)securityStash).getAuthToken();
-                            Assert.verify(authToken, ES_COMPLIANCE_021);
+                            String authToken = securityStash.getAuthToken();
+                            Assert.verify(authToken, ES_COMPLIANCE_000,"SecurityStash(令牌)不存在");
                             return authToken;
                         case PRINCIPAL_STASH_NAMING:
-                            String principal = ((SecurityStash)securityStash).getPrincipal();
-                            Assert.verify(principal, ES_COMPLIANCE_019);
+                            String principal = securityStash.getPrincipal();
+                            Assert.verify(principal, ES_COMPLIANCE_000,"SecurityStash(用户信息)不存在");
                             return principal;
-                        default:throw new EventException(ES_COMPLIANCE_027);
+                        default:throw new EventException(ES_COMPLIANCE_000,"SecurityStash(枚举)访问错误");
                     }
                 });
     }

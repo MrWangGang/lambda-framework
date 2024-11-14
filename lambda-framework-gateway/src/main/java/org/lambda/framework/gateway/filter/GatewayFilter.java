@@ -3,6 +3,7 @@ package org.lambda.framework.gateway.filter;
 import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.compliance.security.SecurityPrincipalHolder;
 import org.lambda.framework.gateway.filter.support.RsocketRequestFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -23,6 +24,8 @@ public class GatewayFilter implements GlobalFilter,Ordered{
     @Resource
     private RsocketRequestFactory rsocketRequestFactory;
 
+    @Resource
+    private SecurityPrincipalHolder securityPrincipalHolder;
 
 
     @Override
@@ -35,8 +38,10 @@ public class GatewayFilter implements GlobalFilter,Ordered{
             if (RB_SCHEME.equals(targetUri.getScheme())) {
                 return rsocketRequestFactory.execute(exchange,chain,targetUri);
             }
-            //给http原生用的
-            return chain.filter(exchange);
+            if (LB_SCHEME.equals(targetUri.getScheme())) {
+                return chain.filter(exchange);
+            }
+            throw new EventException(ES_GATEWAY_000,"scheme仅支持rb与lb");
         }
         throw new EventException(ES_GATEWAY_000,"请求协议仅支持http与https");
     }

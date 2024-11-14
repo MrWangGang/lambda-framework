@@ -9,22 +9,7 @@ import org.lambda.framework.common.exception.ExceptionEnumFunction;
  */
 public enum SecurityExceptionEnum implements ExceptionEnumFunction {
 
-    //系统异常-spring security 异常 - 200-299
-    ES_SECURITY_000("ES_SECURITY_000","身份认证失败"), //AuthenticationException
-    ES_SECURITY_001("ES_SECURITY_001","拒绝访问"), //AccessDeniedException
-    ES_SECURITY_002("ES_SECURITY_002","访问用户为空"),
-    ES_SECURITY_003("ES_SECURITY_003","该请求需要令牌访问(缺失令牌)"),
-    ES_SECURITY_004("ES_SECURITY_004","用户信息不存在"),
-    ES_SECURITY_005("ES_SECURITY_005","无效的用户签名值"),
-    ES_SECURITY_006("ES_SECURITY_006","用户类型不存在"),
-    ES_SECURITY_007("ES_SECURITY_007","令牌格式不符合规范"),
-    ES_SECURITY_008("ES_SECURITY_008","无法获取spring security全局上下文变量"),
-    ES_SECURITY_009("ES_SECURITY_009","用户信息CAST失败"),
-    ES_SECURITY_010("ES_SECURITY_010","未知的lambda.security.url-autz-model"),
-    ES_SECURITY_011("ES_SECURITY_011","用户信息缓存更新失败"),
-    ES_SECURITY_0012("ES_SECURITY_0012","无效令牌"),
-    ES_SECURITY_0013("ES_SECURITY_0013","用户信息不存在"),
-    ES_SECURITY_0014("ES_SECURITY_0014","无法访问Stash");
+    ES_SECURITY_000("ES_SECURITY_000","身份认证异常");//AuthenticationException
 
     // 成员变量
     private String code;
