@@ -123,7 +123,14 @@ public class RsocketRequestFactory {
             // 使用 DefaultDataBufferFactory 创建 DataBuffer
             DataBuffer joinedDataBuffer = DefaultDataBufferFactory.sharedInstance.wrap(responseBytes);
             return response.writeWith(Mono.just(joinedDataBuffer));
-        });
+        }).switchIfEmpty(Mono.defer(()->{
+            ResponseTemplete responseTemplete = new ResponseTemplete();
+            // 将字符串转换为字节数组
+            byte[] responseBytes = JsonUtil.objToString(responseTemplete).getBytes(StandardCharsets.UTF_8);
+            // 使用 DefaultDataBufferFactory 创建 DataBuffer
+            DataBuffer joinedDataBuffer = DefaultDataBufferFactory.sharedInstance.wrap(responseBytes);
+            return response.writeWith(Mono.just(joinedDataBuffer));
+        }));
     }
 
     private Mono<byte[]> extractRequestBody(Flux<DataBuffer> body) {

@@ -60,7 +60,7 @@ public class GatewayFilter implements GlobalFilter,Ordered{
                     public String path() {
                         return targetUri.getPath();
                     }
-                });
+                }).then(chain.filter(exchange));
             }
 
             if (LB_SCHEME.equals(targetRoute.getScheme())) {
