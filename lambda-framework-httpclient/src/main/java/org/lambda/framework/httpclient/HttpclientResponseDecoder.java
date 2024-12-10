@@ -1,6 +1,8 @@
 package org.lambda.framework.httpclient;
 
+import com.fasterxml.jackson.databind.JavaType;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.common.util.sample.JsonUtil;
 import org.reactivestreams.Publisher;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.Decoder;
@@ -19,7 +21,7 @@ import static org.lambda.framework.httpclient.enums.HttpclientExceptionEnum.ES_H
 
 public abstract class HttpclientResponseDecoder<T> implements Decoder<T> {
 
-    public abstract T parseJson(String json);
+    public abstract Boolean verify(T t);
 
     @Override
     public boolean canDecode(ResolvableType elementType, MimeType mimeType) {
@@ -32,10 +34,14 @@ public abstract class HttpclientResponseDecoder<T> implements Decoder<T> {
             return Flux.from(inputStream)
                     .map(dataBuffer -> {
                         try {
-                            // 将 DataBuffer 转换为字符串
+                            // 将合并后的 DataBuffer 转换为字符串
                             String json = StandardCharsets.UTF_8.decode(dataBuffer.asByteBuffer()).toString();
-                            // 解析 JSON 为目标对象
-                            return this.parseJson(json);
+                            JavaType javaType = JsonUtil.getJsonFactory().getTypeFactory().constructType(elementType.getType());
+                            T result =  JsonUtil.getJsonFactory().readValue(json,javaType);
+                            if(!this.verify(result)){
+                                throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应校验失败");
+                            }
+                            return result;
                         } catch (Exception e){
                             throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应解析失败");
                         }finally {
@@ -56,8 +62,12 @@ public abstract class HttpclientResponseDecoder<T> implements Decoder<T> {
                         try {
                             // 将合并后的 DataBuffer 转换为字符串
                             String json = StandardCharsets.UTF_8.decode(dataBuffer.asByteBuffer()).toString();
-                            // 解析 JSON 为目标对象
-                            return this.parseJson(json);
+                            JavaType javaType = JsonUtil.getJsonFactory().getTypeFactory().constructType(elementType.getType());
+                            T result =  JsonUtil.getJsonFactory().readValue(json,javaType);
+                            if(!this.verify(result)){
+                                throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应校验失败");
+                            }
+                            return result;
                         } catch (Exception e){
                             throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应解析失败");
                         }finally {
