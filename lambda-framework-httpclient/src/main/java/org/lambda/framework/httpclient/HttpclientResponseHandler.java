@@ -6,7 +6,7 @@ import reactor.core.publisher.Mono;
 import static org.lambda.framework.httpclient.enums.HttpclientExceptionEnum.ES_HTTPCLIENT_000;
 
 public class HttpclientResponseHandler {
-    private ExchangeFilterFunction exchangeFilterFunction() {
+    public ExchangeFilterFunction exchangeFilterFunction() {
         return ExchangeFilterFunction.ofResponseProcessor(clientResponse -> {
             if (clientResponse.statusCode().is2xxSuccessful()) {
                 return Mono.just(clientResponse);
