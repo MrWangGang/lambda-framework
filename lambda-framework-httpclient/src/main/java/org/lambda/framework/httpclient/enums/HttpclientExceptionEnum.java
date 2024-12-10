@@ -2,16 +2,15 @@ package org.lambda.framework.httpclient.enums;
 
 import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
-public enum HttpClientExceptionEnum implements ExceptionEnumFunction {
+public enum HttpclientExceptionEnum implements ExceptionEnumFunction {
 
-    //OPEN AI组件相关   300-399
-    ES_RPC_000("ES_RPC_000","spring扩展点获取HttpExchange注解自动配置失败");
+    ES_HTTPCLIENT_000("ES_HTTPCLIENT_000","webclient异常");
     // 成员变量
     private String code;
 
     private String message;
     // 构造方法
-    private HttpClientExceptionEnum(String code, String message) {
+    private HttpclientExceptionEnum(String code, String message) {
         this.code = code;
         this.message = message;
 
