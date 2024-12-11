@@ -7,10 +7,6 @@ import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.env.PropertiesPropertySource;
 
 import java.util.Properties;
-//在rsocket中 虚拟线程还没有得到应用，
-// 原因是因为netty还没有支持虚拟线程，
-// 这个配置开启了也是没有用
-//期待有一天netty可以拥抱虚拟线程
 public class RsocketVirtualThreadConfig implements ApplicationContextInitializer<ConfigurableApplicationContext> {
     @Override
     public void initialize(ConfigurableApplicationContext applicationContext) {
@@ -21,7 +17,8 @@ public class RsocketVirtualThreadConfig implements ApplicationContextInitializer
         // 创建新的 PropertySource
         Properties properties = new Properties();
         properties.setProperty("spring.threads.virtual.enabled","true");
-        PropertiesPropertySource propertySource = new PropertiesPropertySource("lambdaWebProperties", properties);
+        properties.setProperty("spring.main.web-application-type","none");
+        PropertiesPropertySource propertySource = new PropertiesPropertySource("lambdaRsocketProperties", properties);
         // 将新的 PropertySource 添加到环境中
         propertySources.addFirst(propertySource);
     }

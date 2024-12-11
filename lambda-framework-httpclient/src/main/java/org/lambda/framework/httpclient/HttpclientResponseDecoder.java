@@ -10,6 +10,7 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.MediaType;
 import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -81,6 +82,6 @@ public abstract class HttpclientResponseDecoder<T> implements Decoder<T> {
 
     @Override
     public List<MimeType> getDecodableMimeTypes() {
-        return List.of(MediaType.APPLICATION_JSON);
+        return List.of(MimeTypeUtils.APPLICATION_JSON);
     }
 }
