@@ -34,21 +34,24 @@ public abstract class HttpclientResponseDecoder<T> implements Decoder<T> {
         if (inputStream != null) {
             return Flux.from(inputStream)
                     .map(dataBuffer -> {
+                        T result;
                         try {
                             // 将合并后的 DataBuffer 转换为字符串
                             String json = StandardCharsets.UTF_8.decode(dataBuffer.asByteBuffer()).toString();
                             JavaType javaType = JsonUtil.getJsonFactory().getTypeFactory().constructType(elementType.getType());
-                            T result =  JsonUtil.getJsonFactory().readValue(json,javaType);
-                            if(!this.verify(result)){
-                                throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应校验失败");
-                            }
-                            return result;
+                            result =  JsonUtil.getJsonFactory().readValue(json,javaType);
                         } catch (Exception e){
                             throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应解析失败");
                         }finally {
-                            // 确保释放 DataBuffer
+                            // 确保释放合并后的 DataBuffer
                             DataBufferUtils.release(dataBuffer);
                         }
+
+                        if(result == null || !this.verify(result)){
+                            throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应校验失败");
+                        }
+
+                        return result;
                     });
         }
         throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应为空,无法解析");
@@ -60,21 +63,24 @@ public abstract class HttpclientResponseDecoder<T> implements Decoder<T> {
             return Flux.from(inputStream)
                     .reduce(DataBuffer::write)
                     .map(dataBuffer -> {
+                        T result;
                         try {
                             // 将合并后的 DataBuffer 转换为字符串
                             String json = StandardCharsets.UTF_8.decode(dataBuffer.asByteBuffer()).toString();
                             JavaType javaType = JsonUtil.getJsonFactory().getTypeFactory().constructType(elementType.getType());
-                            T result =  JsonUtil.getJsonFactory().readValue(json,javaType);
-                            if(!this.verify(result)){
-                                throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应校验失败");
-                            }
-                            return result;
+                            result =  JsonUtil.getJsonFactory().readValue(json,javaType);
                         } catch (Exception e){
                             throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应解析失败");
                         }finally {
                             // 确保释放合并后的 DataBuffer
                             DataBufferUtils.release(dataBuffer);
                         }
+
+                        if(result == null || !this.verify(result)){
+                            throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应校验失败");
+                        }
+
+                        return result;
                     });
         }
         throw new EventException(ES_HTTPCLIENT_000,"[webclient]响应为空,无法解析");
