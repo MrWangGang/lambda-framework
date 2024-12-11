@@ -3,13 +3,27 @@ package org.lambda.framework.httpclient;
 import org.lambda.framework.common.exception.EventException;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import reactor.core.publisher.Mono;
+
 import static org.lambda.framework.httpclient.enums.HttpclientExceptionEnum.ES_HTTPCLIENT_000;
 
 public class HttpclientResponseHandler {
-    public ExchangeFilterFunction exchangeFilterFunction() {
+    public static interface ReponseVerify{
+        public Boolean verify(String body);
+    }
+    public static ExchangeFilterFunction create(ReponseVerify reponseVerify) {
         return ExchangeFilterFunction.ofResponseProcessor(clientResponse -> {
             if (clientResponse.statusCode().is2xxSuccessful()) {
-                return Mono.just(clientResponse);
+                return clientResponse.bodyToMono(String.class)
+                        .flatMap(body -> {
+                            if(reponseVerify == null){
+                                return Mono.error(new EventException(ES_HTTPCLIENT_000, "[webclient]缺少响应校验钩子函数"));
+                            }
+
+                            if(!reponseVerify.verify(body)){
+                                return Mono.error(new EventException(ES_HTTPCLIENT_000, "[webclient]响应解析失败"));
+                            }
+                            return Mono.just(clientResponse);
+                        });
             } else {
                 // 处理错误响应
                 if (clientResponse.statusCode().is4xxClientError()) {
