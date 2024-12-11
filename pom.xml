@@ -63,7 +63,6 @@
 		<copiers.version>2.5.4</copiers.version>
 		<rabbitmq.version>1.5.6</rabbitmq.version>
 		<jnanoid.version>2.0.0</jnanoid.version>
-		<netty-http.version>1.2.1</netty-http.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -245,11 +244,6 @@
 				<groupId>com.aventrix.jnanoid</groupId>
 				<artifactId>jnanoid</artifactId>
 				<version>${jnanoid.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>io.projectreactor.netty</groupId>
-				<artifactId>reactor-netty-http</artifactId>
-				<version>${netty-http.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>

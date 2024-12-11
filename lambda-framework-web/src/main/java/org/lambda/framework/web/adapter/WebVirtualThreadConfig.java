@@ -1,25 +1,24 @@
 package org.lambda.framework.web.adapter;
 
-import org.springframework.context.ApplicationContextInitializer;
-import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.env.EnvironmentPostProcessor;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.env.ConfigurableEnvironment;
-import org.springframework.core.env.MutablePropertySources;
-import org.springframework.core.env.PropertiesPropertySource;
+import org.springframework.core.env.MapPropertySource;
 
-import java.util.Properties;
+import java.util.HashMap;
+import java.util.Map;
 
-public class WebVirtualThreadConfig implements ApplicationContextInitializer<ConfigurableApplicationContext> {
+@Order(Ordered.HIGHEST_PRECEDENCE + 1) // 设置较高的优先级顺序，可根据实际情况调整数值
+public class WebVirtualThreadConfig implements EnvironmentPostProcessor {
+
     @Override
-    public void initialize(ConfigurableApplicationContext applicationContext) {
-        ConfigurableEnvironment environment = applicationContext.getEnvironment();
-        // 自定义要排除的自动配置类
-        // 获取 PropertySources
-        MutablePropertySources propertySources = environment.getPropertySources();
-        // 创建新的 PropertySource
-        Properties properties = new Properties();
-        properties.setProperty("spring.threads.virtual.enabled","true");
-        PropertiesPropertySource propertySource = new PropertiesPropertySource("lambdaWebProperties", properties);
-        // 将新的 PropertySource 添加到环境中
-        propertySources.addFirst(propertySource);
+    public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+        Map<String, Object> customProperties = new HashMap<>();
+        customProperties.put("spring.main.web-application-type", "none");
+        customProperties.put("spring.threads.virtual.enabled", "true");
+        environment.getPropertySources().addFirst(new MapPropertySource("webVirtualThreadConfigProperties", customProperties));
+
     }
 }
