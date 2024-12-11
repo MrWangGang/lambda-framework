@@ -12,6 +12,7 @@ public class HttpclientResponseHandler {
     }
     public static ExchangeFilterFunction create(ReponseVerify reponseVerify) {
         return ExchangeFilterFunction.ofResponseProcessor(clientResponse -> {
+
             if (clientResponse.statusCode().is2xxSuccessful()) {
                 return clientResponse.bodyToMono(String.class)
                         .flatMap(body -> {
@@ -22,7 +23,7 @@ public class HttpclientResponseHandler {
                             if(!reponseVerify.verify(body)){
                                 return Mono.error(new EventException(ES_HTTPCLIENT_000, "[webclient]响应解析失败"));
                             }
-                            return Mono.just(clientResponse);
+                            return Mono.just(clientResponse.mutate().body(body).build());
                         });
             } else {
                 // 处理错误响应
