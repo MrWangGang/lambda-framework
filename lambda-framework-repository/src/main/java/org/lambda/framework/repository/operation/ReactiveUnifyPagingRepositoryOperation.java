@@ -14,7 +14,7 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
 
 
     //利用jpa规范生成的jpql，面向对象查询方式
-    default <Condition>Mono<Paged<Entity>> jpql(Paging paging, Condition condition, Sort sort, UnifyPagingJpqlOperation<Condition,Entity> operation){
+    default <Condition>Mono<Paged<Entity>> jpqlPaging(Paging paging, Condition condition, Sort sort, UnifyPagingJpqlOperation<Condition,Entity> operation){
         Assert.verify(paging,ES_REPOSITORY_103);
         Assert.verify(paging.getPage(),ES_REPOSITORY_104);
         Assert.verify(paging.getSize(),ES_REPOSITORY_105);
@@ -34,7 +34,7 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
         });
     }
 
-    default <Condition,VO>Mono<Paged<VO>> find(Paging paging, Condition condition,UnifyPagingSqlOperation<Condition,VO> operation){
+    default <Condition,VO>Mono<Paged<VO>> sqlPaging(Paging paging, Condition condition,UnifyPagingSqlOperation<Condition,VO> operation){
         Assert.verify(paging,ES_REPOSITORY_103);
         Assert.verify(paging.getPage(),ES_REPOSITORY_104);
         Assert.verify(paging.getSize(),ES_REPOSITORY_105);
@@ -59,7 +59,7 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
                 });
     }
 
-    default <Condition,VO>Mono<Paged<VO>> find(Paging paging,UnifyPagingSqlDefaultOperation<VO> operation){
+    default <Condition,VO>Mono<Paged<VO>> sqlPaging(Paging paging,UnifyPagingSqlDefaultOperation<VO> operation){
         Assert.verify(paging,ES_REPOSITORY_103);
         Assert.verify(paging.getPage(),ES_REPOSITORY_104);
         Assert.verify(paging.getSize(),ES_REPOSITORY_105);

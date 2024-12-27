@@ -140,7 +140,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
-        return repository.jpql(paging,po,sort,(_condition,_pageable,_sort)->{
+        return repository.jpqlPaging(paging,po,sort,(_condition,_pageable,_sort)->{
             return repository.findBy(Example.of(_condition),
                     x -> x.sortBy(_sort).page(PageRequest.of(_pageable.getPageNumber(), _pageable.getPageSize())));
         });
@@ -153,7 +153,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
-        return repository.jpql(paging,po,Sort.unsorted(),(_condition,_pageable,_sort)->{
+        return repository.jpqlPaging(paging,po,Sort.unsorted(),(_condition,_pageable,_sort)->{
             return repository.findBy(Example.of(_condition),
                     x -> x.sortBy(_sort).page(PageRequest.of(_pageable.getPageNumber(), _pageable.getPageSize())));
         });
@@ -164,14 +164,14 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
         if(condition == null)throw new EventException(ES_COMPLIANCE_000);
         if(paging == null)throw new EventException(ES_COMPLIANCE_000,"分页参数不能缺失");
         if(operation == null)throw new EventException(ES_COMPLIANCE_000,"分页实现不能缺失");
-        return repository.find(paging,condition,operation);
+        return repository.sqlPaging(paging,condition,operation);
     }
 
     @Override
     public <VO> Mono<Paged<VO>> find(Paging paging, UnifyPagingSqlDefaultOperation<VO> operation) {
         if(paging == null)throw new EventException(ES_COMPLIANCE_000,"分页参数不能缺失");
         if(operation == null)throw new EventException(ES_COMPLIANCE_000,"分页实现不能缺失");
-        return repository.find(paging,operation);
+        return repository.sqlPaging(paging,operation);
     }
 
     @Override

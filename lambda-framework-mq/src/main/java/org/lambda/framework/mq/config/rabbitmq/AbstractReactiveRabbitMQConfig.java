@@ -18,6 +18,13 @@ public abstract class AbstractReactiveRabbitMQConfig {
     protected abstract String password();
     protected  ConnectionFactory connectionFactory;
     protected  Sender sender;
+
+    @Bean
+    public RabbitMqReactiveOperate rabbitMqOperate(){
+        return new RabbitMqReactiveOperate();
+    }
+
+
     @Bean
     public ConnectionFactory connectionFactory() {
         Assert.verify(this.host(),ES_MQ_RABBITMQ_000);

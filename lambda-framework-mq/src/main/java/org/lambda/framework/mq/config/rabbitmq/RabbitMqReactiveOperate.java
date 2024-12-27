@@ -1,7 +1,6 @@
 package org.lambda.framework.mq.config.rabbitmq;
 
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
 import jakarta.annotation.Resource;
 import lombok.AllArgsConstructor;
@@ -10,7 +9,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.rabbitmq.*;
@@ -19,11 +17,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.lambda.framework.mq.enums.MqExceptionEnum.*;
-@Component
-public class RabbitMqReactiveOperate {
 
-    @Resource
-    private ConnectionFactory connectionFactory;
+public class RabbitMqReactiveOperate {
     @Resource
     private Sender sender;
     @Resource

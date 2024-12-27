@@ -104,7 +104,7 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
         return MongoClients.create(settings);
     }
     @Bean
-    public MongoCustomConversions customConversions() {
+    public MongoCustomConversions mongoCustomConversions() {
         return new MongoCustomConversions(Arrays.asList(new EnumReadConverter<ConverterEnum>(),new EnumWriteConverter())); // 注册你的自定义转换器
     }
 
