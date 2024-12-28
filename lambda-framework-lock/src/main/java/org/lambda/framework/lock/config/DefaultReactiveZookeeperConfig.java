@@ -1,12 +1,15 @@
 package org.lambda.framework.lock.config;
 
+import org.apache.commons.lang3.StringUtils;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.lock.ReactiveZookeeperBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 
+import static org.lambda.framework.lock.enums.LockExceptionEnum.ES_LOCK_ZOOKEEPER_021;
+
 public abstract class DefaultReactiveZookeeperConfig extends AbstractReactiveZookeeperConfig {
 
-    @Value("${lambda.lock.zookeeper.host:}")
     protected String host;
     @Value("${lambda.lock.zookeeper.maxRetries:3}")
     private Integer maxRetries;
@@ -23,7 +26,11 @@ public abstract class DefaultReactiveZookeeperConfig extends AbstractReactiveZoo
     }
 
     @Override
+    @Value("${lambda.lock.zookeeper.host:-1}")
     protected String host() {
+        if(host == null || StringUtils.isBlank(host) || "-1".equals(host)){
+            throw new EventException(ES_LOCK_ZOOKEEPER_021);
+        }
         return this.host;
     }
 

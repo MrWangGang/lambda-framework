@@ -25,6 +25,11 @@ public enum LockExceptionEnum implements ExceptionEnumFunction {
     ES_LOCK_REDISSON_017("ES_LOCK_REDISSON_017","redisson 加锁失败"),
     ES_LOCK_REDISSON_018("ES_LOCK_REDISSON_018","redisson 释放锁失败"),
     ES_LOCK_REDISSON_019("ES_LOCK_REDISSON_019","无效的redis部署模式"),
+    ES_LOCK_REDISSON_020("ES_LOCK_REDISSON_020","redisson 未配置lambda.lock.redisson.host"),
+    ES_LOCK_REDISSON_021("ES_LOCK_REDISSON_021","redisson 未配置lambda.lock.redisson.password"),
+    ES_LOCK_REDISSON_022("ES_LOCK_REDISSON_022","redisson 未配置lambda.lock.redisson.database"),
+
+
 
 
     ES_LOCK_ZOOKEEPER_010("ES_LOCK_ZOOKEEPER_010","zookeeper host缺失"),
@@ -36,7 +41,8 @@ public enum LockExceptionEnum implements ExceptionEnumFunction {
     ES_LOCK_ZOOKEEPER_017("ES_LOCK_ZOOKEEPER_017","zookeeper 加锁失败"),
     ES_LOCK_ZOOKEEPER_018("ES_LOCK_ZOOKEEPER_018","zookeeper 释放锁失败"),
     ES_LOCK_ZOOKEEPER_019("ES_LOCK_ZOOKEEPER_019","zookeeper InterProcessMutex未初始化"),
-    ES_LOCK_ZOOKEEPER_020("ES_LOCK_ZOOKEEPER_020","zookeeper InterProcessReadWriteLock 未初始化");
+    ES_LOCK_ZOOKEEPER_020("ES_LOCK_ZOOKEEPER_020","zookeeper InterProcessReadWriteLock 未初始化"),
+    ES_LOCK_ZOOKEEPER_021("ES_LOCK_ZOOKEEPER_021","zookeeper 未配置lambda.lock.zookeeper.host");
 
 
 
