@@ -9,6 +9,13 @@ import org.springframework.context.annotation.Bean;
 import static org.lambda.framework.lock.enums.LockExceptionEnum.ES_LOCK_ZOOKEEPER_021;
 
 public abstract class DefaultReactiveZookeeperConfig extends AbstractReactiveZookeeperConfig {
+    @Value("${lambda.lock.zookeeper.host:-1}")
+    public void setHost(String host) {
+        if(host == null || StringUtils.isBlank(host) || "-1".equals(host)){
+            throw new EventException(ES_LOCK_ZOOKEEPER_021);
+        }
+        this.host = host;
+    }
 
     protected String host;
     @Value("${lambda.lock.zookeeper.maxRetries:3}")
@@ -26,11 +33,7 @@ public abstract class DefaultReactiveZookeeperConfig extends AbstractReactiveZoo
     }
 
     @Override
-    @Value("${lambda.lock.zookeeper.host:-1}")
     protected String host() {
-        if(host == null || StringUtils.isBlank(host) || "-1".equals(host)){
-            throw new EventException(ES_LOCK_ZOOKEEPER_021);
-        }
         return this.host;
     }
 

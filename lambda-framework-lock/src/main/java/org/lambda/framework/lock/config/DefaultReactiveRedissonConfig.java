@@ -9,6 +9,28 @@ import org.springframework.context.annotation.Bean;
 import static org.lambda.framework.lock.enums.LockExceptionEnum.*;
 
 public abstract class DefaultReactiveRedissonConfig extends AbstractReactiveRedissonConfig {
+    @Value("${lambda.lock.redisson.host-1:}")
+    public void setHost(String host) {
+        if(host == null || StringUtils.isBlank(host) || "-1".equals(host)){
+            throw new EventException(ES_LOCK_REDISSON_020);
+        }
+         this.host = host;
+    }
+    @Value("${lambda.lock.redisson.password:-1}")
+    public void setPassword(String password) {
+        if(password == null || StringUtils.isBlank(password) || "-1".equals(password)){
+            throw new EventException(ES_LOCK_REDISSON_021);
+        }
+         this.password = password;
+    }
+    @Value("${lambda.lock.redisson.database:-1}")
+    public void setDatabase(Integer database) {
+        if(database == null || database.equals(-1)){
+            throw new EventException(ES_LOCK_REDISSON_022);
+        }
+         this.database = database;
+    }
+
     protected String host;
     protected String password;
     protected Integer database;
@@ -23,29 +45,17 @@ public abstract class DefaultReactiveRedissonConfig extends AbstractReactiveRedi
     }
 
     @Override
-    @Value("${lambda.lock.redisson.host-1:}")
     protected String host() {
-        if(host == null || StringUtils.isBlank(host) || "-1".equals(host)){
-            throw new EventException(ES_LOCK_REDISSON_020);
-        }
         return this.host;
     }
 
     @Override
-    @Value("${lambda.lock.redisson.password:-1}")
     protected String password() {
-        if(password == null || StringUtils.isBlank(password) || "-1".equals(password)){
-            throw new EventException(ES_LOCK_REDISSON_021);
-        }
         return this.password;
     }
 
     @Override
-    @Value("${lambda.lock.redisson.database:-1}")
     protected Integer database() {
-        if(database == null || database.equals(-1)){
-            throw new EventException(ES_LOCK_REDISSON_022);
-        }
         return this.database;
     }
 
