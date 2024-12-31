@@ -23,12 +23,12 @@ public class KafkaMqReactiveOperate {
     @Resource
     private AbstractReactiveKafkaMqConfig.KafkaReceiverFactory kafkaReceiverFactory;
 
-    private Mono<Void> send(Declare declare,String key,String message) {
+    public Mono<Void> send(Declare declare,String key,String message) {
         Assert.verify(key,ES_MQ_KAFKA_003);
         return this.sendMessage(declare,key,message);
     }
 
-    private Mono<Void> send(Declare declare,String message) {
+    public Mono<Void> send(Declare declare,String message) {
         return this.sendMessage(declare,null,message);
     }
 
