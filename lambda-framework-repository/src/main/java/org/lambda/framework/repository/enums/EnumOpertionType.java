@@ -6,13 +6,13 @@ import org.lambda.framework.common.exception.EventException;
 
 import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.ES_REPOSITORY_107;
 @Getter
-public enum OpertionTypeEnum  implements ConverterEnum {
-    INSERT("插入","INSERT"),
-    UPDATE("更新","UPDATE"),
-    DELETE("删除","DELETE");
+public enum EnumOpertionType implements ConverterEnum {
+    ENUM_OPERTION_TYPE_INSERT("插入","INSERT"),
+    ENUM_OPERTION_TYPE_UPDATE("更新","UPDATE"),
+    ENUM_OPERTION_TYPE_DELETE("删除","DELETE");
 
     public static boolean isValid(String value) {
-        for (OpertionTypeEnum enumValue : values()) {
+        for (EnumOpertionType enumValue : values()) {
             if (enumValue.getValue().equals(value)) {
                 return true;
             }
@@ -20,7 +20,7 @@ public enum OpertionTypeEnum  implements ConverterEnum {
         throw new EventException(ES_REPOSITORY_107);
     }
 
-    OpertionTypeEnum(String description, String value) {
+    EnumOpertionType(String description, String value) {
         this.description = description;
         this.value = value;
     }

@@ -4,7 +4,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.bson.BsonType;
 import org.bson.Document;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.repository.enums.OpertionTypeEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.ChangeStreamEvent;
@@ -15,6 +14,7 @@ import reactor.core.publisher.Flux;
 import java.util.List;
 
 import static com.mongodb.client.model.changestream.OperationType.*;
+import static org.lambda.framework.repository.enums.EnumOpertionType.*;
 import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.*;
 
 public class ReactiveMongoChangeStreamListener {
@@ -61,13 +61,13 @@ public class ReactiveMongoChangeStreamListener {
                         }
                         String opid = db + "." + doc + "." + docId + "." + time;
                         if (event.getOperationType().equals(INSERT)) {
-                            operate.afterInsert(OpertionTypeEnum.INSERT,opid,event.getBody()).subscribe();
+                            operate.afterInsert(ENUM_OPERTION_TYPE_INSERT,opid,event.getBody()).subscribe();
                         }
                         if (event.getOperationType().equals(UPDATE)) {
-                            operate.afterUpdate(OpertionTypeEnum.UPDATE,opid, event.getBody()).subscribe();
+                            operate.afterUpdate(ENUM_OPERTION_TYPE_UPDATE,opid, event.getBody()).subscribe();
                         }
                         if (event.getOperationType().equals(DELETE)) {
-                            operate.afterDelete(OpertionTypeEnum.DELETE,opid, event.getBody()).subscribe();
+                            operate.afterDelete(ENUM_OPERTION_TYPE_DELETE,opid, event.getBody()).subscribe();
                         }
                     } catch (Throwable e){
                         log.error(StringUtils.isNotBlank(e.getMessage())?e.getMessage():"change stream配置错误,启动失败", e);
