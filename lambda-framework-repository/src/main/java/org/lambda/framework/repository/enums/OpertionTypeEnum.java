@@ -13,7 +13,7 @@ public enum OpertionTypeEnum  implements ConverterEnum {
 
     public static boolean isValid(String value) {
         for (OpertionTypeEnum enumValue : values()) {
-            if (enumValue.name().equals(value)) {
+            if (enumValue.getValue().equals(value)) {
                 return true;
             }
         }
