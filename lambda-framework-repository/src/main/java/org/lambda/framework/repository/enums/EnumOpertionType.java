@@ -20,6 +20,15 @@ public enum EnumOpertionType implements ConverterEnum {
         throw new EventException(ES_REPOSITORY_107);
     }
 
+    public static EnumOpertionType get(String value) {
+        for (EnumOpertionType enumValue : values()) {
+            if (enumValue.getValue().equals(value)) {
+                return enumValue;
+            }
+        }
+        throw new EventException(ES_REPOSITORY_107);
+    }
+
     EnumOpertionType(String description, String value) {
         this.description = description;
         this.value = value;
