@@ -13,8 +13,7 @@ import reactor.kafka.receiver.ReceiverRecord;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderRecord;
 
-import static org.lambda.framework.mq.enums.MqExceptionEnum.ES_MQ_KAFKA_001;
-import static org.lambda.framework.mq.enums.MqExceptionEnum.ES_MQ_KAFKA_002;
+import static org.lambda.framework.mq.enums.MqExceptionEnum.*;
 
 public class KafkaMqReactiveOperate {
 
@@ -24,12 +23,21 @@ public class KafkaMqReactiveOperate {
     @Resource
     private AbstractReactiveKafkaMqConfig.KafkaReceiverFactory kafkaReceiverFactory;
 
-    public Mono<Void> send(Declare declare, String message) {
+    private Mono<Void> send(Declare declare,String key,String message) {
+        Assert.verify(key,ES_MQ_KAFKA_003);
+        return this.sendMessage(declare,key,message);
+    }
+
+    private Mono<Void> send(Declare declare,String message) {
+        return this.sendMessage(declare,null,message);
+    }
+
+    private Mono<Void> sendMessage(Declare declare, String key,String message) {
         Assert.check(declare,ES_MQ_KAFKA_001);
         Assert.verify(message,ES_MQ_KAFKA_002);
         return kafkaSender.send(Mono.just(
-                        SenderRecord.create(declare.getTopic(), null, null, null, message, null)))
-                .then();// 修复了泛型语法
+                        SenderRecord.create(declare.getTopic(), null, null, key, message, null)))
+                .then();
     }
 
     public Flux<ReceiverRecord<String, String>> receiverManual(Declare declare) {

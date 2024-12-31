@@ -17,6 +17,7 @@ public enum MqExceptionEnum implements ExceptionEnumFunction {
     ES_MQ_KAFKA_000("ES_MQ_KAFKA_000","kafkamq缺少host配置"),
     ES_MQ_KAFKA_001("ES_MQ_KAFKA_001","kafkamq缺少声明配置"),
     ES_MQ_KAFKA_002("ES_MQ_KAFKA_002","kafkamq缺少消息主体"),
+    ES_MQ_KAFKA_003("ES_MQ_KAFKA_003","kafkamq缺少消息key"),
 
 
 
