@@ -1,12 +1,21 @@
 package org.lambda.framework.repository.config.mongodb;
 
+import com.mongodb.reactivestreams.client.MongoClient;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 
 import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.*;
 
 public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoRepositoryConfig {
+
+    @Bean
+    public MongoClient mongo(){
+        return super.buildMongoOperation();
+    }
+
+
     private String host;
 
     private String user;
