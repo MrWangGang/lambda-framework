@@ -1,4 +1,4 @@
-package org.lambda.framework.redis.operation;
+package org.lambda.framework.repository.operation.redis;
 
 
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;

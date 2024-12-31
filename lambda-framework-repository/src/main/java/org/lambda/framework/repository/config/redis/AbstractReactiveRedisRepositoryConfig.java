@@ -1,12 +1,12 @@
-package org.lambda.framework.redis.config;
+package org.lambda.framework.repository.config.redis;
 
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.apache.logging.log4j.util.Strings;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.util.sample.JsonUtil;
-import org.lambda.framework.redis.enums.RedisDeployModelEnum;
-import org.lambda.framework.redis.operation.ReactiveRedisOperation;
+import org.lambda.framework.repository.enums.RedisDeployModelEnum;
+import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
 import org.springframework.data.redis.connection.*;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -17,7 +17,8 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 
-import static org.lambda.framework.redis.enums.RedisExceptionEnum.*;
+import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.*;
+
 
 public abstract class AbstractReactiveRedisRepositoryConfig {
 
@@ -41,7 +42,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
         protected abstract String masterName();
 
         public ReactiveRedisOperation buildRedisOperation() {
-            Assert.verify(this.deployModel(),ES_REDIS_020);
+            Assert.verify(this.deployModel(), ES_REPOSITORY_REDIS_037);
             RedisSerializationContext.SerializationPair<String> stringSerializationPair = RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer.UTF_8);
             Jackson2JsonRedisSerializer<Object> valueSerializer = new Jackson2JsonRedisSerializer<>(JsonUtil.getJsonFactory(),Object.class);
             RedisSerializationContext.RedisSerializationContextBuilder builder =
@@ -57,7 +58,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
         }
 
         private ReactiveRedisConnectionFactory redisConnectionFactory(String deployModel){
-            Assert.verify(deployModel,ES_REDIS_020);
+            Assert.verify(deployModel, ES_REPOSITORY_REDIS_037);
             RedisDeployModelEnum.isValid(deployModel);
             LettuceConnectionFactory lettuceConnectionFactory = null;
             switch (RedisDeployModelEnum.valueOf(deployModel)) {
@@ -74,7 +75,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
                     lettuceConnectionFactory = new LettuceConnectionFactory(this.sentinel(),lettuceClientConfiguration());
                     break;
                 default:
-                    throw new EventException(ES_REDIS_021);
+                    throw new EventException(ES_REPOSITORY_REDIS_040);
             }
             lettuceConnectionFactory.setShareNativeConnection(true);
             lettuceConnectionFactory.setValidateConnection(false);
@@ -83,8 +84,8 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
         }
 
     private RedisStaticMasterReplicaConfiguration masterSlave() {
-        Assert.verify(this.host(), ES_REDIS_000);
-        Assert.verify(this.database(), ES_REDIS_006);
+        Assert.verify(this.host(),ES_REPOSITORY_REDIS_030);
+        Assert.verify(this.database(),ES_REPOSITORY_REDIS_036);
         String[] nodes = this.host().split(",");
         boolean firstNode = true;
         RedisStaticMasterReplicaConfiguration redisStaticMasterReplicaConfiguration = null;
@@ -109,9 +110,9 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
 
 
     private RedisSentinelConfiguration sentinel() {
-        Assert.verify(this.host(), ES_REDIS_000);
-        Assert.verify(this.database(), ES_REDIS_006);
-        Assert.verify(this.masterName(), ES_REDIS_022);
+        Assert.verify(this.host(),ES_REPOSITORY_REDIS_030);
+        Assert.verify(this.database(),ES_REPOSITORY_REDIS_036);
+        Assert.verify(this.masterName(),ES_REPOSITORY_REDIS_039);
         String[] nodes = this.host().split(",");
         RedisSentinelConfiguration sentinelConfiguration = new RedisSentinelConfiguration();
         sentinelConfiguration.setMaster(this.masterName());
@@ -130,8 +131,8 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
 
     private RedisClusterConfiguration cluster(){
         //密码不需要校验
-        Assert.verify(this.host(),ES_REDIS_000);
-        Assert.verify(this.database(),ES_REDIS_006);
+        Assert.verify(this.host(),ES_REPOSITORY_REDIS_030);
+        Assert.verify(this.database(),ES_REPOSITORY_REDIS_036);
         String[] nodes = this.host().split(",");
 
         RedisClusterConfiguration redisClusterConfiguration = new RedisClusterConfiguration();
@@ -150,8 +151,8 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
 
         private RedisStandaloneConfiguration single(){
             //密码不需要校验
-            Assert.verify(this.host(),ES_REDIS_000);
-            Assert.verify(this.database(),ES_REDIS_006);
+            Assert.verify(this.host(),ES_REPOSITORY_REDIS_030);
+            Assert.verify(this.database(),ES_REPOSITORY_REDIS_036);
             String[] nodes = this.host().split(":");
             RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration();
             redisStandaloneConfiguration.setDatabase(database());
@@ -164,10 +165,10 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
         }
 
         private LettuceClientConfiguration lettuceClientConfiguration() {
-            Assert.verify(this.maxActive(),ES_REDIS_002);
-            Assert.verify(this.maxWaitSeconds(),ES_REDIS_003);
-            Assert.verify(this.maxIdle(),ES_REDIS_004);
-            Assert.verify(this.minIdle(),ES_REDIS_005);
+            Assert.verify(this.maxActive(),ES_REPOSITORY_REDIS_032);
+            Assert.verify(this.maxWaitSeconds(),ES_REPOSITORY_REDIS_033);
+            Assert.verify(this.maxIdle(),ES_REPOSITORY_REDIS_034);
+            Assert.verify(this.minIdle(),ES_REPOSITORY_REDIS_035);
             // 连接池配置
             GenericObjectPoolConfig genericObjectPoolConfig = new GenericObjectPoolConfig();
             genericObjectPoolConfig.setMaxTotal(maxActive());

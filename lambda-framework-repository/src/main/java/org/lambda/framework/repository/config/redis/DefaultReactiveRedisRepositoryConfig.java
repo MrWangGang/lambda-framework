@@ -1,34 +1,32 @@
-package org.lambda.framework.openai;
+package org.lambda.framework.repository.config.redis;
 
-import org.lambda.framework.redis.config.AbstractReactiveRedisRepositoryConfig;
+import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 
-public  class AbstractOpenAiRedisRepositoryConfig extends AbstractReactiveRedisRepositoryConfig {
-    //##Redis服务器地址
-    @Value("${lambda.openai.redis.host:}")
+public class DefaultReactiveRedisRepositoryConfig extends AbstractReactiveRedisRepositoryConfig {
+    @Value("${lambda.repository.redis.host:}")
     protected String host;
-    //连接池密码
-    @Value("${lambda.openai.redis.password:}")
+    @Value("${lambda.repository.redis.password:}")
     protected String password;
-    //##数据库序号
-    @Value("${lambda.openai.redis.database:14}")
-    private Integer database;
-    @Value("${lambda.openai.redis.deploy:single}")
+    @Value("${lambda.repository.redis.database:}")
+    protected Integer database;
+    @Value("${lambda.repository.redis.deploy:single}")
     protected String deployModel;
-    @Value("${lambda.openai.redis.master:master}")
+    @Value("${lambda.repository.redis.master:master}")
     protected String masterName;
-    //# 连接池最大连接数
-    @Value("${lambda.openai.redis.lettuce.pool.max-active:8}")
+    @Value("${lambda.repository.redis.lettuce.pool.max-active:8}")
     protected Integer maxActive;
-    //# 连接池最大阻塞等待时间（使用负值表示没有限制）
-    @Value("${lambda.openai.redis.lettuce.pool.max_wait-seconds:50}")
+    @Value("${lambda.repository.redis.lettuce.pool.max_wait-seconds:50}")
     protected Integer maxWaitSeconds;
-    //# 连接池中的最大空闲连接
-    @Value("${lambda.openai.redis.lettuce.pool.max-idle:8}")
+    @Value("${lambda.repository.redis.lettuce.pool.max-idle:8}")
     protected Integer maxIdle;
-    //# 连接池中的最小空闲连接
-    @Value("${lambda.openai.redis.lettuce.pool.min-idle:0}")
+    @Value("${lambda.repository.redis.lettuce.pool.min-idle:0}")
     protected Integer minIdle;
+    @Bean
+    public ReactiveRedisOperation reactiveRedisOperation(){
+        return buildRedisOperation();
+    }
 
     @Override
     protected String host() {

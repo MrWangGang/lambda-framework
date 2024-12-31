@@ -97,17 +97,7 @@
 			</dependency>
 			<dependency>
 				<groupId>org.lambda.framework</groupId>
-				<artifactId>lambda-framework-openai</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.lambda.framework</groupId>
 				<artifactId>lambda-framework-rpc</artifactId>
-				<version>${project.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.lambda.framework</groupId>
-				<artifactId>lambda-framework-redis</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>
@@ -265,9 +255,7 @@
 		<module>lambda-framework-httpclient</module>
 		<module>lambda-framework-security</module>
 		<module>lambda-framework-guid</module>
-		<module>lambda-framework-redis</module>
 		<module>lambda-framework-repository</module>
-		<module>lambda-framework-openai</module>
 		<module>lambda-framework-compliance</module>
 		<module>lambda-framework-lock</module>
 		<module>lambda-framework-mq</module>

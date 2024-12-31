@@ -15,7 +15,12 @@ public class LambdaRepositoryConfig implements ApplicationContextInitializer<Con
         // 自定义要排除的自动配置类
         String[] excludedAutoConfigurations = {
                 "org.springframework.boot.autoconfigure.r2dbc.R2dbcAutoConfiguration",
+                "org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration",
                 "org.springframework.boot.autoconfigure.mongo.MongoReactiveAutoConfiguration",
+                "org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration",
+                "org.springframework.boot.autoconfigure.data.elasticsearch.ReactiveElasticsearchRepositoriesAutoConfiguration",
+                "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration",
+                "org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration",
         };
         // 获取 PropertySources
         MutablePropertySources propertySources = environment.getPropertySources();

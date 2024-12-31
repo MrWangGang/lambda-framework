@@ -4,7 +4,7 @@ package org.lambda.framework.security.manger;
 import jakarta.annotation.Resource;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.redis.operation.ReactiveRedisOperation;
+import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
 import org.lambda.framework.security.enums.SecurityContract;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.springframework.beans.factory.annotation.Value;

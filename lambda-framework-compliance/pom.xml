@@ -21,9 +21,5 @@
 			<groupId>org.lambda.framework</groupId>
 			<artifactId>lambda-framework-repository</artifactId>
 		</dependency>
-		<dependency>
-			<groupId>org.lambda.framework</groupId>
-			<artifactId>lambda-framework-redis</artifactId>
-		</dependency>
 	</dependencies>
 </project>

@@ -1,7 +1,7 @@
 package org.lambda.framework.compliance.security.config;
 
-import org.lambda.framework.redis.config.AbstractReactiveRedisRepositoryConfig;
-import org.lambda.framework.redis.operation.ReactiveRedisOperation;
+import org.lambda.framework.repository.config.redis.AbstractReactiveRedisRepositoryConfig;
+import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
