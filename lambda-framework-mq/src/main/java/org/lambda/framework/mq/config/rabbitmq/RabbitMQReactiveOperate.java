@@ -3,12 +3,9 @@ package org.lambda.framework.mq.config.rabbitmq;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Delivery;
 import jakarta.annotation.Resource;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.common.mq.RabbitMQDeclare;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.rabbitmq.*;
@@ -18,18 +15,18 @@ import java.util.Map;
 
 import static org.lambda.framework.mq.enums.MqExceptionEnum.*;
 
-public class RabbitMqReactiveOperate {
+public class RabbitMQReactiveOperate {
     @Resource
     private Sender sender;
     @Resource
     private Receiver receiver;
 
-    public Mono<Void> sendDelay(Declare declare, Long delayMillis,String message) {
+    public Mono<Void> sendDelay(RabbitMQDeclare declare, Long delayMillis, String message) {
         return this.sendDelay(declare,delayMillis,message,new HashMap<>());
     }
 
 
-    public Mono<Void> sendDelay(Declare declare, Long delayMillis,String message,Map<String, Object> headers){
+    public Mono<Void> sendDelay(RabbitMQDeclare declare, Long delayMillis,String message,Map<String, Object> headers){
         Assert.check(declare,ES_MQ_RABBITMQ_004);
         Assert.verify(delayMillis,ES_MQ_RABBITMQ_005);
         Assert.verify(message,ES_MQ_RABBITMQ_007);
@@ -79,7 +76,7 @@ public class RabbitMqReactiveOperate {
     }
 
 
-    public Mono<AMQP.Queue.BindOk> declareDelay(Declare declare){
+    public Mono<AMQP.Queue.BindOk> declareDelay(RabbitMQDeclare declare){
         // 声明主交换机
         ExchangeSpecification primaryExchangeSpec = new ExchangeSpecification()
                 .type("x-delayed-message") // 主交换机的类型可以根据需求设置
@@ -131,19 +128,4 @@ public class RabbitMqReactiveOperate {
                 .then(sender.bind(primaryBindingSpec));
                 //.then(sender.bind(dlxBindingSpec));
     }
-
-
-    @Builder
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class Declare{
-        //路由键
-        private String routingKey;
-        //名称
-        private String exchangeName;
-        //名称
-        private String queueName;
-    }
-
 }

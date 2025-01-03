@@ -6,7 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 
 import static org.lambda.framework.mq.enums.MqExceptionEnum.ES_MQ_KAFKA_000;
 
-public  class DefaultReactiveKafkaMqConfig extends AbstractReactiveKafkaMqConfig {
+public  class DefaultReactiveKafkaMQConfig extends AbstractReactiveKafkaMQConfig {
     private String host;
 
     @Value("${lambda.mq.kafka.host:-1}")

@@ -15,12 +15,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-public abstract class AbstractReactiveKafkaMqConfig {
+public abstract class AbstractReactiveKafkaMQConfig {
     protected abstract String host();
 
     @Bean
-    public KafkaMqReactiveOperate kafkaMqOperate(){
-        return new KafkaMqReactiveOperate();
+    public KafkaMQReactiveOperate kafkaMqOperate(){
+        return new KafkaMQReactiveOperate();
     }
 
     @Bean

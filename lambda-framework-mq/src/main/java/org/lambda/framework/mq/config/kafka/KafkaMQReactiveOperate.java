@@ -1,12 +1,9 @@
 package org.lambda.framework.mq.config.kafka;
 
 import jakarta.annotation.Resource;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.lambda.framework.common.exception.Assert;
+import org.lambda.framework.common.mq.KafkaMQDeclare;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.kafka.receiver.ReceiverRecord;
@@ -15,24 +12,24 @@ import reactor.kafka.sender.SenderRecord;
 
 import static org.lambda.framework.mq.enums.MqExceptionEnum.*;
 
-public class KafkaMqReactiveOperate {
+public class KafkaMQReactiveOperate {
 
     @Resource
     private KafkaSender<String, String> kafkaSender;
 
     @Resource
-    private AbstractReactiveKafkaMqConfig.KafkaReceiverFactory kafkaReceiverFactory;
+    private AbstractReactiveKafkaMQConfig.KafkaReceiverFactory kafkaReceiverFactory;
 
-    public Mono<Void> send(Declare declare,String key,String message) {
+    public Mono<Void> send(KafkaMQDeclare declare, String key, String message) {
         Assert.verify(key,ES_MQ_KAFKA_003);
         return this.sendMessage(declare,key,message);
     }
 
-    public Mono<Void> send(Declare declare,String message) {
+    public Mono<Void> send(KafkaMQDeclare declare,String message) {
         return this.sendMessage(declare,null,message);
     }
 
-    private Mono<Void> sendMessage(Declare declare, String key,String message) {
+    private Mono<Void> sendMessage(KafkaMQDeclare declare, String key,String message) {
         Assert.check(declare,ES_MQ_KAFKA_001);
         Assert.verify(message,ES_MQ_KAFKA_002);
         return kafkaSender.send(Mono.just(
@@ -40,26 +37,14 @@ public class KafkaMqReactiveOperate {
                 .then();
     }
 
-    public Flux<ReceiverRecord<String, String>> receiverManual(Declare declare) {
+    public Flux<ReceiverRecord<String, String>> receiverManual(KafkaMQDeclare declare) {
         Assert.check(declare,ES_MQ_KAFKA_001);
         return kafkaReceiverFactory.createReceiver(declare.getTopic(), declare.getGroupId()).receive();
     }
 
-    public Flux<Flux<ConsumerRecord<String, String>>> receiverAuto(Declare declare){
+    public Flux<Flux<ConsumerRecord<String, String>>> receiverAuto(KafkaMQDeclare declare){
         Assert.check(declare,ES_MQ_KAFKA_001);
         return kafkaReceiverFactory.createReceiver(declare.getTopic(), declare.getGroupId()).receiveAutoAck();
     }
 
-
-
-    @Builder
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class Declare{
-        //主题
-        private String topic;
-        //消费组id
-        private String groupId;
-    }
 }

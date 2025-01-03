@@ -20,8 +20,8 @@ public abstract class AbstractReactiveRabbitMQConfig {
     protected  Sender sender;
 
     @Bean
-    public RabbitMqReactiveOperate rabbitMqOperate(){
-        return new RabbitMqReactiveOperate();
+    public RabbitMQReactiveOperate rabbitMqOperate(){
+        return new RabbitMQReactiveOperate();
     }
 
 
