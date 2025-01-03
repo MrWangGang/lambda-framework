@@ -6,6 +6,7 @@ import com.mongodb.MongoCredential;
 import com.mongodb.connection.ConnectionPoolSettings;
 import com.mongodb.reactivestreams.client.MongoClient;
 import com.mongodb.reactivestreams.client.MongoClients;
+import jakarta.annotation.Resource;
 import org.apache.commons.logging.LogFactory;
 import org.lambda.framework.common.enums.ConverterEnum;
 import org.lambda.framework.common.exception.Assert;
@@ -13,13 +14,11 @@ import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.repository.config.converter.EnumReadConverter;
 import org.lambda.framework.repository.config.converter.EnumWriteConverter;
 import org.lambda.framework.repository.enums.MongoDeployModelEnum;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.mongo.MongoProperties;
 import org.springframework.boot.autoconfigure.mongo.PropertiesMongoConnectionDetails;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
 import org.springframework.data.mongodb.ReactiveMongoTransactionManager;
@@ -141,40 +140,32 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
 
     private static final Logger logger = Logger.getLogger(LogFactory.class.getName());
 
-    @Configuration
-    public static class CreationIndex{
 
-        private Integer autoCreationIndexed;
+    @Resource
+    @Lazy
+    private ReactiveMongoTemplate reactiveMongoTemplate;
 
-        @Value("${lambda.repository.mongo.auto-creation-indexed:1}")
-        public void setDeployModel(Integer autoCreationIndexed) {
-            this.autoCreationIndexed = autoCreationIndexed;
-        }
+    @Resource
+    @Lazy
+    private MongoConverter mongoConverter;
 
-        @Autowired(required = false)
-        private ReactiveMongoTemplate reactiveMongoTemplate;
-        @Autowired(required = false)
-        private MongoConverter mongoConverter;
+    @EventListener(ApplicationReadyEvent.class)
+    public void initIndicesAfterStartup() {
+      logger.info("Mongo InitIndicesAfterStartup init");
+      var init = System.currentTimeMillis();
+      var mappingContext = this.mongoConverter.getMappingContext();
+      if (mappingContext instanceof MongoMappingContext) {
+          MongoMappingContext mongoMappingContext = (MongoMappingContext) mappingContext;
+          for (MongoPersistentEntity<?> persistentEntity : mongoMappingContext.getPersistentEntities()) {
+              var clazz = persistentEntity.getType();
+              if (clazz.isAnnotationPresent(Document.class) &&!clazz.getSuperclass().isAnnotationPresent(org.springframework.data.mongodb.core.mapping.Document.class)) {
+                  var resolver = new MongoPersistentEntityIndexResolver(mongoMappingContext);
+                  var indexOps = reactiveMongoTemplate.indexOps(clazz);
+                  resolver.resolveIndexFor(clazz).forEach(i->indexOps.ensureIndex(i).subscribe());
+              }
+          }
+      }
+      logger.info("Mongo InitIndicesAfterStartup take: {}"+(System.currentTimeMillis() - init));
+   }
 
-        @EventListener(ApplicationReadyEvent.class)
-        public void initIndicesAfterStartup() {
-            if(this.autoCreationIndexed == 1){
-                logger.info("Mongo InitIndicesAfterStartup init");
-                var init = System.currentTimeMillis();
-                var mappingContext = this.mongoConverter.getMappingContext();
-                if (mappingContext instanceof MongoMappingContext) {
-                    MongoMappingContext mongoMappingContext = (MongoMappingContext) mappingContext;
-                    for (MongoPersistentEntity<?> persistentEntity : mongoMappingContext.getPersistentEntities()) {
-                        var clazz = persistentEntity.getType();
-                        if (clazz.isAnnotationPresent(Document.class) &&!clazz.getSuperclass().isAnnotationPresent(org.springframework.data.mongodb.core.mapping.Document.class)) {
-                            var resolver = new MongoPersistentEntityIndexResolver(mongoMappingContext);
-                            var indexOps = reactiveMongoTemplate.indexOps(clazz);
-                            resolver.resolveIndexFor(clazz).forEach(i->indexOps.ensureIndex(i).subscribe());
-                        }
-                    }
-                }
-                logger.info("Mongo InitIndicesAfterStartup take: {}"+(System.currentTimeMillis() - init));
-            }
-        }
-    }
 }
