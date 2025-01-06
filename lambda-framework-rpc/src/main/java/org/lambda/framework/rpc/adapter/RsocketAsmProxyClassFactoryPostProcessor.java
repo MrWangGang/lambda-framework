@@ -7,7 +7,6 @@ import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.rpc.adapter.support.CustomClassLoader;
-import org.lambda.framework.rpc.adapter.support.EnableRSocketRpcDiscorvery;
 import org.springframework.asm.*;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -119,12 +118,7 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
     }
 
     private String[] getBasePackages(Class<?> mainApplicationClass) {
-        EnableRSocketRpcDiscorvery enableRSocketRpcDiscorvery = mainApplicationClass.getAnnotation(EnableRSocketRpcDiscorvery.class);
-        if (enableRSocketRpcDiscorvery != null && enableRSocketRpcDiscorvery.scanBasePackages().length > 0) {
-            return enableRSocketRpcDiscorvery.scanBasePackages();
-        } else {
-            throw new EventException(ES_RPC_026);
-        }
+        return new String[]{mainApplicationClass.getPackageName()};
     }
 
     private Class<?> getMainApplicationClass(ApplicationContext context) {

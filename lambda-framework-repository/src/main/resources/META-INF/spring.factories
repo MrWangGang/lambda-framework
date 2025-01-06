@@ -1,1 +1,1 @@
-org.springframework.context.ApplicationContextInitializer=org.lambda.framework.repository.config.LambdaRepositoryConfig
+org.springframework.boot.env.EnvironmentPostProcessor=org.lambda.framework.repository.config.LambdaRepositoryConfig
