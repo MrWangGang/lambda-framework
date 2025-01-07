@@ -2,6 +2,8 @@ package org.lambda.framework.repository.config.elasticsearch;
 
 import org.lambda.framework.common.enums.ConverterEnum;
 import org.lambda.framework.common.exception.Assert;
+import org.lambda.framework.repository.config.converter.Decimal128ReadConverter;
+import org.lambda.framework.repository.config.converter.Decimal128WriteConverter;
 import org.lambda.framework.repository.config.converter.EnumReadConverter;
 import org.lambda.framework.repository.config.converter.EnumWriteConverter;
 import org.springframework.context.annotation.Bean;
@@ -41,6 +43,10 @@ public abstract class AbstractReactiveElasticsearchRepositoryConfig extends Reac
 
     @Bean
     public ElasticsearchCustomConversions elasticsearchCustomConversions() {
-        return new ElasticsearchCustomConversions(Arrays.asList(new EnumReadConverter<ConverterEnum>(),new EnumWriteConverter())); // 注册你的自定义转换器
-    }
+        return new ElasticsearchCustomConversions(Arrays.asList(
+                new EnumReadConverter<ConverterEnum>(),
+                new EnumWriteConverter(),
+                new Decimal128ReadConverter(),
+                new Decimal128WriteConverter()
+        ));    }
 }
