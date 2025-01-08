@@ -18,7 +18,7 @@ public class LocalDateTimeReadConverter implements ConverterFactory<String, Loca
     private static class LocalDateTimeToStringConverterImpl<T extends LocalDateTime> implements Converter<String, T> {
         @Override
         public T convert(String source) {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
             LocalDateTime localDateTime = LocalDateTime.parse(source, formatter);
             return  (T) localDateTime;
         }

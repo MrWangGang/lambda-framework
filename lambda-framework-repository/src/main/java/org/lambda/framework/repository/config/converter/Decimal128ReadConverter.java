@@ -15,7 +15,7 @@ public class Decimal128ReadConverter implements ConverterFactory<Double, Decimal
 
     @Override
     public <T extends Decimal128> Converter<Double, T> getConverter(Class<T> targetType) {
-        return null;
+        return new Decimal128ToDoubleConverterImpl<>();
     }
 
     private static class Decimal128ToDoubleConverterImpl<T extends Decimal128> implements Converter<Double, T> {

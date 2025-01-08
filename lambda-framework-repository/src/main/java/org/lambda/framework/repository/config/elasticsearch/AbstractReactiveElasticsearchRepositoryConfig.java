@@ -45,6 +45,8 @@ public abstract class AbstractReactiveElasticsearchRepositoryConfig extends Reac
                 new EnumWriteConverter(),
                 new Decimal128ReadConverter(),
                 new Decimal128WriteConverter(),
+                new BigDecimalReadConverter(),
+                new BigDecimalWriteConverter(),
                 new LocalDateReadConverter(),
                 new LocalDateWriteConverter(),
                 new LocalDateTimeReadConverter(),
