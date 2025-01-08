@@ -33,7 +33,8 @@ public enum RpcExceptionEnum implements ExceptionEnumFunction {
     ES_RPC_023("ES_RPC_023","只能继承一个@RsocketRpcDiscorvery标注的接口"),
     ES_RPC_024("ES_RPC_024","@RsocketRpcDiscorvery的实现类同名的方法不能添加@MessageMaping"),
     ES_RPC_025("ES_RPC_025","@RsocketRpcDiscorvery的实现类只能由@RSocketApi来进行标注"),
-    ES_RPC_026("ES_RPC_026","@EnableRSocketRpcDiscorvery注解在启动类上没有找到");
+    ES_RPC_026("ES_RPC_026","@EnableRSocketRpcDiscorvery注解在启动类上没有找到"),
+    ES_RPC_027("ES_RPC_027","rpc无法确定返回类型");
 
 
 
