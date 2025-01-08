@@ -2,10 +2,7 @@ package org.lambda.framework.repository.config.elasticsearch;
 
 import org.lambda.framework.common.enums.ConverterEnum;
 import org.lambda.framework.common.exception.Assert;
-import org.lambda.framework.repository.config.converter.Decimal128ReadConverter;
-import org.lambda.framework.repository.config.converter.Decimal128WriteConverter;
-import org.lambda.framework.repository.config.converter.EnumReadConverter;
-import org.lambda.framework.repository.config.converter.EnumWriteConverter;
+import org.lambda.framework.repository.config.converter.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.elasticsearch.client.ClientConfiguration;
 import org.springframework.data.elasticsearch.client.elc.ReactiveElasticsearchConfiguration;
@@ -47,6 +44,10 @@ public abstract class AbstractReactiveElasticsearchRepositoryConfig extends Reac
                 new EnumReadConverter<ConverterEnum>(),
                 new EnumWriteConverter(),
                 new Decimal128ReadConverter(),
-                new Decimal128WriteConverter()
+                new Decimal128WriteConverter(),
+                new LocalDateReadConverter(),
+                new LocalDateWriteConverter(),
+                new LocalDateTimeReadConverter(),
+                new LocalDateTimeWriteConverter()
         ));    }
 }

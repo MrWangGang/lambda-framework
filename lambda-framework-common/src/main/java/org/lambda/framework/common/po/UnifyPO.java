@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -17,6 +19,7 @@ import java.time.LocalDateTime;
 public class UnifyPO<ID> implements Serializable {
     @JsonProperty
     @Id
+    @Field(type = FieldType.Date)
     private ID id;
     @JsonProperty
     private LocalDateTime createTime;
