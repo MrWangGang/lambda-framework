@@ -63,7 +63,7 @@ public class ReactiveMongoChangeStreamListener {
                         if (event.getOperationType().equals(INSERT)) {
                             operate.afterInsert(ENUM_OPERTION_TYPE_INSERT,opid,event.getBody()).subscribe();
                         }
-                        if (event.getOperationType().equals(UPDATE)) {
+                        if (event.getOperationType().equals(UPDATE) || event.getOperationType().equals(REPLACE) ) {
                             operate.afterUpdate(ENUM_OPERTION_TYPE_UPDATE,opid, event.getBody()).subscribe();
                         }
                         if (event.getOperationType().equals(DELETE)) {
@@ -95,7 +95,7 @@ public class ReactiveMongoChangeStreamListener {
         // 构建 ChangeStreamOptions，过滤操作类型为 insert 和 update,delete
         ChangeStreamOptions options = ChangeStreamOptions.builder()
                 .filter(new Document("$match", new Document("operationType",
-                        new Document("$in", List.of("insert", "update", "delete"))))) // 构建过滤条件
+                        new Document("$in", List.of("update","replace","insert", "delete"))))) // 构建过滤条件
                 .returnFullDocumentOnUpdate() // 对于更新操作返回完整文档
                 .build();
         return reactiveMongoTemplate.changeStream(docName,options, clazz);
