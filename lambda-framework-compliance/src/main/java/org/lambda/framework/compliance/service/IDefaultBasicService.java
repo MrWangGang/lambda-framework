@@ -19,11 +19,13 @@ public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
 
     public Mono<PO> insert(PO po);
 
-    public Mono<PO> upsert(PO po);
-
     public Flux<PO> update(Publisher<PO> pos);
 
     public Flux<PO> insert(Publisher<PO> pos);
+
+    public Mono<PO> sync(PO po);
+
+    public Flux<PO> sync(Publisher<PO> pos);
 
     public Mono<Void> delete(ID id);
 

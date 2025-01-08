@@ -52,16 +52,6 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     }
 
     @Override
-    public Mono<PO> upsert(PO po) {
-        if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
-        if(po.getId() == null){
-            return insert(po);
-        }
-        return update(po);
-    }
-
-
-    @Override
     public Flux<PO> update(Publisher<PO> pos) {
         if(pos == null) throw new EventException(ES_COMPLIANCE_000);
         LocalDateTime now = LocalDateTime.now();
@@ -85,6 +75,20 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
             return repository.saveAll(e);
         });
 
+    }
+
+    @Override
+    public Mono<PO> sync(PO po) {
+        if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
+        return repository.save(po);
+    }
+
+    @Override
+    public Flux<PO> sync(Publisher<PO> pos) {
+        if(pos == null) throw new EventException(ES_COMPLIANCE_000);
+        return Flux.from(pos).collectList().flatMapMany(e->{
+            return repository.saveAll(e);
+        });
     }
 
     @Override
