@@ -34,13 +34,19 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
         });
     }
 
-    default <Condition,VO>Mono<Paged<VO>> sqlPaging(Paging paging, Condition condition,UnifyPagingSqlOperation<Condition,VO> operation){
+    default <Condition,VO>Mono<Paged<VO>> sqlPaging(Paging paging, Condition condition, UnifyPagingSqlOperation<Condition,VO> operation) {
+        return this.sqlPaging(paging,condition,null,operation);
+    }
+
+    default <Condition,VO>Mono<Paged<VO>> sqlPaging(Paging paging, Condition condition, Sort sort, UnifyPagingSqlOperation<Condition,VO> operation){
         Assert.verify(paging,ES_REPOSITORY_103);
         Assert.verify(paging.getPage(),ES_REPOSITORY_104);
         Assert.verify(paging.getSize(),ES_REPOSITORY_105);
         if(paging.getPage()<= 0 || paging.getSize() <=0)throw new EventException(ES_REPOSITORY_100);
         //使用mono.zip执行并行处理，瓶颈来到了 i/o上。对于分页查询来说，这非常快。最后获得结果的时间由时间最长的线程处理决定
         PageRequest pageRequest = PageRequest.of(paging.getPage() - 1, paging.getSize());
+        if(sort!=null)pageRequest.withSort(sort);
+
         return Mono.zip(
                         operation.count(condition).defaultIfEmpty(0L), // 计算 count
                         operation.query(condition,pageRequest).collectList() // 查询数据
@@ -58,14 +64,19 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
                     return Mono.just(paged);
                 });
     }
+    default <Condition,VO>Mono<Paged<VO>> sqlPaging(Paging paging, UnifyPagingSqlDefaultOperation<VO> operation) {
+        return this.sqlPaging(paging,null,operation);
+    }
 
-    default <Condition,VO>Mono<Paged<VO>> sqlPaging(Paging paging,UnifyPagingSqlDefaultOperation<VO> operation){
+    default <Condition,VO>Mono<Paged<VO>> sqlPaging(Paging paging, Sort sort, UnifyPagingSqlDefaultOperation<VO> operation){
         Assert.verify(paging,ES_REPOSITORY_103);
         Assert.verify(paging.getPage(),ES_REPOSITORY_104);
         Assert.verify(paging.getSize(),ES_REPOSITORY_105);
         if(paging.getPage()<= 0 || paging.getSize() <=0)throw new EventException(ES_REPOSITORY_100);
         //使用mono.zip执行并行处理，瓶颈来到了 i/o上。对于分页查询来说，这非常快。最后获得结果的时间由时间最长的线程处理决定
         PageRequest pageRequest = PageRequest.of(paging.getPage() - 1, paging.getSize());
+        if(sort!=null)pageRequest.withSort(sort);
+
         return Mono.zip(
                         operation.count().defaultIfEmpty(0L), // 计算 count
                         operation.query(pageRequest).collectList() // 查询数据
