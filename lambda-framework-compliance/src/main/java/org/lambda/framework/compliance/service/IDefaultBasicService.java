@@ -47,6 +47,9 @@ public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
     public <Condition,VO>Mono<Paged<VO>> find(Paging paging, Condition condition, Sort sort, UnifyPagingSqlOperation<Condition,VO> operation);
     public <VO>Mono<Paged<VO>> find(Paging paging, Sort sort, UnifyPagingSqlDefaultOperation<VO> operation);
 
+    public <Condition,VO>Mono<Paged<VO>> find(Paging paging, Condition condition, Sort sort, UnifyPagingDslOperation<Condition,VO> operation);
+    public <VO>Mono<Paged<VO>> find(Paging paging, Sort sort, UnifyPagingDslDefaultOperation<VO> operation);
+
 
     public Mono<Long> count(PO po);
 

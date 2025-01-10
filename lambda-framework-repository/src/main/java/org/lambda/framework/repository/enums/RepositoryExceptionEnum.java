@@ -52,7 +52,8 @@ public enum RepositoryExceptionEnum implements ExceptionEnumFunction {
     ES_REPOSITORY_105("ES_REPOSITORY_105","每页条数参数缺失"),
     ES_REPOSITORY_106("ES_REPOSITORY_106","对枚举类型转换失败"),
     ES_REPOSITORY_107("ES_REPOSITORY_107","无效的change stream operation type枚举类型"),
-    ES_REPOSITORY_108("ES_REPOSITORY_108","找不到对应的repository配置类");
+    ES_REPOSITORY_108("ES_REPOSITORY_108","找不到对应的repository配置类"),
+    ES_REPOSITORY_109("ES_REPOSITORY_109","convert结果为null");
 
 
 
