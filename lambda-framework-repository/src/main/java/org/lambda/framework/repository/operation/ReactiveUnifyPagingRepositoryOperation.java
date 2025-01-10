@@ -119,7 +119,7 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
                         }
                         return vo;
                     }).collect(Collectors.toList());
-                    operation.sort(records);
+                    operation.sort(condition,records);
                     Paged<VO> paged = Paged.<VO>builder()
                             .page(paging.getPage())
                             .size(paging.getSize())
