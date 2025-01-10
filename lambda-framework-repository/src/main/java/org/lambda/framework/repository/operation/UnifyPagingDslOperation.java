@@ -5,8 +5,12 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchPage;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 public interface UnifyPagingDslOperation<Condition,VO> {
     public Mono<SearchPage<VO>> query(Condition condition, Pageable pageable);
 
     public VO convert(SearchHit<VO> hit, VO vo);
+
+    public void sort(List<VO> records);
 }
