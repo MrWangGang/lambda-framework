@@ -21,8 +21,10 @@ public class UnifyPO<ID> implements Serializable {
     @Id
     @Field(type = FieldType.Keyword)
     private ID id;
+
     @JsonProperty
     private LocalDateTime createTime;
+
     @JsonProperty
     private LocalDateTime updateTime;
 }
