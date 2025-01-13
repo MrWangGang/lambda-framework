@@ -113,12 +113,10 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
         return operation.query(condition,pageRequest) // 查询数据
                 .flatMap(tuple -> {
                     List<VO> records = tuple.getContent().stream().map(e->{
-                        VO vo =  operation.convert(e,e.getContent());
-                        if(vo == null){
-                            throw new EventException(ES_REPOSITORY_109);
-                        }
-                        return vo;
+                        operation.convert(e,e.getContent());
+                        return e.getContent();
                     }).collect(Collectors.toList());
+                    operation.convert(records);
                     operation.sort(condition,records);
                     Paged<VO> paged = Paged.<VO>builder()
                             .page(paging.getPage())
@@ -149,12 +147,10 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
         return operation.query(pageRequest) // 查询数据
                 .flatMap(tuple -> {
                     List<VO> records = tuple.getContent().stream().map(e->{
-                        VO vo =  operation.convert(e,e.getContent());
-                        if(vo == null){
-                            throw new EventException(ES_REPOSITORY_109);
-                        }
-                        return vo;
+                        operation.convert(e,e.getContent());
+                        return e.getContent();
                     }).collect(Collectors.toList());
+                    operation.convert(records);
                     operation.sort(records);
                     Paged<VO> paged = Paged.<VO>builder()
                             .page(paging.getPage())

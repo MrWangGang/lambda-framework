@@ -10,7 +10,9 @@ import java.util.List;
 public interface UnifyPagingDslOperation<Condition,VO> {
     public Mono<SearchPage<VO>> query(Condition condition, Pageable pageable);
 
-    public VO convert(SearchHit<VO> hit, VO vo);
+    public void convert(SearchHit<VO> hit, VO vo);
+
+    public void convert(List<VO> records);
 
     public void sort(Condition condition,List<VO> records);
 }
