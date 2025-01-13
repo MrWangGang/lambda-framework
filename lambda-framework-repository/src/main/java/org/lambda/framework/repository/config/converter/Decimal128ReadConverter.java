@@ -21,7 +21,7 @@ public class Decimal128ReadConverter implements ConverterFactory<Double, Decimal
     private static class Decimal128ToDoubleConverterImpl<T extends Decimal128> implements Converter<Double, T> {
         @Override
         public T convert(Double source) {
-            BigDecimal bigDecimalValue = new BigDecimal(source);
+            BigDecimal bigDecimalValue = new BigDecimal(source.toString());
             return (T) new Decimal128(bigDecimalValue);
         }
     }
