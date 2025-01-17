@@ -97,6 +97,7 @@ public class ReactiveMongoChangeStreamListener {
                 .filter(new Document("$match", new Document("operationType",
                         new Document("$in", List.of("update","replace","insert", "delete"))))) // 构建过滤条件
                 .returnFullDocumentOnUpdate() // 对于更新操作返回完整文档
+                .returnFullDocumentBeforeChange()
                 .build();
         return reactiveMongoTemplate.changeStream(docName,options, clazz);
     }
