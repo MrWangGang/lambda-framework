@@ -198,6 +198,15 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     }
 
     @Override
+    public <Condition, VO> Mono<Paged<VO>> find(Paging paging, Condition condition, UnifyPagingDslOperation<Condition, VO> operation) {
+        if(condition == null)throw new EventException(ES_COMPLIANCE_000);
+        if(paging == null)throw new EventException(ES_COMPLIANCE_000,"分页参数不能缺失");
+        if(operation == null)throw new EventException(ES_COMPLIANCE_000,"分页实现不能缺失");
+
+        return repository.dslPaging(paging,condition,operation);
+    }
+
+    @Override
     public <Condition, VO> Mono<Paged<VO>> find(Paging paging, Condition condition, Sort sort, UnifyPagingDslOperation<Condition, VO> operation) {
         if(condition == null)throw new EventException(ES_COMPLIANCE_000);
         if(paging == null)throw new EventException(ES_COMPLIANCE_000,"分页参数不能缺失");
@@ -205,6 +214,14 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
         if(sort == null)throw new EventException(ES_COMPLIANCE_000,"排序类型不能为空");
 
         return repository.dslPaging(paging,condition,sort,operation);
+    }
+
+    @Override
+    public <VO> Mono<Paged<VO>> find(Paging paging, UnifyPagingDslDefaultOperation<VO> operation) {
+        if(paging == null)throw new EventException(ES_COMPLIANCE_000,"分页参数不能缺失");
+        if(operation == null)throw new EventException(ES_COMPLIANCE_000,"分页实现不能缺失");
+
+        return repository.dslPaging(paging,operation);
     }
 
     @Override

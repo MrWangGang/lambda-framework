@@ -42,12 +42,13 @@ public interface IDefaultBasicService<PO extends UnifyPO<ID>,ID>{
     public  Mono<Paged<PO>> find(Paging page, PO po);
 
     public <Condition,VO>Mono<Paged<VO>> find(Paging paging, Condition condition, UnifyPagingSqlOperation<Condition,VO> operation);
-    public <VO>Mono<Paged<VO>> find(Paging paging, UnifyPagingSqlDefaultOperation<VO> operation);
-
     public <Condition,VO>Mono<Paged<VO>> find(Paging paging, Condition condition, Sort sort, UnifyPagingSqlOperation<Condition,VO> operation);
+    public <VO>Mono<Paged<VO>> find(Paging paging, UnifyPagingSqlDefaultOperation<VO> operation);
     public <VO>Mono<Paged<VO>> find(Paging paging, Sort sort, UnifyPagingSqlDefaultOperation<VO> operation);
 
+    public <Condition,VO>Mono<Paged<VO>> find(Paging paging, Condition condition, UnifyPagingDslOperation<Condition,VO> operation);
     public <Condition,VO>Mono<Paged<VO>> find(Paging paging, Condition condition, Sort sort, UnifyPagingDslOperation<Condition,VO> operation);
+    public <VO>Mono<Paged<VO>> find(Paging paging, UnifyPagingDslDefaultOperation<VO> operation);
     public <VO>Mono<Paged<VO>> find(Paging paging, Sort sort, UnifyPagingDslDefaultOperation<VO> operation);
 
 
