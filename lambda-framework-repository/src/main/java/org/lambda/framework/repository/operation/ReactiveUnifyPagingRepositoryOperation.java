@@ -4,6 +4,7 @@ import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -116,16 +117,20 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
                         operation.convert(e,e.getContent());
                         return e.getContent();
                     }).collect(Collectors.toList());
-                    operation.convert(records);
-                    operation.sort(condition,records);
-                    Paged<VO> paged = Paged.<VO>builder()
-                            .page(paging.getPage())
-                            .size(paging.getSize())
-                            .total(tuple.getTotalElements())
-                            .pages(tuple.getTotalPages())
-                            .records(records)
-                            .build();
-                    return Mono.just(paged);
+                    return Flux.fromIterable(records).collectList().flatMap(rs->{
+                        return operation.convert(records).switchIfEmpty(Flux.fromIterable(rs))
+                                .collectList().map(_rs->{
+                                    operation.sort(condition,_rs);
+                                    Paged<VO> paged = Paged.<VO>builder()
+                                            .page(paging.getPage())
+                                            .size(paging.getSize())
+                                            .total(tuple.getTotalElements())
+                                            .pages(tuple.getTotalPages())
+                                            .records(_rs)
+                                            .build();
+                                    return paged;
+                                });
+                    });
                 });
     }
 
@@ -150,16 +155,20 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
                         operation.convert(e,e.getContent());
                         return e.getContent();
                     }).collect(Collectors.toList());
-                    operation.convert(records);
-                    operation.sort(records);
-                    Paged<VO> paged = Paged.<VO>builder()
-                            .page(paging.getPage())
-                            .size(paging.getSize())
-                            .total(tuple.getTotalElements())
-                            .pages(tuple.getTotalPages())
-                            .records(records)
-                            .build();
-                    return Mono.just(paged);
+                    return Flux.fromIterable(records).collectList().flatMap(rs->{
+                        return operation.convert(records).switchIfEmpty(Flux.fromIterable(rs))
+                                .collectList().map(_rs->{
+                                    operation.sort(_rs);
+                                    Paged<VO> paged = Paged.<VO>builder()
+                                            .page(paging.getPage())
+                                            .size(paging.getSize())
+                                            .total(tuple.getTotalElements())
+                                            .pages(tuple.getTotalPages())
+                                            .records(_rs)
+                                            .build();
+                                    return paged;
+                                });
+                    });
                 });
     }
 }
