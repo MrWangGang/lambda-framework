@@ -1,11 +1,25 @@
 package org.lambda.framework.common.util.sample;
 
+import org.apache.commons.beanutils.BeanUtils;
 import org.lambda.framework.common.exception.EventException;
 import org.springframework.cglib.beans.BeanCopier;
+
+import java.lang.reflect.InvocationTargetException;
 
 import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
 
 public class BeanUtil {
+
+    public static  <T,V> V copy(V target,T source) {
+        try {
+             BeanUtils.copyProperties(target,source);
+             return target;
+        } catch (IllegalAccessException e) {
+            throw new EventException(ES_COMMON_000,"bean copy失败");
+        } catch (InvocationTargetException e) {
+            throw new EventException(ES_COMMON_000,"bean copy失败");
+        }
+    }
 
     public static  <T> T deepCopy(T source, Class<? extends T> targetClass) {
         if (source == null) {
