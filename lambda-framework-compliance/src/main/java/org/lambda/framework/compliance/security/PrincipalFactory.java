@@ -69,7 +69,7 @@ public abstract class PrincipalFactory {
             LambdaSecurityAuthToken lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) token, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_COMPLIANCE_000,"令牌在提取关键部分时为空，可能是格式错误或缺少必要组件，不符合规范要求"));
             String principal = JsonUtil.objToString(t);
             lambdaSecurityAuthToken.setPrincipal(principal);
-            return securityAuthRedisOperation.update(redisKey,token)
+            return securityAuthRedisOperation.update(redisKey,lambdaSecurityAuthToken)
                     .flatMap(flag->{
                         if(!flag)return Mono.error(new EventException(ES_COMPLIANCE_001,"更新TOKEN数据失败"));
                         return Mono.empty();
