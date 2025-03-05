@@ -23,8 +23,10 @@ public class UnifyPO<ID> implements Serializable {
     private ID id;
 
     @JsonProperty
+    @Field(type = FieldType.Date, format = {}, pattern = "uuuu-MM-dd'T'HH:mm:ss.SSS")
     private LocalDateTime createTime;
 
     @JsonProperty
+    @Field(type = FieldType.Date, format = {}, pattern = "uuuu-MM-dd'T'HH:mm:ss.SSS")
     private LocalDateTime updateTime;
 }
