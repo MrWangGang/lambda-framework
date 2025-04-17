@@ -7,6 +7,7 @@ import jakarta.annotation.Resource;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.SecurityStash;
@@ -36,6 +37,7 @@ public class RSocketLoadbalance {
     private RSocketStrategies strategies;
 
     private static final SecurityStash defaultSecurityStash= SecurityStash.builder().build();
+    @Setter
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
@@ -50,15 +52,6 @@ public class RSocketLoadbalance {
         public <T> Flux<T> retrieveFlux(String route,Object data,Class<T> dataType){
             return requester.route(route).data(data).retrieveFlux(dataType).doFinally(e->requester.dispose());
         }
-
-        private RSocketRequester getRequester() {
-            return requester;
-        }
-
-        public void setRequester(RSocketRequester requester) {
-            this.requester = requester;
-        }
-
     }
 
 
