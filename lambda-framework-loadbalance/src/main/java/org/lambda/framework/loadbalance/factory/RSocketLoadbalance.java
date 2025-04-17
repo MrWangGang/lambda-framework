@@ -18,6 +18,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static org.lambda.framework.loadbalance.enums.LoadBalanceExceptionEnum.*;
@@ -32,6 +33,8 @@ public class RSocketLoadbalance {
     private PrincipalStash principalStash;
     @Resource
     private RSocketStrategies strategies;
+
+    Logger log = Logger.getLogger(RSocketLoadbalance.class.getName());
 
     private final ConcurrentHashMap<String, Mono<RSocketRequester>> requesterIpCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, RequesterWrapper> requesterServiceCache = new ConcurrentHashMap<>();
@@ -89,6 +92,7 @@ public class RSocketLoadbalance {
                                 .subscribe(req -> {
                                     if(!req.isDisposed()){
                                         req.dispose(); // 释放旧连接
+                                        log.info("释放连接:------------------>>>>> " + cacheKey);
                                     }
                                 });
                     }
