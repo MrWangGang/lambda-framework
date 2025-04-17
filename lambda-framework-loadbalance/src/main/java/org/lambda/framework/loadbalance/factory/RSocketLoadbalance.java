@@ -46,11 +46,15 @@ public class RSocketLoadbalance {
         private RSocketRequester requester;
 
         public <T> Mono<T> retrieveMono(String route,Object data, Class<T> dataType){
-            return requester.route(route).data(data).retrieveMono(dataType).doFinally(e->requester.dispose());
+            return requester.route(route).data(data).retrieveMono(dataType).doFinally(e->{
+                if(!requester.isDisposed()){requester.dispose();}
+            });
         }
 
         public <T> Flux<T> retrieveFlux(String route,Object data,Class<T> dataType){
-            return requester.route(route).data(data).retrieveFlux(dataType).doFinally(e->requester.dispose());
+            return requester.route(route).data(data).retrieveFlux(dataType).doFinally(e->{
+                if(!requester.isDisposed()){requester.dispose();}
+            });
         }
     }
 

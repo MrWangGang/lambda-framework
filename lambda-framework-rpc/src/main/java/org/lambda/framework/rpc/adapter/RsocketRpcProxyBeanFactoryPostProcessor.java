@@ -160,7 +160,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                             useClass = (Class<?>)((ParameterizedType) actualTypeArguments[0]).getRawType();
                         }
                         if(useClass == null)throw new EventException(ES_RPC_027);
-                        return req.retrieveMono(route,data,String.class);
+                        return req.retrieveMono(route,data,useClass);
                     });
                 }
                 if (parameterizedType.getRawType() == Flux.class) {
@@ -178,7 +178,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                              useClass = (Class<?>)((ParameterizedType) actualTypeArguments[0]).getRawType();
                         }
                         if(useClass == null)throw new EventException(ES_RPC_027);
-                        return req.retrieveFlux(route,data,String.class);
+                        return req.retrieveFlux(route,data,useClass);
                     });
                 }
             }
@@ -193,7 +193,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                     }
                     if(useClass == null)throw new EventException(ES_RPC_027);
 
-                    return req.retrieveFlux(route,data,String.class);
+                    return req.retrieveFlux(route,data,useClass);
                 });
             }
             throw new EventException(ES_RPC_010);
