@@ -14,7 +14,6 @@ import org.springframework.core.io.buffer.DefaultDataBufferFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
-import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
@@ -61,7 +60,7 @@ public class RsocketRequestFactory {
         if(verifyQueryParamsIsNotNull(queryParams)){
             throw new EventException(ES_GATEWAY_000,"rsocket协议不支持query params");
         }
-        Mono<RSocketRequester> rSocketRequester =rSocketLoadbalance.build(route.host(),contentType);
+        Mono<RSocketLoadbalance.ProcessResponse> rSocketRequester =rSocketLoadbalance.build(route.host(),contentType);
         return rSocketRequester.flatMap(requester->{
             //获取请求里的body
             Flux<DataBuffer> bodyFlux = exchange.getRequest().getBody();
@@ -70,31 +69,29 @@ public class RsocketRequestFactory {
                     //bodyByte是绝对不会为空的 。extract永远都会返回一个;
                     .flatMap(body-> {
                         // 使用RSocket客户端发送请求
-                        RSocketRequester.RetrieveSpec retrieveSpec = null;
+                        Object data;
                         if (MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(contentType)) {
-                            retrieveSpec = requester
-                                    .route(route.path()).data(body);
+                            data = body;
                         }else {
-                            retrieveSpec = requester
-                                    .route(route.path()).data(bodyFlux);
+                            data = bodyFlux;
                         }
                         ServerHttpResponse rs = exchange.getResponse();
                         switch (rsocketModel){
                             case RSOCKET_MODEL_REQUEST_RESPONSE:
                                 switch (rsocketEcho){
                                     case RSOCKET_ECHO_CHAR, RSOCKET_ECHO_VOID :
-                                        return handleResponse(retrieveSpec.retrieveMono(String.class), rs);
+                                        return handleResponse(requester.retrieveMono(route.path(),data,String.class), rs);
                                     case RSOCKET_ECHO_OBJECT:
-                                        return handleResponse(retrieveSpec.retrieveMono(Object.class), rs);
+                                        return handleResponse(requester.retrieveMono(route.path(),data,Object.class), rs);
                                     default:
                                         return Mono.error(new EventException(ES_GATEWAY_000,"请求头:RSocket-Echo无效,仅支持(response/char,response/object,response/void)"));
                                 }
                             case RSOCKET_MODEL_REQUEST_STREAM:
                                 switch (rsocketEcho){
                                     case RSOCKET_ECHO_CHAR, RSOCKET_ECHO_VOID :
-                                        return handleResponse(retrieveSpec.retrieveFlux(String.class).collectList(), rs);
+                                        return handleResponse(requester.retrieveFlux(route.path(),data,String.class).collectList(), rs);
                                     case RSOCKET_ECHO_OBJECT:
-                                        return handleResponse(retrieveSpec.retrieveFlux(Object.class).collectList(), rs);
+                                        return handleResponse(requester.retrieveFlux(route.path(),data,Object.class).collectList(), rs);
                                     default:
                                         return Mono.error(new EventException(ES_GATEWAY_000,"请求头:RSocket-Echo无效,仅支持(response/char,response/object,response/void)"));
                                 }
