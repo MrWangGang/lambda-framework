@@ -117,9 +117,9 @@ public class RSocketLoadbalance {
                                 .collect(Collectors.toList());
                         return Mono.just(targets);
                     }
-                    return Mono.empty();  // 出现错误时依然继续
+                    return Mono.empty();
                 })
-                .repeatWhen(f -> f.delayElements(Duration.ofSeconds(1)));  // 每秒检查一次
+                .repeatWhen(f -> f.delayElements(Duration.ofSeconds(30)));
     }
 
 }
