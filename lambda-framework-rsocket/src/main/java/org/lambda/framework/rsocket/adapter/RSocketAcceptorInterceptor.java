@@ -1,21 +1,26 @@
 package org.lambda.framework.rsocket.adapter;
 
+import io.netty.buffer.ByteBuf;
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.SocketAcceptor;
+import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.plugins.SocketAcceptorInterceptor;
 import jakarta.annotation.Resource;
-import org.apache.commons.lang3.StringUtils;
+import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.reactivestreams.Publisher;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.context.Context;
 
-import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_003;
@@ -26,29 +31,36 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
     @Override
     public SocketAcceptor apply(SocketAcceptor socketAcceptor) {
         return (setup, sendingSocket) -> {
-            SecurityStash securityStash = null;
-            try {
-                securityStash = getValueFromMetadata(setup.getDataUtf8());
-            } catch (IOException e) {
-                e.printStackTrace();
-                throw new EventException(ES_RSOCKET_003);
-            } catch (ClassNotFoundException e) {
-                throw new EventException(ES_RSOCKET_003);
-            }
-            SecurityStash finalSecurityStash = securityStash;
             return socketAcceptor.accept(setup,sendingSocket).map(rsocket->{
-                return createRSocket(rsocket, finalSecurityStash);
+                return createRSocket(rsocket);
             });
         };
     }
 
-    private SecurityStash getValueFromMetadata(String metadata) throws IOException, ClassNotFoundException {
-        if(StringUtils.isBlank(metadata)){
+
+
+    private SecurityStash getValueFromMetadata(ByteBuffer metadata)  {
+        // 空判断：ByteBuffer 没数据时返回默认对象
+        if (metadata == null || !metadata.hasRemaining()) {
             return SecurityStash.builder().build();
         }
-        Optional<SecurityStash> obj =   JsonUtil.stringToObj(metadata, SecurityStash.class);
 
-        return obj.orElseThrow(()->new EventException(ES_RSOCKET_003));
+        // 将 ByteBuffer 转成 Netty 的 ByteBuf 以供 CompositeMetadata 使用
+        ByteBuf byteBuf = io.netty.buffer.Unpooled.wrappedBuffer(metadata);
+
+        CompositeMetadata compositeMetadata = new CompositeMetadata(byteBuf, false);
+        for (CompositeMetadata.Entry entry : compositeMetadata) {
+            String mimeType = entry.getMimeType();
+            if(Assert.verify(mimeType)){
+                // 你这边可能就是用的 application/json 存的 security
+                if (MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(MimeType.valueOf(mimeType))) {
+                    String json = entry.getContent().toString(StandardCharsets.UTF_8);
+                    Optional<SecurityStash> obj = JsonUtil.stringToObj(json, SecurityStash.class);
+                    return obj.orElseThrow(() -> new EventException(ES_RSOCKET_003));
+                }
+            }
+        }
+        throw new EventException(ES_RSOCKET_003);
     }
 
     @Resource
@@ -59,10 +71,12 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
     所以这只是简单的new一个对象的操作，而没有去创建和销毁链接，链接是rsocket底层去维护和复用的 rsocket接口只是告诉
     你们如何去发消息
     */
-    private RSocket createRSocket(RSocket sendingSocket,SecurityStash securityStash) {
+    private RSocket createRSocket(RSocket sendingSocket) {
         return new RSocket() {
             @Override
             public Mono<Void> fireAndForget(Payload payload) {
+                SecurityStash securityStash;
+                securityStash = getValueFromMetadata(payload.getMetadata());
                 return sendingSocket.fireAndForget(payload)
                         .onErrorResume(throwable -> {
                             // 自定义异常处理逻辑
@@ -73,6 +87,8 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
             }
             @Override
             public Mono<Payload> requestResponse(Payload payload) {
+                SecurityStash securityStash;
+                securityStash = getValueFromMetadata(payload.getMetadata());
                 return sendingSocket.requestResponse(payload)
                         .onErrorResume(throwable -> {
                             // 自定义异常处理逻辑
@@ -83,6 +99,8 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
             }
             @Override
             public Flux<Payload> requestStream(Payload payload) {
+                SecurityStash securityStash;
+                securityStash = getValueFromMetadata(payload.getMetadata());
                 return sendingSocket.requestStream(payload)
                         .onErrorResume(throwable -> {
                             // 自定义异常处理逻辑
@@ -93,17 +111,27 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
             }
             @Override
             public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
-                return sendingSocket.requestChannel(payloads)
-                        .onErrorResume(throwable -> {
-                            // 自定义异常处理逻辑
-                            throwable = rsocketGlobalExceptionHandler.handleException(throwable);
-                            return Mono.error(throwable); // 可以选择返回错误或者其他逻辑
-                        })
-                        .contextWrite(Context.of(SecurityStash.class,securityStash));
-
+                return Flux.from(payloads)
+                        .switchOnFirst((signal, flux) -> {
+                            Payload first = signal.get();
+                            if (first == null) {
+                                return Flux.error(new EventException(ES_RSOCKET_003)); // 空流处理
+                            }
+                            SecurityStash stash;
+                            stash = getValueFromMetadata(first.getMetadata());
+                            return sendingSocket.requestChannel(flux)
+                                    .onErrorResume(throwable -> {
+                                        throwable = rsocketGlobalExceptionHandler.handleException(throwable);
+                                        return Mono.error(throwable);
+                                    })
+                                    .contextWrite(Context.of(SecurityStash.class, stash));
+                        });
             }
+
             @Override
             public Mono<Void> metadataPush(Payload payload) {
+                SecurityStash securityStash;
+                securityStash = getValueFromMetadata(payload.getMetadata());
                 return sendingSocket.metadataPush(payload)
                         .onErrorResume(throwable -> {
                             // 自定义异常处理逻辑

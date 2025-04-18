@@ -6,12 +6,14 @@ import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpcType;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -35,6 +37,9 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
 
     @Resource
     private RSocketLoadbalance rSocketLoadbalance;
+
+    @Resource
+    private PrincipalStash principalStash;
 
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
@@ -104,7 +109,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                           verifyType(rSocketRpcType.MimeType());
                           if(RPC_CONNECT_LOADBALANCE.equals(connectType)){
                               //负载均衡模式
-                              Mono<RSocketLoadbalance.ProcessResponse> rSocketRequesterMono =  rSocketLoadbalance.build(rsocketUrl,MediaType.valueOf(rSocketRpcType.MimeType()));
+                              Mono<RSocketLoadbalance.ProcessResponse> rSocketRequesterMono =  rSocketLoadbalance.build(MimeType.valueOf(rSocketRpcType.MimeType()),rsocketUrl);
                               return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, rSocketRpcType.MimeType(),interfaceField);
                           }
                           if(RPC_CONNECT_DIRECT.equals(connectType)){
@@ -121,7 +126,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                                   }catch (Exception e){
                                       throw new EventException(ES_RPC_012);
                                   }
-                                  Mono<RSocketLoadbalance.ProcessResponse> rSocketRequesterMono = rSocketLoadbalance.build(parts[0],port,MediaType.valueOf(rSocketRpcType.MimeType()));
+                                  Mono<RSocketLoadbalance.ProcessResponse> rSocketRequesterMono = rSocketLoadbalance.build(MimeType.valueOf(rSocketRpcType.MimeType()),parts[0],port);
                                   return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, rSocketRpcType.MimeType(),interfaceField);
 
                               }
@@ -148,7 +153,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                 if (parameterizedType.getRawType() == Mono.class) {
                     if(actualTypeArguments.length == 1 && actualTypeArguments[0] == String.class){
                         return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMap(req->{
-                            return req.retrieveMono(route,data,String.class);
+                            return req.retrieveMono(principalStash, MimeType.valueOf(mimeType),route,data,String.class);
                         });
                     }
                     return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMap(req->{
@@ -160,13 +165,13 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                             useClass = (Class<?>)((ParameterizedType) actualTypeArguments[0]).getRawType();
                         }
                         if(useClass == null)throw new EventException(ES_RPC_027);
-                        return req.retrieveMono(route,data,useClass);
+                        return req.retrieveMono(principalStash, MimeType.valueOf(mimeType),route,data,useClass);
                     });
                 }
                 if (parameterizedType.getRawType() == Flux.class) {
                     if(actualTypeArguments.length == 1 && actualTypeArguments[0] == String.class){
                         return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMapMany(req->{
-                            return req.retrieveFlux(route,data,String.class);
+                            return req.retrieveFlux(principalStash,MimeType.valueOf(mimeType),route,data,String.class);
                         });
                     }
                     return rSocketRequesterMono.switchIfEmpty(Mono.error(new EventException(ES_RPC_013))).flatMapMany(req->{
@@ -178,7 +183,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                              useClass = (Class<?>)((ParameterizedType) actualTypeArguments[0]).getRawType();
                         }
                         if(useClass == null)throw new EventException(ES_RPC_027);
-                        return req.retrieveFlux(route,data,useClass);
+                        return req.retrieveFlux(principalStash,MimeType.valueOf(mimeType),route,data,useClass);
                     });
                 }
             }
@@ -193,7 +198,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                     }
                     if(useClass == null)throw new EventException(ES_RPC_027);
 
-                    return req.retrieveFlux(route,data,useClass);
+                    return req.retrieveFlux(principalStash,MimeType.valueOf(mimeType),route,data,useClass);
                 });
             }
             throw new EventException(ES_RPC_010);

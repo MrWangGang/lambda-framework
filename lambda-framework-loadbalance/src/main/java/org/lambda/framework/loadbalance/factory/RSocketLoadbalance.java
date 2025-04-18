@@ -20,7 +20,9 @@ import org.springframework.util.MimeType;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static org.lambda.framework.loadbalance.enums.LoadBalanceExceptionEnum.*;
@@ -32,85 +34,92 @@ public class RSocketLoadbalance {
     @Resource
     private RSocketRequester.Builder builder;
     @Resource
-    private PrincipalStash principalStash;
-    @Resource
     private RSocketStrategies strategies;
 
-    private static final SecurityStash defaultSecurityStash= SecurityStash.builder().build();
+    private ConcurrentHashMap<String, ProcessResponse> requesters = new ConcurrentHashMap<>();
+
+
+    private static final SecurityStash defaultSecurityStash = SecurityStash.builder().build();
+
     @Setter
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
-    public static class ProcessResponse{
+    public static class ProcessResponse {
 
         private RSocketRequester requester;
 
-        public <T> Mono<T> retrieveMono(String route,Object data, Class<T> dataType){
-            return requester.route(route).data(data).retrieveMono(dataType).doFinally(e->{
-                if(!requester.isDisposed()){requester.dispose();}
-            });
+        public <T> Mono<T> retrieveMono(PrincipalStash principalStash,MimeType mimeType,String route, Object data, Class<T> dataType) {
+            return principalStash.setSecurityStash()
+                    .onErrorReturn(defaultSecurityStash)
+                    .defaultIfEmpty(defaultSecurityStash).flatMap(securityStash -> {
+                        return requester.route(route).metadata(securityStash,mimeType).data(data).retrieveMono(dataType);
+                    });
         }
 
-        public <T> Flux<T> retrieveFlux(String route,Object data,Class<T> dataType){
-            return requester.route(route).data(data).retrieveFlux(dataType).doFinally(e->{
-                if(!requester.isDisposed()){requester.dispose();}
-            });
+        public <T> Flux<T> retrieveFlux(PrincipalStash principalStash,MimeType mimeType,String route, Object data, Class<T> dataType) {
+            return principalStash.setSecurityStash()
+                    .onErrorReturn(defaultSecurityStash)
+                    .defaultIfEmpty(defaultSecurityStash).flatMapMany(securityStash -> {
+                        return requester.route(route).metadata(securityStash,mimeType).data(data).retrieveMono(dataType);
+                    });
         }
     }
 
 
-
-    public Mono<ProcessResponse> build(String ip, Integer port, MimeType mimeType){
-        Assert.verify(ip,EB_LOADBALANCE_005);
-        Assert.verify(port,EB_LOADBALANCE_006);
-        return principalStash.setSecurityStash()
-                .onErrorReturn(defaultSecurityStash)
-                .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
-                    RSocketRequester requester = setRSocketRequester(getBuilder(),securityStash)
-                            .dataMimeType(mimeType)
-                            .transport(TcpClientTransport.create(ip,port));
-                    return ProcessResponse.builder().requester(requester).build();
-                });
-    }
-
-
-    public Mono<ProcessResponse> build(String serviceName,MimeType mimeType){
-        Assert.verify(serviceName,EB_LOADBALANCE_001);
-        return principalStash.setSecurityStash()
-                .onErrorReturn(defaultSecurityStash)
-                .defaultIfEmpty(defaultSecurityStash).map(securityStash->{
-                    RSocketRequester requester = setRSocketRequester(getBuilder(),securityStash)
-                            .dataMimeType(mimeType)
-                            .transports(loadBalanceTargets(serviceName),new RoundRobinLoadbalanceStrategy());
-                    return ProcessResponse.builder().requester(requester).build();
-                });
-    }
-
-    public RSocketRequester.Builder setRSocketRequester(RSocketRequester.Builder requester, SecurityStash securityStash){
-        if(securityStash!=null){
-            requester.setupData(securityStash);
+    public Mono<ProcessResponse> build(MimeType mimeType,String ip, Integer port) {
+        Assert.verify(ip, EB_LOADBALANCE_005);
+        Assert.verify(port, EB_LOADBALANCE_006);
+        String key = ip + ":" + port;
+        ProcessResponse response = requesters.get(key);
+        if (response != null) {
+            return Mono.just(response);
         }
-        return requester;
+
+        RSocketRequester requester = getBuilder().dataMimeType(mimeType)
+                .transport(TcpClientTransport.create(ip, port));
+        ProcessResponse rs = ProcessResponse.builder().requester(requester).build();
+        requesters.put(key, rs);
+        return Mono.just(rs);
     }
 
-    private RSocketRequester.Builder getBuilder(){
+
+    public Mono<ProcessResponse> build(MimeType mimeType,String serviceName) {
+        List<ServiceInstance> serviceInstances = discoveryClient.getInstances(serviceName);
+        Assert.verify(serviceName, EB_LOADBALANCE_001);
+        Assert.verify(serviceInstances, EB_LOADBALANCE_002);
+        ProcessResponse response = requesters.get(serviceName);
+        if (response != null) {
+            return Mono.just(response);
+        }
+
+        RSocketRequester requester = getBuilder().dataMimeType(mimeType)
+                .transports(loadBalanceTargets(serviceName), new RoundRobinLoadbalanceStrategy());
+        ProcessResponse rs = ProcessResponse.builder().requester(requester).build();
+        requesters.put(serviceName, rs);
+        return Mono.just(rs);
+    }
+
+    private RSocketRequester.Builder getBuilder() {
         builder.rsocketStrategies(strategies);
         return builder;
     }
 
 
-
     private Flux<List<LoadbalanceTarget>> loadBalanceTargets(String serviceName) {
-        return Mono.fromCallable(() -> {
-            Assert.verify(serviceName,EB_LOADBALANCE_001);
-            List<ServiceInstance> serviceInstances = discoveryClient.getInstances(serviceName);
-            Assert.verify(serviceInstances,EB_LOADBALANCE_002);
-            return serviceInstances
-                    .stream()
-                    .map(instance -> LoadbalanceTarget.from(instance.getServiceId(), TcpClientTransport.create(instance.getHost(), instance.getPort())))
-                    .collect(Collectors.toList());
-        }).flux();
+        return Flux.defer(() -> {
+                    List<ServiceInstance> serviceInstances = discoveryClient.getInstances(serviceName);
+                    if (Assert.verify(serviceInstances)) {
+                        List<LoadbalanceTarget> targets = serviceInstances.stream()
+                                .map(instance -> LoadbalanceTarget.from(
+                                        instance.getServiceId(),
+                                        TcpClientTransport.create(instance.getHost(), instance.getPort())))
+                                .collect(Collectors.toList());
+                        return Mono.just(targets);
+                    }
+                    return Mono.empty();  // 出现错误时依然继续
+                })
+                .repeatWhen(f -> f.delayElements(Duration.ofSeconds(1)));  // 每秒检查一次
     }
-
 
 }

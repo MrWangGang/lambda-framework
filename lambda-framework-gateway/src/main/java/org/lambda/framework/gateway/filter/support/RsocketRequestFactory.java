@@ -3,6 +3,7 @@ package org.lambda.framework.gateway.filter.support;
 import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.gateway.filter.GatewayFilter;
@@ -35,6 +36,9 @@ public class RsocketRequestFactory {
     @Resource
     private RSocketLoadbalance rSocketLoadbalance;
 
+    @Resource
+    private PrincipalStash principalStash;
+
 
 
     public Mono<Void> execute(ServerWebExchange exchange, GatewayFilterChain chain, GatewayFilter.GlobalFilterRoute route){
@@ -55,12 +59,12 @@ public class RsocketRequestFactory {
         String rsocketEcho = rsocketEchoHeaders.getFirst();
         Assert.verify(rsocketModel,ES_GATEWAY_000,"请求头:RSocket-Echo缺失");
         //校验headers
-        MimeType contentType = this.verifyHttpHeaders(exchange);
+        MimeType mimeType = this.verifyHttpHeaders(exchange);
         MultiValueMap<String,String> queryParams = exchange.getRequest().getQueryParams();
         if(verifyQueryParamsIsNotNull(queryParams)){
             throw new EventException(ES_GATEWAY_000,"rsocket协议不支持query params");
         }
-        Mono<RSocketLoadbalance.ProcessResponse> rSocketRequester =rSocketLoadbalance.build(route.host(),contentType);
+        Mono<RSocketLoadbalance.ProcessResponse> rSocketRequester =rSocketLoadbalance.build(mimeType,route.host());
         return rSocketRequester.flatMap(requester->{
             //获取请求里的body
             Flux<DataBuffer> bodyFlux = exchange.getRequest().getBody();
@@ -70,7 +74,7 @@ public class RsocketRequestFactory {
                     .flatMap(body-> {
                         // 使用RSocket客户端发送请求
                         Object data;
-                        if (MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(contentType)) {
+                        if (MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(mimeType)) {
                             data = body;
                         }else {
                             data = bodyFlux;
@@ -80,18 +84,18 @@ public class RsocketRequestFactory {
                             case RSOCKET_MODEL_REQUEST_RESPONSE:
                                 switch (rsocketEcho){
                                     case RSOCKET_ECHO_CHAR, RSOCKET_ECHO_VOID :
-                                        return handleResponse(requester.retrieveMono(route.path(),data,String.class), rs);
+                                        return handleResponse(requester.retrieveMono(principalStash, mimeType,route.path(),data,String.class), rs);
                                     case RSOCKET_ECHO_OBJECT:
-                                        return handleResponse(requester.retrieveMono(route.path(),data,Object.class), rs);
+                                        return handleResponse(requester.retrieveMono(principalStash, mimeType,route.path(),data,Object.class), rs);
                                     default:
                                         return Mono.error(new EventException(ES_GATEWAY_000,"请求头:RSocket-Echo无效,仅支持(response/char,response/object,response/void)"));
                                 }
                             case RSOCKET_MODEL_REQUEST_STREAM:
                                 switch (rsocketEcho){
                                     case RSOCKET_ECHO_CHAR, RSOCKET_ECHO_VOID :
-                                        return handleResponse(requester.retrieveFlux(route.path(),data,String.class).collectList(), rs);
+                                        return handleResponse(requester.retrieveFlux(principalStash, mimeType,route.path(),data,String.class).collectList(), rs);
                                     case RSOCKET_ECHO_OBJECT:
-                                        return handleResponse(requester.retrieveFlux(route.path(),data,Object.class).collectList(), rs);
+                                        return handleResponse(requester.retrieveFlux(principalStash, mimeType,route.path(),data,Object.class).collectList(), rs);
                                     default:
                                         return Mono.error(new EventException(ES_GATEWAY_000,"请求头:RSocket-Echo无效,仅支持(response/char,response/object,response/void)"));
                                 }
