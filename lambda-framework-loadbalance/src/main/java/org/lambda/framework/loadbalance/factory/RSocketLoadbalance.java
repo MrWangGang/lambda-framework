@@ -61,7 +61,7 @@ public class RSocketLoadbalance {
             return principalStash.setSecurityStash()
                     .onErrorReturn(defaultSecurityStash)
                     .defaultIfEmpty(defaultSecurityStash).flatMapMany(securityStash -> {
-                        return requester.route(route).metadata(securityStash,mimeType).data(data).retrieveMono(dataType);
+                        return requester.route(route).metadata(securityStash,mimeType).data(data).retrieveFlux(dataType);
                     });
         }
     }
