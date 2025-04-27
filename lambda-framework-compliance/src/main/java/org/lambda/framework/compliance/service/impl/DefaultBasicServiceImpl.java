@@ -145,7 +145,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
         return repository.jpqlPaging(paging,po,sort,(_condition,_pageable,_sort)->{
-            return repository.findBy(Example.of(_condition),
+            return repository.findBy(Example.of(_condition,matcher),
                     x -> x.sortBy(_sort).page(PageRequest.of(_pageable.getPageNumber(), _pageable.getPageSize())));
         });
     }
