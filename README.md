@@ -19,6 +19,7 @@ lambda-framework，使框架变得更加简单和易用。这将使程序员能�
 | lambda-framework-redis   		| 抽象redis组件        |
 | lambda-framework-repository   	| 持久层框架        |
 | lambda-framework-web   		| reactor web核心 基于reactive webflux        |
+| lambda-framework-rsocket   		| reactor rsocket核心 基于reactive rsocket        |
 | lambda-framework-security   	| 权限组件        |
 | lambda-framework-compliance  	| 合规组件        |
 
