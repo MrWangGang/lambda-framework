@@ -81,9 +81,7 @@ return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004));
 throw new EventException(SecurityExceptionEnum.ES_SECURITY_004);
 ```
 ## lambda-framework-compliance
-合规组件，有2个核心的设计理念，统一规范 和 敏捷开发
-我们从mvc去理解，
-先看controller层
+合规组件,让所有的微服务在此规范下开发,此组件规范了一系列的抽象方法以及工具
 
 1.DefaultBasicController
 2.DefaultTreeController
