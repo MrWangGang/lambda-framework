@@ -103,9 +103,10 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends Re
 
 public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
 ```
-其中UnifyPO 是每个数据库表的
-private LocalDateTime createTime;
+其中UnifyPO 是每个数据库表的都有的字段
 ```
+	private LocalDateTime createTime;
+
     private LocalDateTime updateTime;
 
     private Long creatorId;
@@ -116,7 +117,7 @@ private LocalDateTime createTime;
 
     private String updaterName;
 ```
-都有的字段，IFlattenTreePO 是这棵树的扁平化展示 他是一个接口，代表了这颗树的核心结构
+IFlattenTreePO 是这棵树的扁平化展示 他是一个接口，代表了这颗树的核心结构
 ```
     public Long getId();
 
@@ -126,225 +127,106 @@ private LocalDateTime createTime;
 
     public void setParentId(Long parentId);
 
-    public Long getOrganizationId();
-
-    public void setOrganizationId(Long organizationId);
-
     public <PO extends IFlattenTreePO>List<PO> getChildrens();
 
     public <PO extends IFlattenTreePO>void setChildrens(List<PO> childrens);
 ```
 
-登录用户模型，SecurityLoginUser和AbstractLoginUser
+登录用户模型，SecurityLoginUser和AbstractLoginUser,每个系统的用户类应当实现此接口
 ```
 public interface SecurityLoginUser {
-
     public Long getId();
-    public Long getOrganizationId();
-    public String getName();
 }
+//在利用rpc调用的时候,此用户信息会自动传播到链路中
+//可以随时随地的去获取用户的信息
+//只要注入 SecurityPrincipalHolder 类
+    @Resource
+    private SecurityPrincipalHolder securityPrincipalHolder;
+
+    public Mono<String> test() {
+        return securityPrincipalHolder.fetchPrincipal2Object(EmployeePO.class)
+                .flatMap(emp->{
+                    return Mono.just("fxq: " + emp.getName());
+                });
+    }
+
 ```
-SecurityLoginUser是security模块里的，他是security抽象出来的一种用户模型。
-AbstractLoginUser是compliance抽象出来的，实现了SecurityLoginUser的方法，他是用户模型的基础类也是父类。
-通过他，我才能用范型去写抽象的方法。
-## lambda-framework-redis
-在pom文件中引用下面代码块
+
+在pom中注入以下的组件获得数据库 redis 和mq 的能力
 ```		
 <dependency>
 	<groupId>org.lambda.framework</groupId>
 	<artifactId>lambda-framework-redis</artifactId>
 </dependency>
-```
-可以针对多数据源配置,针对不同的模块，你可以这样去配置
-如果要使用相同的host地址不同的database可以先定义一个抽象超类，
-```
-    public abstract class AbstractSecurityRedisConfig extends AbstractReactiveRedisConfig {
-    //##Redis服务器地址
-    @Value("${lambda.security.redis.host:0}")
-    protected String host;
-    //## Redis服务器连接端口
-    @Value("${lambda.security.redis.port:6379}")
-    protected Integer port;
-    //连接池密码
-    @Value("${lambda.security.redis.password:}")
-    protected String password;
-    //# 连接池最大连接数
-    @Value("${lambda.security.redis.lettuce.pool.max_active:8}")
-    protected Integer maxActive;
-    //# 连接池最大阻塞等待时间（使用负值表示没有限制）
-    @Value("${lambda.security.redis.lettuce.pool.max_wait_seconds:50}")
-    protected Integer maxWaitSeconds;
 
-    //# 连接池中的最大空闲连接
-    @Value("${lambda.security.redis.lettuce.pool.max_idle:8}")
-    protected Integer maxIdle;
-
-    //# 连接池中的最小空闲连接
-    @Value("${lambda.security.redis.lettuce.pool.min_idle:0}")
-    protected Integer minIdle;
-
-
-    @Override
-    protected String host() {
-        return this.host;
-    }
-
-    @Override
-    protected Integer port() {
-        return this.port;
-    }
-
-    @Override
-    protected String password() {
-        return this.password;
-    }
-
-    @Override
-    protected Integer maxActive() {
-        return this.maxActive;
-    }
-
-    @Override
-    protected Integer maxWaitSeconds() {
-        return this.maxWaitSeconds;
-    }
-
-    @Override
-    protected Integer maxIdle() {
-        return this.maxIdle;
-    }
-
-    @Override
-    protected Integer minIdle() {
-        return this.minIdle;
-    }
-}
-```
-通过实现超类，将database自定义配置暴露出去
-```
-@Configuration
-public class SecurityAuthRedisConfig extends AbstractSecurityRedisConfig {
-    //##数据库序号
-    @Value("${lambda.security.redis.auth.database:0}")
-    private Integer database;
-    @Bean("securityAuthRedisOperation")
-    public ReactiveRedisOperation securityAuthRedisOperation(){
-        return buildRedisOperation();
-    }
-
-    @Override
-    protected Integer database() {
-        return this.database;
-    }
-}
-```
-## lambda-framework-repository
-在pom文件中引用下面代码块
-```		
 <dependency>
 	<groupId>org.lambda.framework</groupId>
 	<artifactId>lambda-framework-repository</artifactId>
 </dependency>
-```
-可以针对多数据源配置,针对不同的模块，你可以这样去配置
-如果要使用相同的host地址不同的database可以先定义一个抽象超类，
-```
-    public abstract class AbstractCustomerMysqlRepositoryConfig extends AbstractReactiveMysqlRepositoryConfig {
-    //##mysql服务器地址
-    protected abstract String host();
-    //##mysql用户名
-    protected abstract String user();
-    //##mysql密码
-    protected abstract String password();
-    //##mysql库名
-    protected abstract String database();
-    //##mysql端口
-    protected abstract Integer port();
-    //##mysql最大超时时间
-    protected abstract Integer connectTimeoutSeconds();
-    //##mysql线程池-线程最大空闲时间
-    protected abstract Integer maxIdleTimeSeconds();
-    //##mysql线程池-线程最大数量
-    protected abstract Integer maxSize();
-    ...get/set
-}
-```
-通过实现超类，将database自定义配置暴露出去
-```
-@Configuration
-public class CustomerMysqlRepositoryConfig extends AbstractCustomerMysqlRepositoryConfig {
-    //##数据库序号
-    @Value("${xxx.xxx.xxx.xxx.database:store}")
-    private Integer database;
-    
-    @Bean("customerMysqlConnectionFactory")
-    public ConnectionFactory customerMysqlConnectionFactory(){
-        return buildMysqlConnectionFactory();
-    }
-}
-```
-配置好了ConnectionFactory后需要通过继承ReactiveMySqlRepositoryOperation，并声明@Repository,如果使用了这种形式，只能使用单数据源
-```
-public class CustomerMysqlRepositoryOperation extends ReactiveMySqlRepositoryOperation{
-  @Query("select o  from Employee o where id=(select max(id) from Employee t1)")
-  Employee getEmployeeByMaxId();
-}
-```
-如果要使用多数据源的形式，通过ConnectionFactory去使用
-```
-@Resource(name="customerMysqlConnectionFactory")
-private ConnectionFactory customerMysqlConnectionFactory;
 
-pulic Mono get(){
-    Mono.from(connectionFactory.create())
-            .flatMap(connection -> Mono.from(
-                    connection.createStatement("SELECT id,name,phone,mail FROM user WHERE name = ?name")
-                            .bind("name", "张三")
-                            .execute())
-    
-            )})).subscribe(u -> System.out.println(u.toString()));
-}
-```
-## lambda-framework-rpc
-lambda-framework-rpc使用了spring6的声明式http interface 来作为rpc框架的支持。
-将远程接口暴露的class文件必须放入 名为facade包的目录下，facade包可以在任意位置
-class文件位置遵循以下原则:
-```
-classpath*:/**/facade/**/*.class
-```
-使用方式
-```
-@HttpExchange("https://mockend.com/Fall-Rain/mockend/posts")
-public interface UserApi {
-@GetExchange
-    List<User> getUsers();
-}
-```
-如果是注册中心，则将https://mockend.com/Fall-Rain/mockend/posts 改成 注册中心中的服务名
-## lambda-framework-guid
-在pom文件中引用下面代码块
-
-```		
 <dependency>
 	<groupId>org.lambda.framework</groupId>
-	<artifactId>lambda-framework-guid</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<artifactId>lambda-framework-mq</artifactId>
 </dependency>
 ```
-引用guid之后你必须配置
+
 ```
-lambda.guid.datacenter_id=xxx
-lambda.guid.machine_id=xxx
+//通过继承超类可以直接使用redis
+@Configuration
+public class RedisConfig extends DefaultReactiveRedisRepositoryConfig
+
+//通过继承超类可以直接使用zk
+@Configuration
+public class RedisConfig extends DefaultZookeeperConfig
+
+
+//通过继承超类可以直接使用kafkamq
+@Configuration
+public class RedisConfig extends DefaultReactiveKafkaMQConfig
+
+
+//通过继承超类可以直接使用rabbitmq
+@Configuration
+public class RedisConfig extends DefaultReactiveRabbitMQConfig
+
+//通过继承超类可以直接使用mongodb
+@Configuration
+public class RedisConfig extends DefaultReactiveMongoRepositoryConfig
+
+//通过继承超类可以直接使用mysql
+@Configuration
+public class RedisConfig extends DefaultReactiveMysqlRepositoryConfig
+
 ```
-并注入
+
+## lambda-framework-rpc
+我通过ASM实现动态代理,用loadbalance来做负载均衡实现的,利用rscoket netty和hashmap作为服务调用列表
 ```
-@Resource
-private GuidFactory guidFactory;
+//对于服务暴露端,需要将rpc接口暴露
+@RSocketRpcDiscorvery("ace-microservices-fxq")
+public interface IFxqTestApi {
+    @RSocketRpcType
+    public Mono<String> test();
+}
+
+//实现这个接口
+@RSocketRpcApi
+public class FxqTestApi implements IFxqTestApi {
+    @Resource
+    private FxqTestFunction fxqTestFunction;
+
+    @Override
+    public Mono<String> test() {
+        return fxqTestFunction.test();
+    }
+}
+
+//对于服务调用端,直接注入即可使用
+    @RSocketRpc
+    private IFxqTestApi iFxqTestApi;
 ```
-才可使用GUID()方法
-```
-guidFactory.GUID();
-```
+
+
 ## lambda-framework-security
 在pom文件中引用下面代码块
 ```
@@ -364,7 +246,7 @@ private SecurityPrincipalUtil securityPprincipalUtil;
 public Mono login(){  //1
     User user =  User.builder().age(30).name("王刚").school("兰州理工大学").build();
     String userJson = JsonUtil.objToString(user);
-    String authToken = principalUtil.setPrincipalToToken(userJson);
+    String authToken = principalUtil.setPrincipal(userJson);
     return returning(authToken);
 }
 ```
@@ -439,118 +321,7 @@ lambda.security.url-autz-model=MAPPING or ALL
 
 当路径树不为空的时候，都会经过SecurityAutzManager.verify方法进行校验(此时，url-autz-model将会失效)
 
-## lambda-framework-web
-web框架的核心 lambda框架采用了springboot3.x并使用了spring boot web-flux响应式web框架,详情见lambda-framework-demo
-因为采用的web-flux，请不要提前订阅你的mono or flux 框架会帮你自动处理 否则无法response给api调用者
-以下代码块是错误示范:
-```
-error code
-
-public class DemoApplication extends WebResponseHandler
-
-@GetMapping("/testSecurity1")
-public Mono testSecurity1(){  
-    userService.getUser().subscribe()
-    return returning();
-}    
-```
-在启动类中添加
-```
-@SpringBootApplication(scanBasePackages = {"org.lambda.framework","your packages"} )
-@EnableWebFlux
-@RestController
-
-```
-来开启lambda-framework-web功能
-框架中已经写好了统一异常，WebGlobalExceptionHandler
-使用这样的形式去抛出自己的异常，否则都为ES_WEB_000
-```
-throw new EventException(ES_WEB_000);
-```
-```
-{
-    "serviceCode": "E00000000",
-    "serviceMessage": "操作成功",
-    "data": "lambda.auth.token.c495e2e9e4a32c94d3791f5602d20a97"
-}
-```
-```
-{
-    "serviceCode": "ES_SECURITY_003",
-    "serviceMessage": "无效令牌"
-}
-```
-你的controller类需要继承WebResponseHandler
-```
-public class DemoApplication extends WebResponseHandler
-
-@GetMapping("/testSecurity1")
-public Mono testSecurity1(){  
-    return returning();
-}    
-```
-我用了全局返回信息的转换，所以不需要特定的模版了。只需要这样返回 便能得到统一的格式 
-
-
-```
-
-    @PostMapping("/login")
-    public Mono<String> login(@RequestBody LoginDTO loginDTO){
-        return service.login(loginDTO);
-    }
-
-```
-
-如果是返回mono 便会返回统一的格式
-```
-{
-"serviceCode": "E00000000",
-"serviceMessage": "操作成功",
-"data": "lambda.security.auth-token.57283d40bd38cf3936c2b79b4314433a"
-}
-```
-
-如果是返回Stirng 便会返回统一的格式
-```
-    @PostMapping("/login")
-    public String login(@RequestBody LoginDTO loginDTO){
-        return service.login(loginDTO);
-    }
-```
-那便直接返回值，不具备统一格式的返回
-```
-hello word
-```
-
-## lambda-framework-openai
-在pom文件中引用下面代码块
-```
-  <dependency>
-    <groupId>org.lambda.framework</groupId>
-    <artifactId>lambda-framework-openai</artifactId>
-  </dependency>
-```
-使用下面的示例来调用
-```
-UniqueParam openAiUniqueParam = UniqueParam.builder().uniqueId(req.getUniqueId()).uniqueTime(req.getUniqueTime()).build();
-        ImageParam param =  ImageParam.builder()
-                .prompt(req.getPrompt())
-                .uniqueParam(uniqueParam)
-                .userId(userId)
-                .apiKey(apiKey)
-                .n(4)
-                .size(Contract.image_size_512)
-                .responseFormat(Contract.responseFormat)
-                .timeOut(Contract.clientTimeOut)
-                .quota(quato)
-                .maxTokens(imageTokens(Contract.image_size_512,4) + encoding(req.getPrompt()))
-                .build();
-        return returning(openAiImageService.execute(param).flatMap(e->{
-            //模拟扣减配额
-            quato = quato-e.getTotalTokens();
-            return Mono.just(e);
-        }));
-```
+## lambda-framework-web , lambda-framework-rsocket
 
 
 
