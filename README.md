@@ -323,5 +323,19 @@ lambda.security.url-autz-model=MAPPING or ALL
 
 ## lambda-framework-web , lambda-framework-rsocket
 
+```
+//类似spring boot的controller写法,非常简单,使用@MessageMapping注解
+@Controller
+public class CustController {
+    @Resource
+    private CustFunction custFunction;
+
+    @MessageMapping(CUST_PUT)
+    public Mono<Void> put(ICustLoanApi.PutDTO dto){
+        return custFunction.put(dto);
+    }
+}
+```
+
 
 
