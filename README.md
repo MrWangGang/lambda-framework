@@ -3,13 +3,11 @@
 [![License: apache2.0](https://img.shields.io/github/license/tensorflow/tensorflow.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ## 📖  简介
 
-Welcome to lambda-framework,I hope more practitioners can join me in improving the lambda-framework, making the framework simpler and more user-friendly. This will allow programmers to focus on their business code, without having to worry about the complex configuration of each component.
+Lambda-framework 致力于简化开发，让开发者专注于业务创新。我们重构了数据库和 TCP 底层连接，并原生支持 WebFlux 和 RSocket 两种启动协议，全面提升系统性能。
 
-lambda-framework，使框架变得更加简单和易用。这将使程序员能够专注于业务代码，而无需担心每个组件的复杂配置
+框架的 Gateway 已适配 RSocket，客户端无需修改协议即可享受其强大的背压和高吞吐能力。我们还实现了自定义的 RPC 远程调用，并通过重写底层 Socket 层，实现了用户信息的无缝传递，减少了对缓存（如 Redis）的依赖，大幅提升了微服务间的调用速度。
 
-***每个组件用lambda-framework-xxxx命名形式***
-***每个properties 使用 lambda.组件name.xxx  or  xxx-xxx命名形式***
-***对外暴露bean 使用 模块名+功能命名形式 类似securityAuthRedisConfig***
+在未来版本我将使用 Kryo 作为rpc的序列化协议 
 | 组件名称               | 说明         |
 | ----------        	| ----------- |
 | lambda-framework-common      	| 公共方法模块       |
