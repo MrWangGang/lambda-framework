@@ -3,7 +3,7 @@
 [![License: apache2.0](https://img.shields.io/github/license/tensorflow/tensorflow.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ## 📖  简介
 
-Lambda-framework 致力于简化开发，让开发者专注于业务创新。我们重构了数据库和 TCP 底层连接，并原生支持 WebFlux 和 RSocket 两种启动协议，全面提升系统性能。
+Lambda-framework 致力于简化开发，让开发者专注于业务创新。我重构了数据库和 TCP 底层连接，并原生支持 WebFlux 和 RSocket 两种启动协议，全面提升系统性能。
 
 框架的 Gateway 已适配 RSocket，客户端无需修改协议即可享受其强大的背压和高吞吐能力。我们还实现了自定义的 RPC 远程调用，并通过重写底层 Socket 层，实现了用户信息的无缝传递，减少了对缓存（如 Redis）的依赖，大幅提升了微服务间的调用速度。
 
