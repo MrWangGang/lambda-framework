@@ -31,6 +31,8 @@ import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.data.mongodb.core.mapping.MongoPersistentEntity;
 
 import java.util.Arrays;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -95,7 +97,8 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
                 .maxSize(maxSize())
                 .maxConnectionIdleTime(maxIdleTimeSeconds(), TimeUnit.SECONDS)
                 .build();
-        String connectionString = "mongodb://" + this.host() + "/?replicaSet=" + this.replicaSetName();
+        String connectionString = "mongodb://" + this.host() + "/?replicaSet="
+                + URLEncoder.encode(this.replicaSetName(), StandardCharsets.UTF_8);
         MongoClientSettings settings = MongoClientSettings.builder()
                 .applyToClusterSettings(builder -> builder.serverSelectionTimeout(connectTimeoutSeconds(), TimeUnit.SECONDS))
                 .applyToConnectionPoolSettings(builder -> builder.applySettings(connectionPoolSettings))
@@ -125,6 +128,11 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
         String databaseName = this.database();
         if (databaseName != null && !databaseName.isEmpty()) {
             uriBuilder.append("/").append(databaseName);
+        }
+        if ("cluster".equals(this.deployModel())) {
+            Assert.verify(this.replicaSetName(), ES_REPOSITORY_MONGO_009);
+            uriBuilder.append("?replicaSet=")
+                    .append(URLEncoder.encode(this.replicaSetName(), StandardCharsets.UTF_8));
         }
         MongoProperties mongoProperties = new MongoProperties();
         mongoProperties.setUri(uriBuilder.toString());

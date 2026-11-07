@@ -88,6 +88,20 @@ lambda.repository.redis.deploy=single
 
 Redis 支持 ACL 用户名。MongoDB 单机模式不要求副本集名称；多文档事务仍需要 MongoDB 副本集或分片集群。所有数据库应使用与环境对应的独立账号和配置。
 
+副本集与事务配置：
+
+```properties
+lambda.repository.mongo.host=${MONGO_HOST:127.0.0.1:27017}
+lambda.repository.mongo.user=${MONGO_USER:root}
+lambda.repository.mongo.password=${MONGO_PASSWORD}
+lambda.repository.mongo.auth-database=admin
+lambda.repository.mongo.database=catalog
+lambda.repository.mongo.deploy=cluster
+lambda.repository.mongo.replica=${MONGO_REPLICA_SET:rs0}
+```
+
+框架会提供 `ReactiveMongoTransactionManager`，业务可通过 `TransactionalOperator` 组合多个 MongoDB 写操作。将同一事务内的调用串联为一条 Reactor 流，不能在业务中另行 `subscribe()` 切断事务上下文。
+
 ## RPC 接口
 
 服务接口使用 `@RSocketRpcDiscorvery` 标记目标服务，方法使用 `@RSocketRpcType`；实现类使用 `@RSocketRpcApi`；客户端通过 `@RSocketRpc` 注入。
@@ -100,13 +114,13 @@ public interface CatalogApi {
 }
 ```
 
-注解名称沿用已有 API（包括 `Discorvery` 拼写），避免破坏使用方。完整示例见示例仓库的两个 facade 与 server 模块。
+注解名称沿用已有 API（包括 `Discorvery` 拼写），避免破坏使用方。当前示例仓库聚焦商品业务与基础设施接入；RPC API 保留在框架模块中，未将跨服务 RPC 计入本次实机验收。
 
 ## 版本与升级
 
 - [依赖版本清单](docs/DEPENDENCIES.md)：Maven Central 核验日期、版本管理策略与关键组件。
 - [JDK 27 迁移说明](docs/MIGRATION-JDK27.md)：Boot 4 / Security 7 / Nacos 配置变化。
-- [示例与集成测试](https://github.com/MrWangGang/lambda-framework-example)：真实服务连接、延迟消息与测试数据清理。
+- [可运行示例与验收记录](https://github.com/MrWangGang/lambda-framework-example)：真实服务连接、延迟消息与测试数据清理。
 
 [本次测试记录](https://github.com/MrWangGang/lambda-framework-example/blob/main/docs/TESTING.md)覆盖全部模块构建和基础设施联调。
 
