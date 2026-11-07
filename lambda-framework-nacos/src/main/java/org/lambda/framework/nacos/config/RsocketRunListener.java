@@ -18,7 +18,7 @@ public class RsocketRunListener implements ApplicationListener<RSocketServerInit
     Integer port;
     @Override
     public void onApplicationEvent(RSocketServerInitializedEvent event) {
-        if(port == -1L || port == null)throw new EventException(ES_NACOS_000);
+        if(port == null || port == -1)throw new EventException(ES_NACOS_000);
         if (registration != null && port != null) {
             registration.setPort(port);
             registration.start();

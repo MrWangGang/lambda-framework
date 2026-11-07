@@ -14,8 +14,8 @@ import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.repository.config.converter.EnumReadConverter;
 import org.lambda.framework.repository.config.converter.EnumWriteConverter;
 import org.lambda.framework.repository.enums.MongoDeployModelEnum;
-import org.springframework.boot.autoconfigure.mongo.MongoProperties;
-import org.springframework.boot.autoconfigure.mongo.PropertiesMongoConnectionDetails;
+import org.springframework.boot.mongodb.autoconfigure.MongoProperties;
+import org.springframework.boot.mongodb.autoconfigure.PropertiesMongoConnectionDetails;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Lazy;
@@ -49,7 +49,9 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
 
     public MongoClient buildMongoOperation() {
         Assert.verify(this.deployModel(),ES_REPOSITORY_MONGO_010);
-        Assert.verify(this.replicaSetName(),ES_REPOSITORY_MONGO_009);
+        if ("cluster".equals(this.deployModel())) {
+            Assert.verify(this.replicaSetName(),ES_REPOSITORY_MONGO_009);
+        }
         Assert.verify(this.host(),ES_REPOSITORY_MONGO_004);
         Assert.verify(this.user(),ES_REPOSITORY_MONGO_005);
         Assert.verify(this.password(),ES_REPOSITORY_MONGO_006);
@@ -129,8 +131,8 @@ public abstract class AbstractReactiveMongoRepositoryConfig {
         mongoProperties.setUsername(this.user());
         mongoProperties.setPassword(this.password().toCharArray());
         mongoProperties.setAuthenticationDatabase(this.authDatabase());
-        mongoProperties.setAutoIndexCreation(true);
-        return new PropertiesMongoConnectionDetails(mongoProperties);
+        // Index creation is handled explicitly after ApplicationReadyEvent.
+        return new PropertiesMongoConnectionDetails(mongoProperties, null);
     }
 
     @Bean

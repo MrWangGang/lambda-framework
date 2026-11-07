@@ -66,8 +66,8 @@ public class LambdaRepositoryConfig implements EnvironmentPostProcessor {
 
         // 自定义要排除的自动配置类
         String[] excludedAutoConfigurations = {
-                "org.springframework.boot.autoconfigure.r2dbc.R2dbcAutoConfiguration",
-                "org.springframework.boot.autoconfigure.mongo.MongoReactiveAutoConfiguration",
+                "org.springframework.boot.r2dbc.autoconfigure.R2dbcAutoConfiguration",
+                "org.springframework.boot.mongodb.autoconfigure.MongoReactiveAutoConfiguration",
         };
         properties.setProperty("spring.autoconfigure.exclude", String.join(",", excludedAutoConfigurations));
         PropertiesPropertySource propertySource = new PropertiesPropertySource("lambdaRepositoryProperties", properties);

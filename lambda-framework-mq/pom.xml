@@ -30,7 +30,7 @@
 		</dependency>
 		<dependency>
 			<groupId>io.projectreactor.kafka</groupId>
-			<artifactId>reactor-kafka</artifactId>
+			<artifactId>reactor-kafka</artifactId><version>${reactor-kafka.version}</version>
 		</dependency>
 	</dependencies>
 </project>

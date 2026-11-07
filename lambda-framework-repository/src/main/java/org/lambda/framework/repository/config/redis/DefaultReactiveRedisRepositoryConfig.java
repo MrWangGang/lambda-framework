@@ -9,6 +9,10 @@ public class DefaultReactiveRedisRepositoryConfig extends AbstractReactiveRedisR
     protected String host;
     @Value("${lambda.repository.redis.password:}")
     protected String password;
+    @Value("${lambda.repository.redis.username:}")
+    protected String username;
+    @Override
+    protected String username() { return username; }
     @Value("${lambda.repository.redis.database:}")
     protected Integer database;
     @Value("${lambda.repository.redis.deploy:single}")

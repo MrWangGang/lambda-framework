@@ -38,11 +38,9 @@ public class DefaultReactiveMongoRepositoryConfig extends AbstractReactiveMongoR
         this.deployModel = deployModel;
     }
 
-    @Value("${lambda.repository.mongo.replica:-1}")
+    @Value("${lambda.repository.mongo.replica:}")
     public void setReplicaSetName(String replicaSetName) {
-        if(replicaSetName == null || StringUtils.isBlank(replicaSetName) || "-1".equals(replicaSetName)){
-            throw new EventException(ES_REPOSITORY_MONGO_009);
-        }
+        // Validation depends on deployModel and runs after all properties are bound.
         this.replicaSetName = replicaSetName;
     }
 

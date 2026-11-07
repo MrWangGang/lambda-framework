@@ -14,7 +14,7 @@ import reactor.core.publisher.Mono;
 public class WebGlobalResponseEncodingFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON_UTF8);
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
         return chain.filter(exchange);
     }
 }

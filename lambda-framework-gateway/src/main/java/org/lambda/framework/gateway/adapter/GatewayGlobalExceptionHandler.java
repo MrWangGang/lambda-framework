@@ -7,7 +7,7 @@ import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
+import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -78,7 +78,7 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
         ServerHttpResponse response = exchange.getResponse();
         //对于服务端的异常，都封装成200 这样可以区别于socket底层的错误
         response.setStatusCode(HttpStatus.OK);
-        response.getHeaders().setContentType(MediaType.APPLICATION_JSON_UTF8);
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
         DataBuffer dataBuffer = response.bufferFactory()
                 .allocateBuffer().write(JsonUtil.objToString(errorBody).getBytes());
         return response.writeAndFlushWith(Mono.just(ByteBufMono.just(dataBuffer)));

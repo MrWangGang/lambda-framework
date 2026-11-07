@@ -1,339 +1,113 @@
-# 🚀  lamb-framework
+# Lambda Framework
 
-[![License: apache2.0](https://img.shields.io/github/license/tensorflow/tensorflow.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-## 📖  简介
+面向响应式 Java 服务的模块化基础框架。基于 **JDK 27、Spring Boot 4.1 与 Spring Cloud 2025.1**，提供数据访问、消息通信、RSocket RPC、网关和认证授权组件。
 
-Lambda-framework 致力于简化开发，让开发者专注于业务创新。我重构了数据库和 TCP 底层连接，并原生支持 WebFlux 和 RSocket 两种启动协议，全面提升系统性能。
+按业务需要引入模块，业务对象和服务接口保留在应用工程中。本仓库不自动部署服务，也不向远程 Maven 仓库发布构件。
 
-框架的 Gateway 已适配 RSocket，客户端无需修改协议即可享受其强大的背压和高吞吐能力。我们还实现了自定义的 RPC 远程调用，并通过重写底层 Socket 层，实现了用户信息的无缝传递，减少了对缓存（如 Redis）的依赖，大幅提升了微服务间的调用速度。
+## 开始使用
 
-在未来版本我将使用 Kryo 作为rpc的序列化协议 
-| 组件名称               | 说明         |
-| ----------        	| ----------- |
-| lambda-framework-common      	| 公共方法模块       |
-| lambda-framework-compliance  	| 规范化组件        |
-| lambda-framework-gateway  	| 网关组件        |
-| lambda-framework-guid   		| 唯一序列号GUID生成组件        |
-| lambda-framework-httpclient  	| http组件        |
-| lambda-framework-loadbalance  	| 负载均衡组件        |
-| lambda-framework-lock  	| 分布式锁组件        |
-| lambda-framework-mq  	| mq组件        |
-| lambda-framework-nacos  	| 注册中心组件        |
-| lambda-framework-repository  	| 存储层组件        |
-| lambda-framework-rpc  	| rpc组件        |
-| lambda-framework-security  	| 权限组件        |
-| lambda-framework-web   		| reactor web核心 基于reactive webflux        |
-| lambda-framework-rsocket   		| reactor rsocket核心 基于reactive rsocket        |
+需要 JDK 27 和已有的 Maven 3.6.3+。macOS 用户可以直接复用 IntelliJ IDEA 自带 Maven，仓库脚本不会安装 Maven。
 
-***微服务建议:***
-***每个微服务得有独特的异常命名，命名规范为 微服务名+ExceptionEnums***
-***异常枚举必须实现ExceptionEnumFunction接口***
-***ES_XXXXX_XXX ES开头代表这是框架底层抛出的异常***
-
-新建一个工程的pom准备
+```bash
+# 在框架仓库根目录执行
+java -version
+./scripts/mvn.sh clean install
 ```
-    <parent>
+
+其他安装位置可指定：
+
+```bash
+MAVEN_BIN="/path/to/idea/bundled/maven/bin/mvn" ./scripts/mvn.sh clean install
+```
+
+`install` 只写入本机 Maven 缓存；远程 `deploy` 默认禁用。然后克隆并构建[示例工程](https://github.com/MrWangGang/lambda-framework-example)，两个仓库放在同一父目录即可。
+
+应用的 `pom.xml`：
+
+```xml
+<parent>
+    <groupId>org.lambda.framework</groupId>
+    <artifactId>lambda-framework</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <relativePath/>
+</parent>
+<dependencies>
+    <dependency>
         <groupId>org.lambda.framework</groupId>
-        <artifactId>lambda-framework</artifactId>
-        <version>1.0.0</version>
-        <!--<relativePath/>--> <!-- lookup parent from repository -->
-    </parent>
+        <artifactId>lambda-framework-repository</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.lambda.framework</groupId>
+        <artifactId>lambda-framework-mq</artifactId>
+    </dependency>
+</dependencies>
 ```
 
-使用你想用的组件，不需要填写版本号，版本号与parent version同步 例如:
-```
-<dependency>
-	<groupId>org.lambda.framework</groupId>
-	<artifactId>lambda-framework-security</artifactId>
-</dependency>
-```
-创建异常枚举类->例:
-```
-public enum SecurityExceptionEnum implements ExceptionEnumFunction {
+## 模块导航
 
-    //系统异常-spring security 异常 - 200-299
-    ES_SECURITY_000("ES_SECURITY_000","身份认证失败"), //AuthenticationException
-    ES_SECURITY_001("ES_SECURITY_001","拒绝访问"), //AccessDeniedException
-    
-    @Getter
-    @Setter
-    private String code;
-    
-    @Getter
-    @Setter
-    private String message;
-    // 构造方法
-    private WebExceptionEnum(String code, String message) {
-        this.code = code;
-        this.message = message;
+| 模块 | 主要职责 |
+|---|---|
+| `common` | 统一异常、响应模型、JSON 和公共工具 |
+| `repository` | 响应式 Redis、MongoDB、R2DBC 与 Elasticsearch 数据访问 |
+| `compliance` | 基础 CRUD / 树形服务约定与用户上下文 |
+| `web` | WebFlux 请求处理、序列化和异常响应 |
+| `rsocket` | RSocket 拦截、异常处理与消息交互 |
+| `rpc` | RSocket RPC 接口发现和客户端代理 |
+| `loadbalance` | 服务实例选择与负载均衡 |
+| `gateway` | 响应式网关及过滤器 |
+| `nacos` | Nacos 配置、服务发现和 RSocket 端口注册 |
+| `security` | 身份认证、路径授权和 Redis 状态管理 |
+| `httpclient` | 响应式 HTTP 调用 |
+| `guid` | ID 生成 |
+| `lock` | Redisson / ZooKeeper 分布式锁支持 |
+| `mq` | RabbitMQ 与 Kafka 响应式消息支持 |
 
-    }
-    
-}	
-```
+实际 Maven artifactId 均为 `lambda-framework-` 加模块名。Redis 属于 `repository`，不存在单独的 `lambda-framework-redis` 模块。
 
-如果在reactor流中使用，可以使用
-```
-return Mono.error(new EventException(SecurityExceptionEnum.ES_SECURITY_004));
-```
-当然那也可以直接
-```
-throw new EventException(SecurityExceptionEnum.ES_SECURITY_004);
-```
-## lambda-framework-compliance
-合规组件,让所有的微服务在此规范下开发,此组件规范了一系列的抽象方法以及工具
+## Redis 与 MongoDB
 
-1.DefaultBasicController
-2.DefaultTreeController
-```
-public  class DefaultBasicController<PO extends UnifyPO,ID,Service extends IDefaultBasicService<PO,ID>> {
+继承对应配置类并注册为 Spring 配置，即可复用框架的连接与操作对象：
 
-public class DefaultTreeController<PO extends UnifyPO & IFlattenTreePO,ID,Service extends IDefaultTreeService<PO,ID>> extends DefaultBasicController<PO,ID,Service>{
-```
-其中 Basic是基础的 包含了增删改查的基础接口，类似于自动生产代码的controller，直接继承就能实现。
-而Tree是树的构建，比如这张表的结构是 id parentId orgId 这是一颗树的类型。 继承了这个controller后就能实现对树的增删改查的操作接口
-
-service层
-1.DefaultBasicServiceImpl
-2.DefaultTreeServiceImpl
-```
-public class DefaultBasicServiceImpl<PO extends UnifyPO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  implements IDefaultBasicService<PO,ID> {
-
-public class DefaultTreeServiceImpl<PO extends UnifyPO & IFlattenTreePO,ID,Repository extends ReactiveMySqlCrudRepositoryOperation<PO,ID>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
-```
-其中UnifyPO 是每个数据库表的都有的字段
-```
-	private LocalDateTime createTime;
-
-    private LocalDateTime updateTime;
-
-    private Long creatorId;
-
-    private Long updaterId;
-
-    private String creatorName;
-
-    private String updaterName;
-```
-IFlattenTreePO 是这棵树的扁平化展示 他是一个接口，代表了这颗树的核心结构
-```
-    public Long getId();
-
-    public void setId(Long id);
-
-    public Long getParentId();
-
-    public void setParentId(Long parentId);
-
-    public <PO extends IFlattenTreePO>List<PO> getChildrens();
-
-    public <PO extends IFlattenTreePO>void setChildrens(List<PO> childrens);
-```
-
-登录用户模型，SecurityLoginUser和AbstractLoginUser,每个系统的用户类应当实现此接口
-```
-public interface SecurityLoginUser {
-    public Long getId();
-}
-//在利用rpc调用的时候,此用户信息会自动传播到链路中
-//可以随时随地的去获取用户的信息
-//只要注入 SecurityPrincipalHolder 类
-    @Resource
-    private SecurityPrincipalHolder securityPrincipalHolder;
-
-    public Mono<String> test() {
-        return securityPrincipalHolder.fetchPrincipal2Object(EmployeePO.class)
-                .flatMap(emp->{
-                    return Mono.just("fxq: " + emp.getName());
-                });
-    }
-
-```
-
-在pom中注入以下的组件获得数据库 redis 和mq 的能力
-```		
-<dependency>
-	<groupId>org.lambda.framework</groupId>
-	<artifactId>lambda-framework-redis</artifactId>
-</dependency>
-
-<dependency>
-	<groupId>org.lambda.framework</groupId>
-	<artifactId>lambda-framework-repository</artifactId>
-</dependency>
-
-<dependency>
-	<groupId>org.lambda.framework</groupId>
-	<artifactId>lambda-framework-mq</artifactId>
-</dependency>
-```
-
-```
-//通过继承超类可以直接使用redis
+```java
 @Configuration
-public class RedisConfig extends DefaultReactiveRedisRepositoryConfig
+public class RedisConfig extends DefaultReactiveRedisRepositoryConfig {}
 
-//通过继承超类可以直接使用zk
 @Configuration
-public class RedisConfig extends DefaultZookeeperConfig
-
-
-//通过继承超类可以直接使用kafkamq
-@Configuration
-public class RedisConfig extends DefaultReactiveKafkaMQConfig
-
-
-//通过继承超类可以直接使用rabbitmq
-@Configuration
-public class RedisConfig extends DefaultReactiveRabbitMQConfig
-
-//通过继承超类可以直接使用mongodb
-@Configuration
-public class RedisConfig extends DefaultReactiveMongoRepositoryConfig
-
-//通过继承超类可以直接使用mysql
-@Configuration
-public class RedisConfig extends DefaultReactiveMysqlRepositoryConfig
-
+public class MongoConfig extends DefaultReactiveMongoRepositoryConfig {}
 ```
 
-## lambda-framework-rpc
-我通过ASM实现动态代理,用loadbalance来做负载均衡实现的,利用rscoket netty和hashmap作为服务调用列表
+Redis 配置示例，凭据由运行环境注入：
+
+```properties
+lambda.repository.redis.host=${REDIS_HOST:127.0.0.1:6379}
+lambda.repository.redis.username=${REDIS_USERNAME:default}
+lambda.repository.redis.password=${REDIS_PASSWORD:}
+lambda.repository.redis.database=0
+lambda.repository.redis.deploy=single
 ```
-//对于服务暴露端,需要将rpc接口暴露
-@RSocketRpcDiscorvery("ace-microservices-fxq")
-public interface IFxqTestApi {
+
+Redis 支持 ACL 用户名。MongoDB 单机模式不要求副本集名称；多文档事务仍需要 MongoDB 副本集或分片集群。所有数据库应使用与环境对应的独立账号和配置。
+
+## RPC 接口
+
+服务接口使用 `@RSocketRpcDiscorvery` 标记目标服务，方法使用 `@RSocketRpcType`；实现类使用 `@RSocketRpcApi`；客户端通过 `@RSocketRpc` 注入。
+
+```java
+@RSocketRpcDiscorvery("catalog-service")
+public interface CatalogApi {
     @RSocketRpcType
-    public Mono<String> test();
-}
-
-//实现这个接口
-@RSocketRpcApi
-public class FxqTestApi implements IFxqTestApi {
-    @Resource
-    private FxqTestFunction fxqTestFunction;
-
-    @Override
-    public Mono<String> test() {
-        return fxqTestFunction.test();
-    }
-}
-
-//对于服务调用端,直接注入即可使用
-    @RSocketRpc
-    private IFxqTestApi iFxqTestApi;
-```
-
-
-## lambda-framework-security
-在pom文件中引用下面代码块
-```
-<dependency>
-  <groupId>org.lambda.framework</groupId>
-  <artifactId>lambda-framework-security</artifactId>
-</dependency>
-```
-###统一认证
-在请求的headers中添加Auth-Token：xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-可以使用如下的例子来设置token
-```
-@Resource
-private SecurityPrincipalUtil securityPprincipalUtil;
-
-@GetMapping("/login")
-public Mono login(){  //1
-    User user =  User.builder().age(30).name("王刚").school("兰州理工大学").build();
-    String userJson = JsonUtil.objToString(user);
-    String authToken = principalUtil.setPrincipal(userJson);
-    return returning(authToken);
+    Mono<String> findName();
 }
 ```
 
-并配置auth和autz的redis-database信息
-```
-lambda.security.redis.host=47.98.122.4
-lambda.security.redis.password=XXXXXXXXXXXX
-#default
-lambda.security.redis.port=6379
-lambda.security.redis.lettuce.pool.max_active=8
-lambda.security.redis.lettuce.pool.max_wait_seconds=50
-lambda.security.redis.lettuce.pool.max_idle=8
-lambda.security.redis.lettuce.pool.min_idle=0
-```
-lambda-security已经写好了统一身份认证,无论是多服务和单机应用程序都都可以使用auth-token的形式登陆
-在引用lambda-security后你需要在properties配置文件中配置你的auth认证的redis数据库和autz授权redis数据库
-lambda-security默认使用redis来存储用户的auth-token和request path权限信息。
-如果需要更改auth-token和request path权限信息的存储位置,可以重新配置bean
-例如：
-```
-    CustomAuthManager extends SecurityAuthManager
-    
-    CustomAutzManager extends SecurityAutzManager
-    
-```
-重写父类的方法覆盖掉逻辑并注入
+注解名称沿用已有 API（包括 `Discorvery` 拼写），避免破坏使用方。完整示例见示例仓库的两个 facade 与 server 模块。
 
-```
-    
-    @Bean
-    public SecurityAutzManager customAutzManager(CustomAuthManager customAuthManager){
-        return new CustomAutzManager(customAuthManager) {
-            @Override
-            public boolean verify(String currentPathAutzTree, String principal) {
-	    	//your code 
-                return true;
-            }
-        };
-    }
+## 版本与升级
 
-    @Bean
-    public SecurityAuthManager customAuthManager(){
-        return new CustomAuthManager(){
-            @Override
-            public boolean verify(String principal) {
-	    	//your code 
-                return true;
-            }
-        };
-    }
-```
-如果你不希望更改身份认证校验逻辑，但是需要添加一些个性化的账号校验逻辑，你可以只重写方法来实现.
-```
-SecurityAuthManager.verify
-```
+- [依赖版本清单](docs/DEPENDENCIES.md)：Maven Central 核验日期、版本管理策略与关键组件。
+- [JDK 27 迁移说明](docs/MIGRATION-JDK27.md)：Boot 4 / Security 7 / Nacos 配置变化。
+- [示例与集成测试](https://github.com/MrWangGang/lambda-framework-example)：真实服务连接、延迟消息与测试数据清理。
 
-授权校验的逻辑需要自己去写逻辑,框架提供了verify接口
-```
-SecurityAutzManager.verify(String currentPathAutzTree,String principal)
-```
-currentPathAutzTree代表当前路径的权限树
-principal代表当前用户信息
-你可以在verify接口中去校验currentPathAutzTree中的角色和权限是否存在于principal
+[本次测试记录](https://github.com/MrWangGang/lambda-framework-example/blob/main/docs/TESTING.md)覆盖全部模块构建和基础设施联调。
 
-
-lambda.security.url-autz-model=MAPPING or ALL
-当你没有配置路径树 ，当检查路径树为空的时候 
-当值为ALL的时候，会拒绝访问 ，方便于生产环境，所有的路径都需要在路径树中
-
-当你没有配置路径树，当检查路径树为空的时候,当值为mapping的时候，会放过请求，方便开发环境
-
-当路径树不为空的时候，都会经过SecurityAutzManager.verify方法进行校验(此时，url-autz-model将会失效)
-
-## lambda-framework-web , lambda-framework-rsocket
-
-```
-//类似spring boot的controller写法,非常简单,使用@MessageMapping注解
-@Controller
-public class CustController {
-    @Resource
-    private CustFunction custFunction;
-
-    @MessageMapping(CUST_PUT)
-    public Mono<Void> put(ICustLoanApi.PutDTO dto){
-        return custFunction.put(dto);
-    }
-}
-```
-
-
-
+Spring 生态的传递依赖由 Boot / Cloud BOM 协同管理；未采用预览版或 SNAPSHOT 外部依赖。框架版本仍为 `1.0.0-SNAPSHOT`，表示当前仓库的本地开发版本。升级包含不兼容变化，现有 Boot 3 应用应按迁移说明调整。

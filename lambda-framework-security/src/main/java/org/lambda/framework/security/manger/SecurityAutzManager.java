@@ -9,6 +9,7 @@ import org.lambda.framework.security.enums.SecurityContract;
 import org.lambda.framework.security.enums.SecurityExceptionEnum;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.server.authorization.AuthorizationContext;
@@ -44,7 +45,7 @@ public abstract class SecurityAutzManager implements ReactiveAuthorizationManage
     }
 
     @Override
-    public Mono<AuthorizationDecision> check(Mono<Authentication> authentication, AuthorizationContext authorizationContext) {
+    public Mono<AuthorizationResult> authorize(Mono<Authentication> authentication, AuthorizationContext authorizationContext) {
          return securityAuthManager.authenticate(authorizationContext).flatMap(auth->{
             if(!auth.isAuthenticated()) return Mono.error(new EventException(ES_SECURITY_000,"身份认证失败"));
             String currentPath = authorizationContext.getExchange().getRequest().getURI().getPath();

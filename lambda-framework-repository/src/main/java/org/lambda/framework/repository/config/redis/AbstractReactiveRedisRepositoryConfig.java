@@ -26,6 +26,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
         protected abstract String host();
         //连接池密码
         protected abstract String password();
+        protected String username() { return null; }
         //# 连接池最大连接数
         protected abstract Integer maxActive();
         //# 连接池最大阻塞等待时间（使用负值表示没有限制）
@@ -102,6 +103,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
         }
         redisStaticMasterReplicaConfiguration.setDatabase(this.database());
         if (Strings.isNotBlank(this.password())) {
+            redisStaticMasterReplicaConfiguration.setUsername(username());
             redisStaticMasterReplicaConfiguration.setPassword(RedisPassword.of(this.password()));
         }
         return redisStaticMasterReplicaConfiguration;
@@ -124,6 +126,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
         }
         sentinelConfiguration.setDatabase(this.database());
         if (Strings.isNotBlank(this.password())) {
+            sentinelConfiguration.setUsername(username());
             sentinelConfiguration.setPassword(RedisPassword.of(this.password()));
         }
         return sentinelConfiguration;
@@ -144,6 +147,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
             redisClusterConfiguration.addClusterNode(redisNode);
         }
         if (Strings.isNotBlank(password())) {
+            redisClusterConfiguration.setUsername(username());
             redisClusterConfiguration.setPassword(RedisPassword.of(password()));
         }
         return redisClusterConfiguration;
@@ -159,6 +163,7 @@ public abstract class AbstractReactiveRedisRepositoryConfig {
             redisStandaloneConfiguration.setHostName(nodes[0]);
             redisStandaloneConfiguration.setPort(Integer.valueOf(nodes[1]));
             if (Strings.isNotBlank(password())) {
+                redisStandaloneConfiguration.setUsername(username());
                 redisStandaloneConfiguration.setPassword(RedisPassword.of(password()));
             }
             return redisStandaloneConfiguration;
