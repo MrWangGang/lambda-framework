@@ -2,7 +2,7 @@
 
 [返回总览](../README.md) · [用户体系](USER-AND-SECURITY.md) · [维护手册](OPERATIONS.md)
 
-本章记录源码结构、只读检查结论和待实现方案。**本轮没有修改 RSocket 或虚拟线程源码，没有将跨服务故障恢复列为已通过测试。**
+本章记录当前 RSocket 路由、Channel 修复、网关桥接及线程模型。跨服务联调使用独立服务与网关，生产环境故障恢复需单独验证。
 
 ## 1. 调用链
 
@@ -48,32 +48,19 @@ public interface CatalogApi {
 
 该类位于连接接受链中，但大量逻辑发生在每次请求处理时。业务请求失败、身份失败和握手失败应分别定位。
 
-## 4. 已识别的连接管理风险
+## 4. Requester 与服务发现
 
-| 编号 | 当前实现 | 条件与影响 |
-|---|---|---|
-| RPC-01 | 多实例 LoadbalanceTarget 使用同一 serviceId 作为 key | 同服务多个地址身份冲突，滚动更新可能保留旧目标 |
-| RPC-02 | requester 缓存先 get 再 put | 并发首次调用可能重复创建客户端，缺少统一释放 |
-| RPC-03 | 复用可变 Builder，缓存未区分 MIME | 并发构造可能相互影响 |
-| RPC-04 | 同步 DiscoveryClient 查询在缓存判断前 | 已有连接仍依赖发现查询，可能阻塞调用线程 |
-| RPC-05 | 周期发现流无错误恢复；为空时不发空列表 | 更新可能终止；全部下线时旧目标未及时清空 |
-| RPC-06 | 注册使用配置端口而非事件实际端口 | 随机端口或混合协议服务可能登记错误端口 |
+缓存按目标、端口和数据 MIME 区分，首次构建使用 computeIfAbsent。应用关闭时统一释放客户端。服务发现从请求热路径移入周期刷新，实例 key 使用 host:port。临时发现异常保留最后一次成功结果并继续刷新，空结果会发布空目标列表。服务端和客户端的 Payload 重组上限默认 16 MiB。
 
-这是源码分析，实际现象需要对应场景验证。不能断言所有连接都一定不稳定。
+发现、滚动替换和 Nacos 实际登记地址要结合部署验收。RSocket 端口与 HTTP 端口分开配置。应用可覆盖 RSocket 模块的默认运行类型。
 
-LoadbalanceTarget 的 key 用于唯一标识目标，应该区分实例地址和必要身份。[RSocket API](https://javadoc.io/static/io.rsocket/rsocket-core/1.1.5/io/rsocket/loadbalance/LoadbalanceTarget.html)
+## 5. 元数据、异常与取消
 
-## 5. 元数据、异常与认证边界
-
-- 固定按 CompositeMetadata 解析，需核对 SETUP 协商的 metadata MIME。
-- 收到 principal JSON，不等于验证调用方身份和权限。
-- 部分解析在返回 Mono / Flux 之前执行，错误可能绕过该方法的自定义 onErrorResume。
-- RSocket 1.1.5 普通请求路径有上游异常包装，不能直接描述为“同步解析失败必然断开整条连接”。
-- requestChannel 首个信号没有 Payload 时返回通用错误，可能覆盖上游原始错误。
-- 全局异常处理器对没有 message 的异常仍调用 message.indexOf，存在二次空指针风险。
-- ByteBuf / Payload 引用计数需专项验证；仅看到 wrappedBuffer 无 release 不能证明直接内存泄漏。
-
-无显式 reconnect 配置也不等于 Spring RSocketRequester 永远不能重连。应按实际客户端复用、失效和重建行为测试，再补超时、退避、重试与幂等策略。
+- 业务数据 MIME 与身份元数据分开，身份条目使用 JSON。身份内容应来自可信入口。
+- requestChannel 区分首个数据、错误与完成信号，保留输入的首条消息和单次订阅。
+- 统一异常转换覆盖整个 channel，并在空消息时保留原因和标准错误码。
+- 正常、错误、按需请求、取消以及 Payload 引用计数通过本机真实 TCP 验证。
+- 独立处理器拒绝数据时遵守其资源所有权。网关 NDJSON 流使用有界单条缓冲，后端请求与响应流保持可取消。
 
 ## 6. 排查顺序
 
@@ -86,7 +73,7 @@ LoadbalanceTarget 的 key 用于唯一标识目标，应该区分实例地址和
 7. 检查连接数、缓存释放、恢复时间以及写请求是否重复执行。
 8. 验证取消和 channel/stream 的 Payload 释放。
 
-现有实机验收是示例 HTTP 与中间件，不包括这些 RSocket 场景。
+现有验收覆盖双服务、网关、TCP 错误与取消。实例替换、长连接断网及生产代理配置需要按部署条件验收。
 
 ## 7. 虚拟线程接入
 

@@ -35,16 +35,21 @@ SecurityAutzManager              授权扩展：verify(pathRule, principal)
 ~~~java
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class User extends UnifyPO<String>
-        implements SecurityLoginUser<String> {
+@Document("users")
+public class UserEntity extends UnifyPO<ObjectId>
+        implements SecurityLoginUser<ObjectId> {
     private String nickname;
-    private boolean enabled;
+
+    public static class LoginSnapshotDTO extends UnifyPO<String>
+            implements SecurityLoginUser<String> {
+        private String nickname;
+    }
 }
 ~~~
 
 这里 getter/setter 由 Lombok 和父类提供，应用需正确导入框架类型及 Lombok 注解。继承 `UnifyPO` 不会自动让所有保存动作都更新时间；审计字段由实际保存路径 / 审计配置负责。
 
-登录快照建议单独建 DTO，实现 `SecurityLoginUser<String>`，只包含认证和业务请求需要的字段，例如 userId、昵称、状态、租户和必要权限版本。不要把密码哈希、短信验证码、支付信息或大数组放入登录快照。
+登录快照定义为用户实体的静态内部 DTO，实现 `SecurityLoginUser<String>`，只包含认证和业务请求需要的字段，例如 userId、昵称、状态、租户和必要权限版本。不要把密码哈希、短信验证码、支付信息或大数组放入登录快照。
 
 当前 `PrincipalFactory.setPrincipal` 会序列化传入对象的全部可序列化属性。直接传数据库实体之前，应确认哪些字段会进入 Redis 和 RPC 元数据。
 

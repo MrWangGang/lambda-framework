@@ -1,6 +1,6 @@
 package org.lambda.framework.gateway.adapter;
 
-import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.templete.ResponseTemplete;
@@ -10,13 +10,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
-import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-import reactor.netty.ByteBufMono;
 
 import static org.lambda.framework.common.exception.basic.GlobalException.EX_PRIEX;
 import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_000;
@@ -29,21 +29,33 @@ import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY
  */
 @Configuration
 @Order(-2)
-@Slf4j
 public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
 
-    private Logger logger = LoggerFactory.getLogger(GatewayGlobalExceptionHandler.class);
+    private static final Logger logger = LoggerFactory.getLogger(GatewayGlobalExceptionHandler.class);
 
     @Override
     public Mono<Void> handle(ServerWebExchange serverWebExchange, Throwable throwable) {
-
-        return writeResponse(serverWebExchange,handleTransferException(throwable));
+        var response = serverWebExchange.getResponse();
+        if (response.isCommitted()) {
+            return Mono.error(throwable);
+        }
+        if (throwable instanceof ErrorResponse error) {
+            response.setStatusCode(error.getStatusCode());
+            response.getHeaders().putAll(error.getHeaders());
+        } else if (throwable instanceof DataBufferLimitException) {
+            response.setStatusCode(HttpStatus.PAYLOAD_TOO_LARGE);
+        } else {
+            response.setStatusCode(HttpStatus.OK);
+        }
+        return writeResponse(response, handleTransferException(throwable));
     }
 
 
 
     private ResponseTemplete handleTransferException(Throwable e) {
-        logger.error("GatewayGlobalExceptionHandler",e);
+        if (!(e instanceof ErrorResponse) && !(e instanceof DataBufferLimitException)) {
+            logger.error("Gateway request failed", e);
+        }
         //抛出内部的错误
         if(e instanceof GlobalException) {
             GlobalException globalException = (GlobalException)e;
@@ -74,13 +86,13 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
         return responseTemplete;
     }
 
-    private Mono<Void> writeResponse(ServerWebExchange exchange, ResponseTemplete errorBody) {
-        ServerHttpResponse response = exchange.getResponse();
-        //对于服务端的异常，都封装成200 这样可以区别于socket底层的错误
-        response.setStatusCode(HttpStatus.OK);
+    private Mono<Void> writeResponse(ServerHttpResponse response, ResponseTemplete errorBody) {
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-        DataBuffer dataBuffer = response.bufferFactory()
-                .allocateBuffer().write(JsonUtil.objToString(errorBody).getBytes());
-        return response.writeAndFlushWith(Mono.just(ByteBufMono.just(dataBuffer)));
+        try {
+            byte[] bytes = JsonUtil.getJsonFactory().writeValueAsBytes(errorBody);
+            return response.writeWith(Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes)));
+        } catch (JsonProcessingException error) {
+            return Mono.error(error);
+        }
     }
 }

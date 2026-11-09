@@ -1,124 +1,250 @@
-# Lambda Framework 操作手册
+# Lambda Framework
 
-基于 **JDK 27、Spring Boot 4.1.2、Spring Cloud 2025.1.4** 的模块化响应式 Java 框架。业务继续使用 `Mono / Flux`，按需接入数据访问、消息、用户上下文、认证授权、RSocket RPC、网关与配置中心。
+Lambda Framework 提供 JDK 27、Spring Boot 4.1.2 和 Spring Cloud 2025.1.4 下的响应式 Java 后端基础能力。使用 Mono 和 Flux 编写业务，在同一体系内接入 MongoDB、Redis、RabbitMQ、Nacos、RSocket 和 HTTP 网关。
 
-文档更新：**2026-11-09**。对应本仓库当前源码；已验证能力、已知问题和设计方案分别说明。这里的服务器地址、密码、云凭据均使用占位符，实际环境资料保存在不提交 Git 的本地《开发规范.md》。
+## 构建与启动
 
-## 1. 从哪里开始
-
-| 你的任务 | 阅读顺序 |
-|---|---|
-| 第一次运行项目 | [环境与构建](docs/GETTING-STARTED.md) → [可运行示例](https://github.com/MrWangGang/lambda-framework-example) |
-| 给业务项目接 Redis / MongoDB / RabbitMQ | [模块和配置](docs/MODULES-AND-CONFIGURATION.md) |
-| 找用户超类、做登录与权限 | [用户体系手册](docs/USER-AND-SECURITY.md) |
-| 使用 CRUD、分页、设计 MongoDB 关系 | [数据访问与分页](docs/DATA-AND-PAGINATION.md) |
-| 排查 RSocket 连接、了解虚拟线程 | [RSocket 与线程模型](docs/RSOCKET-AND-VIRTUAL-THREADS.md) |
-| 部署、更新、GitHub SSH、排错 | [维护与交付](docs/OPERATIONS.md) |
-| 查看依赖与升级步骤 | [依赖清单](docs/DEPENDENCIES.md) · [JDK 27 迁移](docs/MIGRATION-JDK27.md) |
-| 查看真实测试范围 | [示例验收记录](https://github.com/MrWangGang/lambda-framework-example/blob/main/docs/TESTING.md) |
-
-## 2. 两个仓库如何配合
-
-~~~text
-tazhoo/
-├── lambda-framework/          框架父 POM + 14 个模块
-└── lambda-framework-example/  示例父 POM + lambda-example-app
-~~~
-
-先把框架 `install` 到本机 Maven 仓库，再构建示例。框架根项目是 `pom`，不能把它当成独立应用启动；可运行的 Boot 应用在示例仓库。
+框架是父 POM 与 14 个模块的源码工程。应用按功能依赖模块，并单独启动 Spring Boot 进程。先把框架安装到本地 Maven 缓存，再构建 [lambda-framework-example](https://github.com/MrWangGang/lambda-framework-example)。
 
 ~~~bash
-# 从 tazhoo 目录开始；电脑已有 Git、JDK 27 和 IDEA
-git clone git@github.com:MrWangGang/lambda-framework.git
-git clone git@github.com:MrWangGang/lambda-framework-example.git
-cd lambda-framework
 export JAVA_HOME='/实际的/JDK27/Contents/Home'
 ./scripts/mvn.sh -version
 ./scripts/mvn.sh clean install
 cd ../lambda-framework-example
 cp .env.example .env
-# 编辑 .env，并按示例手册在 Nacos 创建启动配置
 ./scripts/run.sh
 ~~~
 
-`scripts/mvn.sh` 只查找已有 Maven，优先使用 macOS IntelliJ IDEA 内置 Maven，**不会下载安装 Maven**。首次下载依赖需要联网。`install` 只写本地缓存；框架默认跳过远程 `deploy`。
-
-## 3. 当前交付能力与边界
-
-| 能力 | 状态 |
-|---|---|
-| 14 个框架模块 + 父项目的 JDK 27 构建 | 2026-11-07 全部通过 |
-| MongoDB 副本集事务、Redis ACL、RabbitMQ 延迟消息 | 已实机验证，详见示例验收记录 |
-| Nacos 配置导入、刷新、服务注册与注销 | 已实机验证 |
-| Qdrant 向量读写 | 示例通过 WebClient 接入；框架没有独立 Qdrant 模块 |
-| 示例商品复合游标分页 | 已实机验证 |
-| 框架 `Paging/Paged` 通用分页 | 存在排序、页码和 Builder 默认值问题；外部回归 12 项中 8 项失败，尚未修复 |
-| 用户认证授权抽象 | 源码已有；示例尚未接入完整登录授权，未完成端到端验收 |
-| 跨服务 RSocket RPC | 源码已有；已识别连接管理风险，未完成跨服务故障恢复验收 |
-| 整体虚拟线程接入 | 已分析方案；部分模块已有开关，不代表全项目已经验证启用 |
-| MySQL / Elasticsearch / Kafka / ZooKeeper / 锁 | 模块参与构建；未部署对应服务做实机验收 |
-| 腾讯云 COS / SMS | 已整理对接设计；没有上传云文件或发送短信 |
-
-不能把“构建成功”解释成所有模块业务功能和高可用均验证通过。
-
-## 4. 模块索引
-
-完整 artifactId 为 `lambda-framework-` 加下列模块名。
-
-| 模块 | 主要入口与用途 |
-|---|---|
-| `common` | `UnifyPO`、`SecurityLoginUser`、`SecurityStash`、异常、JSON、RPC 注解 |
-| `repository` | Redis 操作、Mongo/R2DBC/ES 配置、`Paging/Paged` |
-| `compliance` | `DefaultBasicServiceImpl`、树形业务约定、`PrincipalFactory` |
-| `security` | `SecurityAuthManager` 认证、`SecurityAutzManager` 授权 |
-| `web` | WebFlux 上下文、响应与异常过滤器 |
-| `gateway` | 网关过滤、RSocket 转发与用户上下文 |
-| `rsocket` | RSocket 编解码、请求元数据拦截、异常处理 |
-| `rpc` | 接口客户端代理与服务端路由生成 |
-| `loadbalance` | 服务发现、RSocketRequester 缓存与负载均衡 |
-| `nacos` | Nacos 配置/发现依赖及 RSocket 端口注册监听 |
-| `mq` | RabbitMQ / Kafka 响应式连接与消息操作 |
-| `httpclient` | WebClient 响应过滤辅助 |
-| `guid` | 雪花 ID 工厂 |
-| `lock` | Redisson / ZooKeeper 锁封装 |
-
-Redis 和 MongoDB 都在 `repository` 中，不存在 `lambda-framework-redis` 或 `lambda-framework-mongodb` 构件。不要把所有模块无条件扫描进一个应用；不同模块可能引入额外基础设施配置。
-
-## 5. 引入框架
+在执行 run.sh 前按本地《第三方配置.md》填入 .env 并准备 Nacos 启动配置。mvn.sh 使用已有 IDEA Maven 或显式 MAVEN_BIN。框架远程 deploy 默认跳过。
 
 ~~~xml
 <parent>
-    <groupId>org.lambda.framework</groupId>
-    <artifactId>lambda-framework</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-    <relativePath/>
+  <groupId>org.lambda.framework</groupId>
+  <artifactId>lambda-framework</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <relativePath/>
 </parent>
 <dependencies>
-    <dependency>
-        <groupId>org.lambda.framework</groupId>
-        <artifactId>lambda-framework-repository</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.lambda.framework</groupId>
-        <artifactId>lambda-framework-mq</artifactId>
-    </dependency>
+  <dependency>
+    <groupId>org.lambda.framework</groupId>
+    <artifactId>lambda-framework-repository</artifactId>
+  </dependency>
 </dependencies>
 ~~~
 
-框架自身的 `1.0.0-SNAPSHOT` 是本地开发版本；外部依赖采用固定版本。父 POM 的 dependencyManagement 负责版本，不等于把所有模块自动加入应用。
+## 模块与接入入口
 
-Spring Boot 4 的自动配置有模块拆分；例如需要自动注入 `WebClient.Builder` 的应用，应显式引入 `spring-boot-starter-webclient`。完整配置以示例 POM 和手册为准。
+| 模块后缀 | 主要能力 |
+|---|---|
+| common | UnifyPO、SecurityLoginUser、ConverterEnum、通用异常、JsonUtil 和 RPC 注解 |
+| repository | MongoDB、Redis、R2DBC MySQL、Elasticsearch、分页 |
+| compliance | 通用 Service、树操作、PrincipalFactory、SecurityPrincipalHolder |
+| security | 认证 Redis、令牌、URL 授权和自定义校验 |
+| web | WebFlux 上下文、响应与异常处理 |
+| gateway | HTTP POST 到 RSocket、JSON 与 NDJSON |
+| rsocket | 编解码策略、SocketAcceptor 拦截、Payload 生命周期、异常编码 |
+| rpc | Java 接口 RPC 代理、服务端路由注册 |
+| loadbalance | RSocketRequester 缓存、连接释放、目标发现 |
+| nacos | 配置导入、服务发现与 RSocket 端口注册 |
+| mq | RabbitMQ、Kafka 与响应式连接 |
+| httpclient | WebClient 响应过滤辅助 |
+| guid | 雪花 ID |
+| lock | Redisson 和 ZooKeeper 锁 |
 
-## 6. 用户体系的入口
+artifactId 由 `lambda-framework-` 加模块后缀组成。按应用需要引入配置与组件，例如数据库配置继承 DefaultReactiveMongoRepositoryConfig，Redis 配置继承 DefaultReactiveRedisRepositoryConfig。完整参数见 [模块与配置](docs/MODULES-AND-CONFIGURATION.md)。
 
-用户对象实现 `SecurityLoginUser<ID>`；公共实体字段可复用 `UnifyPO<ID>`。登录身份操作父类是 `PrincipalFactory`，业务通过 `SecurityPrincipalHolder` 读取当前 Reactor Context 中的身份。
+## RSocket 服务与 HTTP 网关
 
-身份验证和角色权限规则由应用实现。默认 `verify` 方法返回 `true`，不能将默认配置当成完整业务权限系统。完整生命周期、ACL 配置缺口和接入示意见[用户体系手册](docs/USER-AND-SECURITY.md)。
+独立服务设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.port`。引入 rsocket 模块并导入 RSocketStrategiesConfig、RSocketAcceptorInterceptor、RsocketGlobalExceptionHandler 与 RsocketInterceptorConfig。服务端用 `@MessageMapping` 声明处理器，客户端和服务端共用 DTO 契约。Java RPC 接口使用 `@RSocketRpcDiscorvery("chat-service")`，方法使用 `@RSocketRpcType`，由 `@RSocketRpc` 注入。普通接口 route 为服务名、接口首字母小写名、方法名，用点号连接。
 
-## 7. 文档使用约定
+~~~java
+@RSocketRpcDiscorvery("chat-service")
+public interface ChatMessageRpc {
+    @RSocketRpcType
+    Mono<ChatMessageEntity.ViewDTO> find(ChatMessageEntity.FindDTO input);
+}
+~~~
 
-- 标注“当前实现”的内容来自源码；命令在指定工作目录执行。
-- 标注“方案 / 待实现”的接口与类不会因为写入文档就出现在代码中。
-- 示例返回值中的 ID、时间、版本号应以实际响应为准。
-- 维护操作先辨别业务数据与独立验收资源；不要用删除全部数据库或数据卷的方式清理测试。
-- 完整服务器账号、密码、SSH 私钥保存在本地私有资料；公开仓库只保留配置变量与操作方法。
+服务端可以用 `@MessageMapping({"chat-service.chatMessageRpc.find", "/rpc/message/find"})` 同时提供 Java RPC 和网关的路由。以下网关使用 `rb://chat-service`，将重写后的请求路径交给 RSocket。网关应用配置 reactive，导入 GatewayFilter、RsocketRequestFactory、GatewayGlobalExceptionHandler、RSocketLoadbalance 与 RSocketStrategies 配置，使用对应的服务发现和 PrincipalStash。
+
+~~~yaml
+spring:
+  main:
+    web-application-type: reactive
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: chat
+              uri: rb://chat-service
+              predicates:
+                - Path=/rpc/message/**
+~~~
+
+| RSocket-Model | 请求 | 响应 |
+|---|---|---|
+| request/response | POST，application/json 或 application/octet-stream | 单个 JSON envelope |
+| request/stream | POST，JSON DTO | 有界 JSON 数组，或指定 Accept: application/x-ndjson 后逐条输出 |
+| request/channel | POST，application/x-ndjson，每行一个 UTF-8 JSON DTO | 每行一个 NDJSON envelope，双向流 |
+
+普通请求的 RSocket-Echo 可用 response/object、response/char、response/void。Channel 使用 object 或 char。二进制端点由服务端声明 byte[] 等合适类型，按其响应内容选择 Echo。业务请求错误沿用 serviceCode/serviceMessage，网关参数、方法、内容类型与超限错误使用相应 HTTP 状态。
+
+~~~bash
+curl -fsS -X POST http://127.0.0.1:8080/rpc/message/find \
+  -H 'Content-Type: application/json' \
+  -H 'RSocket-Model: request/response' -H 'RSocket-Echo: response/object' \
+  -d '{"id":"507f1f77bcf86cd799439011"}'
+~~~
+
+~~~bash
+curl -NsS -X POST http://127.0.0.1:8080/rpc/message/channel \
+  -H 'Content-Type: application/x-ndjson' -H 'Accept: application/x-ndjson' \
+  -H 'RSocket-Model: request/channel' -H 'RSocket-Echo: response/object' \
+  --data-binary @messages.ndjson
+~~~
+
+示例地址假设已启动相应服务。messages.ndjson 每行对应服务端的 SendDTO。网关在本机 TCP 链路验证过客户端收到首条响应后再发送下一条请求。实际代理、客户端和 HTTP 版本的双向传输行为应在部署时复核。响应已开始后的流错误会结束传输，客户端据其业务协议重试或续读。
+
+| 配置 | 默认值与范围 |
+|---|---|
+| lambda.gateway.rsocket.max-request-bytes | 1048576 字节，普通请求体或每条 NDJSON |
+| lambda.gateway.rsocket.max-response-bytes | 4194304 字节，聚合响应或单条流响应 |
+| lambda.gateway.rsocket.max-response-items | 512，旧版 JSON 数组的元素数 |
+| lambda.gateway.rsocket.request-timeout | 15s，普通请求总等待或流首条响应等待 |
+| lambda.rsocket.server.max-inbound-payload-bytes | 16777216，服务端 Payload 重组上限 |
+| lambda.rsocket.client.max-inbound-payload-bytes | 16777216，框架客户端 Payload 重组上限 |
+
+请求体读取一次。传统数组在限制内组装，NDJSON 边接收边写出。连接按目标与数据 MIME 缓存，后台刷新服务实例，关闭应用时释放。身份元数据条目独立使用 JSON。
+
+## 用户、分页、配置和维护
+
+- [用户体系](docs/USER-AND-SECURITY.md) 涵盖用户超类、会话、授权 Redis、ACL 缺口与扩展点。
+- [数据与分页](docs/DATA-AND-PAGINATION.md) 涵盖 Repository 接口、排序、分页和复合游标。
+- [RSocket 与线程](docs/RSOCKET-AND-VIRTUAL-THREADS.md) 涵盖背压、握手、负载均衡和虚拟线程。
+- [安装](docs/GETTING-STARTED.md)、[配置](docs/MODULES-AND-CONFIGURATION.md)、[维护](docs/OPERATIONS.md) 和 [依赖](docs/DEPENDENCIES.md) 分别提供完整操作。
+- 框架构建、Channel、TCP 取消与引用释放、分页，以及 chat-api、chat-service、网关联调已验收。全量生产聊天、生产代理与集群故障恢复需按部署条件另验收。
+
+## 2026-11-09 验收与性能对照
+
+Channel 直接检查 13 项、TCP 检查 8 项、分页回归 12 项、双服务/网关/示例实机 26 项均通过。
+
+同配置对照中，128 条 JSON 数组流从 3,177 提升到 3,930 请求/秒，网关 CPU 从 0.3950 降到 0.2411 ms/请求。逐条 NDJSON 将慢流首字节从 1052.9 ms 降到 242.4 ms。单次请求吞吐略低，峰值 RSS 略高。压测为本机短轮次，报告保留所有数值和样本。
+
+## Java 后端开发与架构规范
+
+版本日期为 **2026-11-09**。本规范供开发者和智能体统一 Java 项目的结构、接口、数据模型和验收方式。部署地址、账号、云资源与 GitHub 接入信息集中到本地《第三方配置.md》。仓库中的示例使用本机地址和环境变量。
+
+### 项目名称与命名
+
+新建项目或微服务前收集项目名称。缺少名称时询问。已有项目沿用已确认的名称与包名前缀。Maven artifactId、Spring 应用名和服务发现名使用项目名称。Java 包使用小写标识符，连字符映射为包层级，组织前缀按项目约定。示例中 chat-api 对应 `org.chat.api`，chat-service 对应 `org.chat.service`。
+
+| 包 | 类名示例 | 职责 |
+|---|---|---|
+| entity | ChatMessageEntity | 集合或表的实体及所属静态 DTO |
+| controller | ChatMessageController | HTTP 或 RSocket 参数校验、响应映射 |
+| service | ChatMessageService | 业务规则、事务、协作编排 |
+| repository | ChatMessageRepository | BSON 查询、更新、索引、分页 |
+| rpc | ChatMessageRpc | 跨服务接口 |
+| enums 或所属实体 | MessageKind | 值域、持久化值、显示文案 |
+| config | MongoConfiguration | 连接与运行配置 |
+
+类名采用业务名与职责后缀。Service 只有一种实现时直接使用业务 Service 类，有多个实现或跨模块契约时再拆接口。Repository 以归属实体命名。请求 DTO 使用 `SendDTO`、`FindDTO`、`PageDTO` 等动作名，多个查询可以共享 `ViewDTO`。
+
+### 实体、DTO 与接口
+
+- 每个数据库表或集合对应一个实体。所属请求、视图和 RPC DTO 放到实体的 `public static` 内部类或 record。Service 复用 Controller 的 DTO。
+- DTO 可继承实体来复用合适的字段。涉及密码哈希、权限、审计、版本与内部状态时，明确选择允许读写的字段。缓存操作等缺少对应数据库实体的请求使用 Controller 内部静态 DTO。
+- 所有业务 HTTP 接口使用 POST 动作路径，例子为 `/api/message/send`、`/api/product/page`。条件与 ID 放请求体，空请求用空 DTO。RPC 同样声明具体请求 DTO 和 `Mono<T>`、`Flux<T>`。
+- 业务金额、普通业务标量以字符串建模，禁止 BigDecimal。技术字段保留原生语义，例如 MongoDB ObjectId、事务库存计数、乐观锁版本、分页计数、日期和向量维度。业务 DTO 的金额、数量等以字符串入参，Repository 或第三方客户端在明确边界转换。
+- CORS 预检、WebSocket 握手和基础设施协议遵从各自协议。业务入口仍统一 POST。
+
+~~~java
+@Document("chat_messages")
+public class ChatMessageEntity extends UnifyPO<ObjectId> {
+    private ObjectId conversationId;
+    private MessageKind kind;
+    private String content;
+
+    public static record FindDTO(String id) {}
+    public static record SendDTO(String conversationId, MessageKind kind, String content) {}
+    public static record ViewDTO(String id, MessageKind kind, String content) {}
+}
+~~~
+
+实际实体需提供 Spring Data 可映射的构造器或访问方法。Service 采用上述 DTO 时无需复制一套 Service 参数类。
+
+### MongoDB 类型、枚举与查询
+
+MongoDB 主键和关联字段用 BSON `ObjectId`。HTTP 与 RPC 使用 24 位十六进制字符串，边界用 `ObjectId.isValid` 校验后转换。Repository 泛型和查询参数使用 `ObjectId`，方法名与字段名称保持一致。
+
+~~~java
+public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessageEntity, ObjectId> {
+    @Query("{ '_id': ?0 }")
+    Mono<ChatMessageEntity> findWithQuery(ObjectId id);
+}
+~~~
+
+联调实测中，`findById(ObjectId)`、`@Query` 绑定 ObjectId、带实体映射的 `ReactiveMongoTemplate.findById(hex, Entity.class)` 均命中。原生 `Filters.eq("_id", hex)` 查不到，改成绑定 ObjectId 即命中。MongoDB 的 `@Query` 使用 BSON 查询表达式。原生驱动、Document 和聚合匹配应明确 BSON 类型，关联字段也需一致。历史字符串 ID、DECIMAL128 金额和旧索引应经过迁移后再由新实体读取。
+
+数据库实体包含枚举字段时，枚举实现 `org.lambda.framework.common.enums.ConverterEnum`，提供 `getValue()` 与 `getDescription()`。持久化值保持稳定，例如 `text`、`emoji`、`image`、`video`。框架的 Mongo 配置注册枚举读写转换器。本次联调已核对 MongoDB 存储字符串值以及 API 往返。
+
+### 用户与会话
+
+业务用户实体可继承 `UnifyPO<ObjectId>` 并实现 `SecurityLoginUser<ObjectId>`，复用 id、createTime、updateTime。登录快照在用户实体内定义静态 DTO，可用十六进制字符串实现 `SecurityLoginUser<String>`。快照保留昵称、状态和必要的权限版本，避免包含密码哈希、验证码和敏感业务字段。
+
+`PrincipalFactory` 是会话抽象，`SecurityPrincipalHolder` 从 Reactor Context 读取当前用户。登录后创建会话，从可信入口验证令牌，并在 Service 按实际身份判断资源权限。认证与授权 Redis 使用独立配置前缀，核对所用 ACL 模式及框架模块能力。应用负责覆盖实际身份与权限规则。
+
+### 分页和索引
+
+`Paging` 对业务使用从 1 开始的页码，默认 1/10。框架转换为从 0 开始的 `PageRequest`。`Paged<T>` 复用 page、size、pages、total、records。页码和大小在入口校验，业务列表限制每页最多 100。RPC 保留 `Mono<Paged<ViewDTO>>` 的完整泛型。
+
+`ReactiveUnifyPagingRepositoryOperation.sqlPaging` 提供 count 与 query 的协调，也可给 Mongo Repository 使用。两者传相同过滤条件，查询应用 Pageable。排序使用可索引的稳定键，例如 `createdAt DESC, _id DESC`。聊天历史等长期增长列表使用复合游标，游标中的 ID 转为 ObjectId。业务需考虑 count 与查询分开执行时的并发更新。
+
+### 数据库、缓存和运行配置
+
+使用现有 JDK 27 与 IDEA 自带 Maven。框架先执行 `./scripts/mvn.sh install`，应用随后构建。独立 RSocket 服务配置 `spring.main.web-application-type=none`，网关和 HTTP 服务使用 `reactive`。
+
+| 功能 | 用法 |
+|---|---|
+| MongoDB | repository 模块继承 DefaultReactiveMongoRepositoryConfig，使用 lambda.repository.mongo.host/user/password/auth-database/database/deploy/replica。副本集事务配置 cluster 与真实 replica 名。 |
+| Redis | repository 模块继承 DefaultReactiveRedisRepositoryConfig，使用 lambda.repository.redis.host/username/password/database/deploy。复用连接，以业务前缀与 TTL 管理键。 |
+| RabbitMQ | mq 模块继承 DefaultReactiveRabbitMQConfig。延迟交换机需要插件，处理结果落库后再确认消费。 |
+| Nacos | 配置 namespace、group、服务名与注册端口。区分 HTTP 端口与 RSocket 端口。 |
+| Qdrant | 示例通过 WebClient 访问，按集合定义维度、距离函数、ID 与 payload。 |
+| 对象存储与短信 | 环境值和对接资料见本地《第三方配置.md》。 |
+
+### RSocket、网关与聊天
+
+RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketRpc` 注入。服务端使用与契约一致的 route，例如 `chat-service.chatMessageRpc.find`。普通请求和服务端流在网关以 `rb://服务名` 路由。服务端流可以用 Accept 请求 NDJSON，逐条刷新。双向流通过 POST NDJSON 或原生 RSocket requestChannel 交换 DTO。
+
+保持首条消息、单次订阅、上下文、背压和取消。处理首信号时区分数据、错误与完成。遵循 RSocket 和 Spring 的 Payload 所有权，写测试确认释放行为。部署经过 HTTP 代理时实测全双工与缓冲策略。
+
+私聊与群聊用会话 ID 区分，消息包含发送人、类型、内容、时间。表情用 Unicode，图片与视频的消息内容用对象存储 key。网关可按字节转发小二进制。媒体文件上传和下载使用独立链路，权限、群成员校验、消息幂等和离线拉取由业务实现。
+
+### 验收与交付
+
+先复现旧行为，再在相同条件验证修复。性能记录负载、吞吐、延迟、CPU 与进程内存。测试使用唯一 MongoDB 数据库、Redis 前缀、Qdrant 集合与 RabbitMQ 资源名，结束后先停应用，再按清单清理并复查。临时测试代码和日志放仓库外。README 记录启动、接口、框架用法、验收结果和技能。提交前核对真实环境配置与凭据是否混入 Git。
+
+## 开发规范技能
+
+使用 `$lambda-java-backend` 应用以下规则。技能源文件位于框架仓库的 `skills/lambda-java-backend/SKILL.md`。
+
+~~~markdown
+---
+name: lambda-java-backend
+description: 按统一风格开发、修改或审查 Lambda Framework Java 后端项目。适用于项目命名、POST 接口、实体内 DTO、RSocket RPC、MongoDB、分页、用户体系及交付验收。
+---
+
+新建项目或微服务前确认项目名称。用户已提供时直接使用。缺少名称时询问，等待期间可以检查现有代码和准备设计。用已确认的名称派生 Maven artifactId、Java 基础包、Spring 应用名和服务发现名。
+
+仓库版规范位于 `../../docs/Java后端开发与架构规范.md`，本机安装版随技能提供 `references/Java后端开发与架构规范.md`。环境值从本地《第三方配置.md》或环境变量读取。提交前检查真实凭据是否混入 Git。
+
+- 业务 HTTP 接口采用 POST 动作路径与请求 DTO。RPC 同样使用 DTO 与 Mono 或 Flux。
+- 每个数据库表或集合对应一个实体。所属 DTO 放实体的静态内部类型。Service 复用 Controller 的 DTO。缓存等无实体归属的请求放 Controller 静态类型。
+- Mongo 主键与关联 ID 使用 ObjectId。HTTP 和 RPC 使用十六进制字符串，在 Repository 绑定 BSON 时转换。枚举实现 ConverterEnum。业务金额与标量用字符串，技术字段按规范转换。
+- 复用框架分页、异常、Reactor Context 和数据库连接。区分 SecurityLoginUser、UnifyPO、PrincipalFactory。
+- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。聊天 DTO 描述文字、表情与媒体引用。
+- 使用现有 JDK 和 IDEA Maven。先复现再修复，在相同条件复测。使用隔离测试资源，验收后按名称清理，核对数据并关闭本次启动的 JVM。
+- README 记录项目运行与契约。报告区分实测、设计方案和未测范围。
+~~~

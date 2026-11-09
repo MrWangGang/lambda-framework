@@ -8,7 +8,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_027;
 import static org.lambda.framework.common.enums.ConmonContract.AUTHTOKEN_STASH_NAMING;
 import static org.lambda.framework.common.enums.ConmonContract.PRINCIPAL_STASH_NAMING;
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
@@ -22,7 +21,7 @@ public class SecurityPrincipalHolder extends PrincipalFactory {
 
         @Override
         public Mono<SecurityStash> setSecurityStash() {
-            throw new EventException(ES_COMMON_027);
+            return Mono.empty();
         }
     }
 

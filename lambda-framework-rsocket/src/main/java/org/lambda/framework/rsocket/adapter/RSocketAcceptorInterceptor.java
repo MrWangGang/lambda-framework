@@ -112,20 +112,15 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
             @Override
             public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
                 return Flux.from(payloads)
-                        .switchOnFirst((signal, flux) -> {
-                            Payload first = signal.get();
-                            if (first == null) {
-                                return Flux.error(new EventException(ES_RSOCKET_003)); // 空流处理
+                        .<Payload>switchOnFirst((signal, input) -> {
+                            if (!signal.hasValue()) {
+                                return input;
                             }
-                            SecurityStash stash;
-                            stash = getValueFromMetadata(first.getMetadata());
-                            return sendingSocket.requestChannel(flux)
-                                    .onErrorResume(throwable -> {
-                                        throwable = rsocketGlobalExceptionHandler.handleException(throwable);
-                                        return Mono.error(throwable);
-                                    })
-                                    .contextWrite(Context.of(SecurityStash.class, stash));
-                        });
+                            SecurityStash stash = getValueFromMetadata(signal.get().getMetadata());
+                            return sendingSocket.requestChannel(input)
+                                    .contextWrite(context -> context.put(SecurityStash.class, stash));
+                        })
+                        .onErrorMap(rsocketGlobalExceptionHandler::handleException);
             }
 
             @Override
