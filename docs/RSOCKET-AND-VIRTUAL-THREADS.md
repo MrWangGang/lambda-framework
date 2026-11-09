@@ -50,7 +50,7 @@ public interface CatalogApi {
 
 ## 4. Requester 与服务发现
 
-缓存按目标、端口和数据 MIME 区分，首次构建使用 computeIfAbsent。应用关闭时统一释放客户端。服务发现从请求热路径移入周期刷新，实例 key 使用 host:port。临时发现异常保留最后一次成功结果并继续刷新，空结果会发布空目标列表。服务端和客户端的 Payload 重组上限默认 16 MiB。
+缓存按目标、端口、数据 MIME 和每实例连接数区分，首次构建使用 computeIfAbsent。应用关闭时统一释放客户端。服务发现从请求热路径移入周期刷新，实例 key 使用 host:port。临时发现异常保留最后一次成功结果并继续刷新，空结果会发布空目标列表。服务端和客户端的 Payload 重组上限默认 16 MiB。已建立的服务发现连接断开时，连接池先摘除旧连接，框架经 100–250 ms 随机延迟重发最近目标列表。连接池收到新请求后建立缺失连接。TCP 建连失败按退避重试，已发出的 RPC 请求不会自动重放。
 
 发现、滚动替换和 Nacos 实际登记地址要结合部署验收。RSocket 端口与 HTTP 端口分开配置。应用可覆盖 RSocket 模块的默认运行类型。
 
@@ -94,12 +94,11 @@ reactor.schedulers.defaultBoundedElasticOnVirtualThreads=true
 ## 8. 现有配置的待整理点
 
 - Web / RSocket 已有 spring.threads.virtual.enabled 配置类。
-- Web 的工厂注册类型与实现接口不匹配。
 - Gateway 的配置入口在非标准资源目录，使用 ApplicationContextInitializer，需核验打包及启动时序。
-- Web / RSocket 还强制 web-application-type=none，可能影响 HTTP 应用。
+- 网关以 `spring.main.web-application-type=reactive` 启动。Web / RSocket 的线程配置由应用覆盖。
 - 开关生效不表示每条业务链都经过 boundedElastic。
 
-后续应统一早期入口，允许应用覆盖，并用线程探针确认。当前未完成改造。
+验证业务是否实际经过 boundedElastic，可通过线程探针确认。
 
 ## 9. 执行边界
 

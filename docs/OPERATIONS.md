@@ -100,7 +100,7 @@ git status --short
 | 下载失败 | settings、代理、镜像 | 修下载链路，不删整个缓存 |
 | deploy 没上传 | maven.deploy.skip | 当前默认行为，日常用 install |
 | 类存在但 Bean 缺失 | 扫描 / Import / 条件配置 | 按模块注册 |
-| web 加入后没 HTTP 端口 | web-application-type | 参照已知配置问题 |
+| 网关没 HTTP 端口 | web-application-type、Nacos Data ID | 核对应用已加载 `reactive` 与监听配置 |
 
 ## 7. 运行故障保留哪些证据
 

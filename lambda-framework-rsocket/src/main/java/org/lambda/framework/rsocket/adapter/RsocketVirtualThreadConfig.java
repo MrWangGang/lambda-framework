@@ -15,7 +15,6 @@ public class RsocketVirtualThreadConfig implements EnvironmentPostProcessor {
     @Override
     public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
         Map<String, Object> customProperties = new HashMap<>();
-        customProperties.put("spring.main.web-application-type", "none");
         customProperties.put("spring.threads.virtual.enabled", "true");
         environment.getPropertySources().addLast(new MapPropertySource("rsocketVirtualThreadConfigProperties", customProperties));
 

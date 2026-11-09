@@ -1,8 +1,12 @@
 package org.lambda.framework.loadbalance.factory;
 
+import io.rsocket.DuplexConnection;
+import io.rsocket.RSocket;
 import io.rsocket.loadbalance.LoadbalanceTarget;
 import io.rsocket.loadbalance.RoundRobinLoadbalanceStrategy;
+import io.rsocket.transport.ClientTransport;
 import io.rsocket.transport.netty.client.TcpClientTransport;
+import io.rsocket.util.RSocketProxy;
 import jakarta.annotation.PreDestroy;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,11 +29,16 @@ import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.retry.Retry;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
 import static org.lambda.framework.loadbalance.enums.LoadBalanceExceptionEnum.*;
@@ -37,6 +46,8 @@ import static org.lambda.framework.loadbalance.enums.LoadBalanceExceptionEnum.*;
 @Component
 public class RSocketLoadbalance {
     private static final Logger log = LoggerFactory.getLogger(RSocketLoadbalance.class);
+    private static final Retry TCP_CONNECT_RETRY = Retry.backoff(2, Duration.ofMillis(250))
+            .maxBackoff(Duration.ofSeconds(1)).onRetryExhaustedThrow((spec, failure) -> failure.failure());
     private final DiscoveryClient discoveryClient;
     private final ObjectProvider<RSocketRequester.Builder> builders;
     private final RSocketStrategies strategies;
@@ -119,21 +130,40 @@ public class RSocketLoadbalance {
         RSocketRequester requester;
         synchronized (builder) {
             builder.rsocketStrategies(strategies).dataMimeType(key.dataMimeType());
-            builder.rsocketConnector(connector -> connector.maxInboundPayloadSize(maxInboundPayloadBytes));
-            requester = key.port() == null
-                    ? builder.transports(loadBalanceTargets(key), new RoundRobinLoadbalanceStrategy())
-                    : builder.transport(TcpClientTransport.create(key.target(), key.port()));
+            if (key.port() == null) {
+                // The pool owns the subscription. A single pending signal is enough to replay its target list.
+                Sinks.Many<Boolean> reconnect = Sinks.many().unicast()
+                        .onBackpressureBuffer(new ArrayBlockingQueue<>(1));
+                builder.rsocketConnector(connector -> connector.maxInboundPayloadSize(maxInboundPayloadBytes)
+                        .interceptors(registry -> registry.forRequester((RSocket socket) -> new RSocketProxy(socket) {
+                            @Override
+                            public Mono<Void> onClose() {
+                                // Signal only after RSocket's pool has handled the close and evicted this socket.
+                                return super.onClose().doAfterTerminate(() -> reconnect.tryEmitNext(true));
+                            }
+                        })));
+                Flux<Long> triggers = reconnect.asFlux()
+                        .concatMap(signal -> Mono.delay(Duration.ofMillis(ThreadLocalRandom.current().nextLong(100, 251))), 0)
+                        .startWith(0L);
+                Flux<List<LoadbalanceTarget>> targets = Flux.combineLatest(loadBalanceTargets(key, reconnect),
+                        triggers, (snapshot, ignored) -> snapshot);
+                requester = builder.transports(targets, new RoundRobinLoadbalanceStrategy());
+            } else {
+                builder.rsocketConnector(connector -> connector.maxInboundPayloadSize(maxInboundPayloadBytes));
+                requester = builder.transport(TcpClientTransport.create(key.target(), key.port()));
+            }
         }
         return new ProcessResponse(requester);
     }
 
-    private Flux<List<LoadbalanceTarget>> loadBalanceTargets(RequesterKey key) {
+    private Flux<List<LoadbalanceTarget>> loadBalanceTargets(RequesterKey key, Sinks.Many<Boolean> reconnect) {
         return Mono.fromCallable(() -> discoveryClient.getInstances(key.target()).stream()
                         .flatMap(instance -> {
                             String address = instance.getHost() + ":" + instance.getPort();
+                            var transport = new RecoveringTransport(
+                                    TcpClientTransport.create(instance.getHost(), instance.getPort()), reconnect);
                             return IntStream.range(0, key.connectionsPerInstance()).mapToObj(index ->
-                                    LoadbalanceTarget.from(index == 0 ? address : address + "#" + index,
-                                            TcpClientTransport.create(instance.getHost(), instance.getPort())));
+                                    LoadbalanceTarget.from(index == 0 ? address : address + "#" + index, transport));
                         })
                         .toList())
                 .subscribeOn(Schedulers.boundedElastic())
@@ -142,6 +172,23 @@ public class RSocketLoadbalance {
                     return Mono.empty();
                 })
                 .repeatWhen(completions -> completions.delayElements(Duration.ofSeconds(30)));
+    }
+
+    private record RecoveringTransport(TcpClientTransport delegate, Sinks.Many<Boolean> reconnect)
+            implements ClientTransport {
+        @Override
+        public Mono<DuplexConnection> connect() {
+            return delegate.connect().retryWhen(TCP_CONNECT_RETRY).doFinally(signal -> {
+                if (signal == SignalType.ON_ERROR) {
+                    reconnect.tryEmitNext(true);
+                }
+            });
+        }
+
+        @Override
+        public int maxFrameLength() {
+            return delegate.maxFrameLength();
+        }
     }
 
     @PreDestroy

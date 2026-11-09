@@ -118,7 +118,7 @@ public class RsocketRequestFactory {
                     })
                     .switchIfEmpty(Flux.error(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "A channel requires a first record")));
-            return stream(response, loadbalance.build(MediaType.APPLICATION_JSON, route.host())
+            return stream(response, requester(MediaType.APPLICATION_JSON, route, false)
                     .flatMapMany(rpc -> rpc.retrieveChannel(principalStash, route.path(), frames, responseType)));
         }
         if (!MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
@@ -133,11 +133,10 @@ public class RsocketRequestFactory {
                 .defaultIfEmpty(EMPTY_BODY);
         boolean requestStream = RSOCKET_MODEL_REQUEST_STREAM.equals(model);
         if (requestStream && format.ndjson()) {
-            return stream(response, body.flatMapMany(bytes -> streamRequester(mimeType, route)
+            return stream(response, body.flatMapMany(bytes -> requester(mimeType, route, true)
                     .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, responseType))));
         }
-        Mono<byte[]> result = body.flatMap(bytes -> (requestStream
-                ? streamRequester(mimeType, route) : loadbalance.build(mimeType, route.host())).flatMap(rpc -> {
+        Mono<byte[]> result = body.flatMap(bytes -> requester(mimeType, route, requestStream).flatMap(rpc -> {
             boolean jsonObjects = MediaType.APPLICATION_JSON.equals(mimeType) && RSOCKET_ECHO_OBJECT.equals(echo);
             if (requestStream) {
                 Flux<byte[]> encoded = jsonObjects
@@ -167,9 +166,12 @@ public class RsocketRequestFactory {
                 });
     }
 
-    private Mono<RSocketLoadbalance.ProcessResponse> streamRequester(MediaType mimeType,
-                                                                       GatewayFilter.GlobalFilterRoute route) {
-        Object configured = route.metadata().get("rsocketStreamConnectionsPerInstance");
+    private Mono<RSocketLoadbalance.ProcessResponse> requester(MediaType mimeType,
+            GatewayFilter.GlobalFilterRoute route, boolean requestStream) {
+        Map<String, Object> metadata = route.metadata();
+        String key = requestStream && metadata.containsKey("rsocketStreamConnectionsPerInstance")
+                ? "rsocketStreamConnectionsPerInstance" : "rsocketConnectionsPerInstance";
+        Object configured = metadata.get(key);
         if (configured == null) {
             return loadbalance.build(mimeType, route.host());
         }
@@ -177,7 +179,7 @@ public class RsocketRequestFactory {
         try {
             connections = Integer.parseInt(configured.toString());
         } catch (NumberFormatException error) {
-            throw new IllegalArgumentException("rsocketStreamConnectionsPerInstance must be an integer", error);
+            throw new IllegalArgumentException(key + " must be an integer", error);
         }
         return loadbalance.buildForService(mimeType, route.host(), connections);
     }

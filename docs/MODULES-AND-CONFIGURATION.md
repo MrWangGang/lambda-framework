@@ -130,21 +130,25 @@ lambda.mq.rabbitmq.password=APP_PASSWORD
 
 ## 5. Nacos
 
-业务应用引入 `lambda-framework-nacos` 后，配置放在 `application.properties`：
+业务应用引入 `lambda-framework-nacos`。端口、路由、数据库、缓存、消息队列和业务开关统一放 Nacos。项目本地只保留加载 Nacos 所需的项目名、必需导入声明和引导参数。环境变量提供 Nacos 地址、namespace ID、group 和登录凭据。Nacos 中可通过占位符引用部署环境注入的第三方凭据。
+
+- Data ID 固定为 `<项目名称>.properties`，与 `spring.application.name` 一致。例如项目 `order-gateway` 使用 `order-gateway.properties`，项目 `user-service` 使用 `user-service.properties`。同一项目的开发、测试和生产使用各自 namespace，Data ID 保持一致。
+- 配置读取和服务发现使用明确的 namespace ID 和 group。Data ID 内容类型选 Properties，先发布再启动应用。用于发现的服务名和网关 `rb://` 目标一致。RSocket 服务登记实际 TCP 端口。
+- 项目本地 `application.properties` 使用如下引导配置，第一行用已确认的项目名。
 
 ~~~properties
-spring.application.name=catalog-service
-spring.config.import=nacos:catalog-service.properties?group=CATALOG&refreshEnabled=true
-spring.cloud.nacos.config.server-addr=NACOS_HOST:8848
-spring.cloud.nacos.discovery.server-addr=NACOS_HOST:8848
-spring.cloud.nacos.config.namespace=public
-spring.cloud.nacos.discovery.namespace=public
-spring.cloud.nacos.discovery.group=CATALOG
-spring.cloud.nacos.username=APP_USER
-spring.cloud.nacos.password=APP_PASSWORD
+spring.application.name=order-gateway
+spring.config.import=nacos:${spring.application.name}.properties?group=${NACOS_GROUP}&refreshEnabled=true
+spring.cloud.nacos.config.server-addr=${NACOS_SERVER_ADDR}
+spring.cloud.nacos.config.namespace=${NACOS_NAMESPACE}
+spring.cloud.nacos.discovery.server-addr=${NACOS_SERVER_ADDR}
+spring.cloud.nacos.discovery.namespace=${NACOS_NAMESPACE}
+spring.cloud.nacos.discovery.group=${NACOS_GROUP}
+spring.cloud.nacos.username=${NACOS_USERNAME}
+spring.cloud.nacos.password=${NACOS_PASSWORD}
 ~~~
 
-先在对应 namespace / group 创建 Data ID，内容类型选 Properties。不要用 namespace 显示名称代替实际 ID。示例使用 `public` 和 `LAMBDA_EXAMPLE`。
+- 网关的 `order-gateway.properties` 在 Nacos 配置 `spring.main.web-application-type=reactive`、监听地址及端口、`spring.cloud.gateway.server.webflux.routes`。连接数、超时等框架参数也由该文件配置。连接池、监听端口与路由的热更新需逐项验证，涉及启动期绑定的值按发布流程重启。
 
 Nacos 3 的端口用途：8080 控制台、8848 API、9848 Java 客户端 gRPC。本次验收包含配置刷新、注册、注销；standalone 没有集群高可用。RSocket 端口监听器另有待修事项，见 RSocket 手册。
 

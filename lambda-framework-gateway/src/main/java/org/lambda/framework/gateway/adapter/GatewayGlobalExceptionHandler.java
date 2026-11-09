@@ -1,6 +1,7 @@
 package org.lambda.framework.gateway.adapter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.rsocket.exceptions.ConnectionErrorException;
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.templete.ResponseTemplete;
@@ -17,6 +18,11 @@ import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+
+import java.net.ConnectException;
+import java.net.UnknownHostException;
+import java.nio.channels.ClosedChannelException;
+import java.util.concurrent.CancellationException;
 
 import static org.lambda.framework.common.exception.basic.GlobalException.EX_PRIEX;
 import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_000;
@@ -38,6 +44,12 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
         var response = serverWebExchange.getResponse();
         if (response.isCommitted()) {
             return Mono.error(throwable);
+        }
+        if (throwable instanceof ConnectionErrorException || throwable instanceof ConnectException
+                || throwable instanceof UnknownHostException || throwable instanceof ClosedChannelException
+                || throwable instanceof CancellationException && "Pool is exhausted".equals(throwable.getMessage())) {
+            response.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+            return writeResponse(response, result(ES_GATEWAY_000.getCode(), "RSocket upstream unavailable"));
         }
         if (throwable instanceof ErrorResponse error) {
             response.setStatusCode(error.getStatusCode());
