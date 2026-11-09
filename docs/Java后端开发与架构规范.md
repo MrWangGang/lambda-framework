@@ -1,6 +1,11 @@
 # Java 后端开发与架构规范
 
-版本日期为 **2026-11-09**。本规范供开发者和智能体统一 Java 项目的结构、接口、数据模型和验收方式。部署地址、账号、云资源与 GitHub 接入信息集中到本地《第三方配置.md》。仓库中的示例使用本机地址和环境变量。
+版本日期为 **2026-11-09**。本规范供开发者和智能体统一 Java 项目的结构、接口、数据模型和验收方式。部署地址、账号、云资源与 GitHub SSH 认证配置集中到本地《第三方配置.md》。仓库中的示例使用本机地址和环境变量。
+
+## GitHub 仓库
+
+- 框架源码与使用手册。[lambda-framework](https://github.com/MrWangGang/lambda-framework)
+- 可运行的示例与接入说明。[lambda-framework-example](https://github.com/MrWangGang/lambda-framework-example)
 
 ## 项目名称、包名和 Maven 模块
 
