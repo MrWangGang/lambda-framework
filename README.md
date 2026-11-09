@@ -55,17 +55,20 @@ artifactId 由 `lambda-framework-` 加模块后缀组成。按应用需要引入
 
 ## RSocket 服务与 HTTP 网关
 
-独立服务设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.port`。引入 rsocket 模块并导入 RSocketStrategiesConfig、RSocketAcceptorInterceptor、RsocketGlobalExceptionHandler 与 RsocketInterceptorConfig。服务端用 `@MessageMapping` 声明处理器，客户端和服务端共用 DTO、VO 契约。Java RPC 接口使用 `@RSocketRpcDiscorvery("chat-service")`，方法使用 `@RSocketRpcType`，由 `@RSocketRpc` 注入。普通接口 route 为服务名、接口首字母小写名、方法名，用点号连接。
+独立服务设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.port`。引入 rsocket 模块并导入 RSocketStrategiesConfig、RSocketAcceptorInterceptor、RsocketGlobalExceptionHandler 与 RsocketInterceptorConfig。服务端用 `@MessageMapping` 声明处理器，客户端和服务端共用 Facade 接口内的请求、响应 record。Java RPC 接口使用 `@RSocketRpcDiscorvery("chat-service")`，方法使用 `@RSocketRpcType`，由 `@RSocketRpc` 注入。普通接口 route 为服务名、接口首字母小写名、方法名，用点号连接。
 
 ~~~java
 @RSocketRpcDiscorvery("chat-service")
-public interface ChatMessageRpc {
+public interface ChatMessageFacade {
     @RSocketRpcType
-    Mono<ChatMessagePO.DetailVO> find(ChatMessagePO.FindDTO input);
+    Mono<Detail> find(FindRequest input);
+
+    record FindRequest(@JsonObjectId ObjectId id) {}
+    record Detail(@JsonObjectId ObjectId id, String content) {}
 }
 ~~~
 
-服务端可以用 `@MessageMapping({"chat-service.chatMessageRpc.find", "/rpc/message/find"})` 同时提供 Java RPC 和网关的路由。以下网关使用 `rb://chat-service`，将重写后的请求路径交给 RSocket。网关应用配置 reactive，导入 GatewayFilter、RsocketRequestFactory、GatewayGlobalExceptionHandler、RSocketLoadbalance 与 RSocketStrategies 配置，使用对应的服务发现和 PrincipalStash。
+服务端可以用 `@MessageMapping({"chat-service.chatMessageFacade.find", "/rpc/message/find"})` 同时提供 Java RPC 和网关的路由。以下网关使用 `rb://chat-service`，将重写后的请求路径交给 RSocket。网关应用配置 reactive，导入 GatewayFilter、RsocketRequestFactory、GatewayGlobalExceptionHandler、RSocketLoadbalance 与 RSocketStrategies 配置，使用对应的服务发现和 PrincipalStash。
 
 网关项目名为 `chat-gateway` 时，把下面内容发布为 Nacos 的 `chat-gateway.properties`。本地只保留 Nacos 导入所需的引导配置。
 
@@ -82,11 +85,11 @@ spring.cloud.gateway.server.webflux.routes[0].predicates[0]=Path=/rpc/message/**
 | HTTP 请求 | 网关选择 |
 |---|---|
 | 普通 POST JSON | 一次请求、一次 JSON 响应。默认走 RSocket request/response |
-| Content-Type 为 application/x-ndjson | 双向 request/channel，客户端每行一个 DTO，服务端每行一个 VO |
+| Content-Type 为 application/x-ndjson | 双向 request/channel，客户端每行一个请求 record，服务端每行一个响应 record |
 | Accept 明确接受 application/x-ndjson 且请求体是单条 JSON | request/stream，逐条返回 NDJSON |
 | 路由定义了类型 | 按路由契约执行 |
 
-普通接口只需发送 JSON 请求体。响应外壳是 JSON 对象，`data` 保留实际类型。VO 是对象，`Mono<String>` 是字符串，`Mono<Integer>` 是数字。JSON RSocket 服务使用框架 `RSocketStrategiesConfig` 编码字符串。路由 metadata 中的值优先。未配置时，已有 RSocket-Model 和 RSocket-Echo 头仍可显式选择，再由标准头和默认值补齐。普通请求缺少 Content-Type 时按 JSON，已确定为 Channel 时按 NDJSON。路由显式声明输入类型时，冲突的 Content-Type 返回 415。
+普通接口只需发送 JSON 请求体。响应外壳是 JSON 对象，`data` 保留实际类型。响应 record 是对象，`Mono<String>` 是字符串，`Mono<Integer>` 是数字。JSON RSocket 服务使用框架 `RSocketStrategiesConfig` 编码字符串。路由 metadata 中的值优先。未配置时，已有 RSocket-Model 和 RSocket-Echo 头仍可显式选择，再由标准头和默认值补齐。普通请求缺少 Content-Type 时按 JSON，已确定为 Channel 时按 NDJSON。路由显式声明输入类型时，冲突的 Content-Type 返回 415。
 
 | 路由键 | 可配置值 |
 |---|---|
@@ -110,7 +113,7 @@ curl -NsS http://127.0.0.1:8080/rpc/message/channel \
   --data-binary @messages.ndjson
 ~~~
 
-示例地址假设对应服务已经启动。messages.ndjson 每行对应服务端 SendDTO。客户端可在收到首条响应后发送下一条请求。部署时复核代理、客户端和 HTTP 版本的双向传输行为。已开始输出后的错误会结束流，客户端按其业务协议重试或续读。
+示例地址假设对应服务已经启动。messages.ndjson 每行对应Facade 中的 SendRequest。客户端可在收到首条响应后发送下一条请求。部署时复核代理、客户端和 HTTP 版本的双向传输行为。已开始输出后的错误会结束流，客户端按其业务协议重试或续读。
 
 | 配置 | 默认值与范围 |
 |---|---|
@@ -153,43 +156,66 @@ Channel 直接检查 13 项、TCP 检查 8 项、分页回归 12 项、双服务
 
 版本日期为 **2026-11-09**。本规范供开发者和智能体统一 Java 项目的结构、接口、数据模型和验收方式。部署地址、账号、云资源与 GitHub 接入信息集中到本地《第三方配置.md》。仓库中的示例使用本机地址和环境变量。
 
-### 项目名称与命名
+### 项目名称、包名和 Maven 模块
 
-新建项目或微服务前收集项目名称。缺少名称时询问。已有项目沿用已确认的名称与包名前缀。Maven artifactId、Spring 应用名、服务发现名与 Nacos Data ID 的文件名使用项目名称。Java 包使用小写标识符，连字符映射为包层级，组织前缀按项目约定。示例中 chat-api 对应 `org.chat.api`，chat-service 对应 `org.chat.service`。
+新建业务微服务前确认项目名称，缺少名称时询问。父工程 artifactId、Spring 应用名、服务发现名和 Nacos Data ID 的文件名使用项目名称。Java 包根使用 `com.<项目名>`，在其下按职责分包。包名用小写 Java 标识符，项目名中的连字符对应包层级，例如 `order-center` 对应 `com.order.center`。
 
-| 包 | 类名示例 | 职责 |
-|---|---|---|
-| entity | UserPO | 对应 user 表或集合，包含所属的静态 DTO 和 VO |
-| controller | ChatMessageController | HTTP 或 RSocket 参数校验、响应映射 |
-| service | ChatMessageService | 业务规则、事务、协作编排 |
-| repository | ChatMessageRepository | BSON 查询、更新、索引、分页 |
-| rpc | ChatMessageRpc | 跨服务接口 |
-| enums 或所属实体 | MessageKind | 值域、持久化值、显示文案 |
-| config | MongoConfiguration | 连接与运行配置 |
+业务微服务使用一个 Maven 父工程和两个子模块。以下用 `user` 举例。
 
-类名采用业务名与职责后缀。Service 只有一种实现时直接使用业务 Service 类，有多个实现或跨模块契约时再拆接口。Repository 以归属实体命名。持久化类用大驼峰业务名加 `PO`，例如 `UserPO` 映射到 `user`。内部类型名由接口的业务语义决定。请求按动作命名，例如 `FindDTO`、`ChangePasswordDTO`、`PageDTO`。响应按用途命名，例如 `DetailVO`、`SummaryVO`、`PageItemVO`。外层 PO 已表达业务归属，内部类型禁止重复加实体名或表名。例如用户详情用 `UserPO.DetailVO`，用户查询用 `UserPO.FindDTO`。避免 `UserPO.UserDetailVO` 和 `UserPO.UserFindDTO`。
+~~~text
+user/
+├── pom.xml
+├── user-service/
+│   ├── pom.xml
+│   └── src/main/
+│       ├── java/com/user/
+│       │   ├── UserApplication.java
+│       │   ├── controller/UserController.java
+│       │   ├── service/UserServiceImpl.java
+│       │   ├── facade/UserFacadeImpl.java
+│       │   ├── entity/UserEntity.java
+│       │   └── repository/UserRepository.java
+│       └── resources/application.properties
+└── user-facade/
+    ├── pom.xml
+    └── src/main/java/com/user/
+        └── facade/UserFacade.java
+~~~
 
-### PO、DTO、VO 与接口
+- 父工程使用 `pom` 打包，管理模块与版本。`<项目名>-service` 是可运行模块，依赖 `<项目名>-facade`。其他微服务通过 `<项目名>-facade` 引入 RPC 契约。
+- `<项目名>-facade` 是契约 JAR，`facade` 包内放对外接口和接口内的入参、出参 `record`。该模块只引入编译和使用契约所需的依赖。
+- 服务端的 `UserFacadeImpl` 放在 service 模块的 `facade` 包。业务实现直接命名为 `UserServiceImpl`，放在 `service` 包根，省略 `UserService` 接口和 `service.impl` 子包。
+- 每个数据库表或集合对应一个持久化实体。`UserEntity` 映射到 `user`，由 `UserRepository` 访问。枚举按业务归属放在实体或 `enums` 包，连接配置放在 `config` 包。
 
-- 每个数据库表或集合对应一个 PO。请求 DTO 和响应 VO 定义在其所属 PO 中，使用 `public static` 类或隐式静态的 `public record`。无直接落库的接口按业务归属放在对应的 PO 下。
-- Controller、Service 与 RPC 契约复用同一套 DTO、VO。接收使用 DTO，返回使用 VO。在 PO 外只导入外层类型，接口签名保留归属，例如 `Mono<UserPO.DetailVO> find(UserPO.FindDTO input)`。不要直接导入 `UserPO.DetailVO` 后在签名里只写 `DetailVO`。RPC 客户端从共享 Maven 契约依赖引用这些类型，请求与响应只传内层契约。
-- 严禁把数据库 PO 用作接口参数或返回值。DTO 和 VO 不继承 PO，即使字段完全一样也单独声明，只暴露业务契约字段。密码哈希、内部权限、审计字段和持久化版本不进入公共契约。
-- 业务 HTTP 接口统一使用 POST 动作路径，例如 `/api/user/find`。请求条件放 JSON 请求体，空请求可用 `EmptyDTO`。RPC 使用具体的 DTO 与 `Mono<UserPO.DetailVO>`、`Flux<UserPO.DetailVO>` 等明确类型。底层对字符串与数字的编码兼容性独立测试。
+### Facade 契约与 record 命名
+
+- 公开请求和响应统一声明为对外 Facade 接口内的 `record`。入参按动作命名，例如 `FindRequest`、`ChangePasswordRequest`、`PageRequest`。返回按用途命名，例如 `Detail`、`Summary`、`PageItem`。外层 Facade 已表达业务归属，内层名称不重复加表名或实体名，省略 DTO、VO、PO 后缀。
+- Controller 与 Facade 实现直接注入 `UserServiceImpl`，复用 Facade 的 record。外部类只导入 `UserFacade`，签名写 `UserFacade.FindRequest` 和 `UserFacade.Detail`。公开契约集中在接口，实体和实现类不声明公开入参、出参。
+- 实体留在 service 模块。Controller、Facade 接口和 Service 的公开业务方法使用契约 record，Service 负责从持久化实体映射公开字段。密码哈希和内部权限留在服务端。公开契约按业务需要显式选择可见的审计字段或并发控制字段。
+- 业务 HTTP 接口统一使用 POST 动作路径，例如 `/api/user/find`。请求条件放 JSON 请求体，空请求可用 `EmptyRequest`。RPC 保留 `Mono<UserFacade.Detail>`、`Flux<UserFacade.Detail>` 等完整类型。底层对字符串与数字的编码兼容性独立测试。
 - 业务金额和常规业务标量以字符串建模，禁止 BigDecimal。ObjectId、库存计数、版本号、分页计数和日期保留各自的技术类型。CORS 预检、WebSocket 握手和基础设施协议遵循对应协议。
 
 ~~~java
-@Document(collection = "user")
-public class UserPO {
-    @Id
-    private ObjectId id;
-    private String name;
+package com.user.facade;
 
-    public record FindDTO(@JsonObjectId @NotNull ObjectId id) {}
-    public record DetailVO(@JsonObjectId ObjectId id, String name) {}
+import jakarta.validation.constraints.NotNull;
+import org.bson.types.ObjectId;
+import org.lambda.framework.common.annotation.rsocket.RSocketRpcDiscorvery;
+import org.lambda.framework.common.annotation.rsocket.RSocketRpcType;
+import org.lambda.framework.common.jackson.JsonObjectId;
+import reactor.core.publisher.Mono;
+
+@RSocketRpcDiscorvery("user")
+public interface UserFacade {
+    @RSocketRpcType
+    Mono<Detail> find(FindRequest request);
+
+    record FindRequest(@JsonObjectId @NotNull ObjectId id) {}
+    record Detail(@JsonObjectId ObjectId id, String name) {}
 }
 ~~~
 
-实体提供 Spring Data 可映射的构造器或访问方法。Controller 负责入口校验，Service 负责业务处理和 PO 到 VO 的映射。Repository 接收 PO 或明确的查询参数，数据库主键继续使用原生 ObjectId。
+`UserFacadeImpl` 实现 `find`，RSocket 路由为 `user.userFacade.find`。`UserController` 的 HTTP 入口和 Facade 实现都调用 `UserServiceImpl.find(UserFacade.FindRequest)`，返回 `Mono<UserFacade.Detail>`。
 
 ### 实体注解与主键
 
@@ -205,7 +231,7 @@ public class UserPO {
 | `@CreatedDate` / `@LastModifiedDate` | 审计时间字段 | 启用对应的审计配置后使用，核对插入与更新路径是否填充 |
 | `@Indexed` / `@CompoundIndex` | 单字段 / MongoDB 实体 | 有对应查询、排序、唯一或生命周期需求时添加，索引名和用途可追溯 |
 
-HTTP 入参的校验注解放在 DTO。DTO 和 VO 只声明接口需要的字段，持久化映射注解集中在 PO 或基类。
+HTTP 和 RPC 入参的校验注解放在请求 record 组件上。公开 record 只声明契约需要的字段，持久化映射注解集中在实体或基类。
 
 ### 关系建模与读写取舍
 
@@ -228,7 +254,7 @@ HTTP 入参的校验注解放在 DTO。DTO 和 VO 只声明接口需要的字段
 @Document(collection = "chat_messages")
 @CompoundIndex(name = "idx_chat_conversation_recent",
         def = "{'conversationId': 1, 'createdAt': -1, '_id': -1}")
-public record ChatMessagePO(@Id ObjectId id, ObjectId conversationId,
+public record ChatMessageEntity(@Id ObjectId id, ObjectId conversationId,
                                 Instant createdAt, String content) {}
 ~~~
 
@@ -236,21 +262,21 @@ public record ChatMessagePO(@Id ObjectId id, ObjectId conversationId,
 
 ### MongoDB 类型、枚举与查询
 
-MongoDB 主键和关联字段用 BSON `ObjectId`，Repository 泛型和查询参数也使用 `ObjectId`。HTTP 与 RPC 的 JSON ID 使用 24 位十六进制字符串。DTO 和 VO 的 Mongo ID 字段声明为 `@JsonObjectId ObjectId`，Jackson 2 和 3 在读入时校验并转换，写出时输出小写十六进制字符串。Service 直接把原生 ID 交给 Repository。
+MongoDB 主键和关联字段用 BSON `ObjectId`，Repository 泛型和查询参数也使用 `ObjectId`。HTTP 与 RPC 的 JSON ID 使用 24 位十六进制字符串。公开 record 的 Mongo ID 组件声明为 `@JsonObjectId ObjectId`，Jackson 2 和 3 在读入时校验并转换，写出时输出小写十六进制字符串。Service 直接把原生 ID 交给 Repository。
 
 ~~~java
 import org.lambda.framework.common.jackson.JsonObjectId;
 
-// 定义在所属数据库实体类中
-public static record FindDTO(@JsonObjectId @NotNull ObjectId id) {}
+// 定义在所属 Facade 接口内
+record FindRequest(@JsonObjectId @NotNull ObjectId id) {}
 ~~~
 
-`@JsonObjectId` 只作用于标注的单值字段。必填 ID 配合 `@NotNull` 和入口 Bean Validation，游标等可选 ID 允许为空。字符串业务键继续用 `String`。既有字符串 DTO 若暂不迁移，在调用 Repository 前校验并转换一次。
+`@JsonObjectId` 只作用于标注的单值字段。必填 ID 配合 `@NotNull` 和入口 Bean Validation，游标等可选 ID 允许为空。字符串业务键继续用 `String`。既有字符串入参若暂不迁移，在调用 Repository 前校验并转换一次。
 
 ~~~java
-public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessagePO, ObjectId> {
+public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessageEntity, ObjectId> {
     @Query("{ '_id': ?0 }")
-    Mono<ChatMessagePO> findWithQuery(ObjectId id);
+    Mono<ChatMessageEntity> findWithQuery(ObjectId id);
 }
 ~~~
 
@@ -260,9 +286,9 @@ public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessa
 
 ### `@Aggregation` 中的 ObjectId
 
-HTTP/RPC DTO 用 `@JsonObjectId ObjectId` 接收十六进制 JSON 字符串。解码后把原生 ID 直接交给 Repository。Repository 的 `@Aggregation` 用未加引号的 `?0`、`?1` 绑定原生参数，批量条件用 `List<ObjectId>`。已是 ObjectId 的值直接传入。各集合关联字段的 BSON 类型必须一致。顶层字段会按 Repository 实体映射，例如 `userId` 映射为 `user_id`。跨集合阶段按目标集合的实际 BSON 字段名编写并验收。
+HTTP/RPC 的请求 record 用 `@JsonObjectId ObjectId` 接收十六进制 JSON 字符串。解码后把原生 ID 直接交给 Repository。Repository 的 `@Aggregation` 用未加引号的 `?0`、`?1` 绑定原生参数，批量条件用 `List<ObjectId>`。已是 ObjectId 的值直接传入。各集合关联字段的 BSON 类型必须一致。顶层字段会按 Repository 实体映射，例如 `userId` 映射为 `user_id`。跨集合阶段按目标集合的实际 BSON 字段名编写并验收。
 
-下面从收藏中间集合按用户过滤，关联商品和商家，再按 ObjectId 类型的评论者 ID 统计评论，最后按商家汇总。聚合结果定义为 `FavoritePO` 内的 VO，例如 `public record MerchantStatsVO(@Id ObjectId merchantId, int favoriteCount, int reviewCount) {}`。
+下面从收藏中间集合按用户过滤，关联商品和商家，再按 ObjectId 类型的评论者 ID 统计评论，最后按商家汇总。聚合结果在 `FavoriteRepository` 内定义查询投影 `record MerchantStats(@Id ObjectId merchantId, int favoriteCount, int reviewCount) {}`。Service 将投影映射到对外 Facade 中的响应 record。
 
 ~~~java
 @Aggregation({
@@ -284,7 +310,7 @@ HTTP/RPC DTO 用 `@JsonObjectId ObjectId` 接收十六进制 JSON 字符串。�
     """,
     "{ $sort: { favoriteCount: -1, _id: 1 } }"
 })
-Flux<FavoriteEntity.MerchantStats> stats(ObjectId userId, ObjectId reviewerId);
+Flux<FavoriteRepository.MerchantStats> stats(ObjectId userId, ObjectId reviewerId);
 ~~~
 
 实测环境为 MongoDB 9.0.4 副本集、Spring Data MongoDB 5.1.2。上面管道返回两组预期结果，根集合匹配、`$expr`、`$in` 和嵌套 `$lookup.let` 的实际命令均保留了 ObjectId。直接 `_id` 匹配时 Spring Data 在该实体上把合法的 String 转成 ObjectId。普通关联字段和 `$lookup.let` 的 String 在实测中仍是 BSON String，只命中同文本的历史字符串字段。统一使用强类型 Repository 签名，避免依赖主键的映射特例。
@@ -297,7 +323,7 @@ Flux<FavoriteEntity.MerchantStats> stats(ObjectId userId, ObjectId reviewerId);
 
 ### SKU 防超卖
 
-在写入前校验购买数量为正整数。HTTP/RPC 的购买 DTO 可以接收字符串，Service 校验并转换，库存持久化为整数计数。同一条 MongoDB 更新检查 SKU 主键、可售状态、适用的租户条件和 `available >= quantity`，并用 `$inc` 扣减。根据 `matchedCount` 或 `findAndModify` 是否返回文档判定结果。管理端普通资料编辑只改资料字段，补货和库存调整走单独的原子操作。
+在写入前校验购买数量为正整数。HTTP/RPC 的购买请求 record 可以接收字符串，Service 校验并转换，库存持久化为整数计数。同一条 MongoDB 更新检查 SKU 主键、可售状态、适用的租户条件和 `available >= quantity`，并用 `$inc` 扣减。根据 `matchedCount` 或 `findAndModify` 是否返回文档判定结果。管理端普通资料编辑只改资料字段，补货和库存调整走单独的原子操作。
 
 ~~~java
 Query filter = Query.query(Criteria.where("_id").is(skuId)
@@ -319,13 +345,13 @@ return mongo.updateFirst(filter, deduction, SkuEntity.class)
 
 ### 用户与会话
 
-业务用户实体可继承 `UnifyPO<ObjectId>` 并实现 `SecurityLoginUser<ObjectId>`，复用 id、createTime、updateTime。登录快照在用户实体内定义静态 VO，可用十六进制字符串实现 `SecurityLoginUser<String>`。快照保留昵称、状态和必要的权限版本，避免包含密码哈希、验证码和敏感业务字段。
+业务用户实体可继承 `UnifyPO<ObjectId>` 并实现 `SecurityLoginUser<ObjectId>`，复用 id、createTime、updateTime。登录快照可用 record 实现 `SecurityLoginUser<String>`，ID 使用十六进制字符串。登录接口对外返回的 record 定义在相应 Facade 接口中。快照保留昵称、状态和必要的权限版本，避免包含密码哈希、验证码和敏感业务字段。
 
 `PrincipalFactory` 是会话抽象，`SecurityPrincipalHolder` 从 Reactor Context 读取当前用户。登录后创建会话，从可信入口验证令牌，并在 Service 按实际身份判断资源权限。认证与授权 Redis 使用独立配置前缀，核对所用 ACL 模式及框架模块能力。应用负责覆盖实际身份与权限规则。
 
 ### 分页和索引
 
-`Paging` 对业务使用从 1 开始的页码，默认 1/10。框架转换为从 0 开始的 `PageRequest`。`Paged<T>` 复用 page、size、pages、total、records。页码和大小在入口校验，业务列表限制每页最多 100。RPC 保留 `Mono<Paged<UserPO.PageItemVO>>` 的完整泛型。
+`Paging` 对业务使用从 1 开始的页码，默认 1/10。框架转换为从 0 开始的 `PageRequest`。`Paged<T>` 复用 page、size、pages、total、records。页码和大小在入口校验，业务列表限制每页最多 100。RPC 保留 `Mono<Paged<UserFacade.PageItem>>` 的完整泛型。
 
 `ReactiveUnifyPagingRepositoryOperation.sqlPaging` 提供 count 与 query 的协调，也可给 Mongo Repository 使用。两者传相同过滤条件，查询应用 Pageable。排序使用可索引的稳定键，例如 `createdAt DESC, _id DESC`。聊天历史等长期增长列表使用复合游标，游标中的 ID 转为 ObjectId。业务需考虑 count 与查询分开执行时的并发更新。
 
@@ -366,9 +392,9 @@ spring.cloud.nacos.password=${NACOS_PASSWORD}
 
 ### RSocket、网关与聊天
 
-RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketRpc` 注入。服务端使用与契约一致的 route，例如 `chat-service.chatMessageRpc.find`。普通请求和服务端流在网关以 `rb://服务名` 路由。服务端流可以用 Accept 请求 NDJSON，逐条刷新。双向流通过 POST NDJSON 或原生 RSocket requestChannel 持续接收 DTO 和发送 VO。
+RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketRpc` 注入。服务端使用与契约一致的 route，例如 `user.userFacade.find`。普通请求和服务端流在网关以 `rb://服务名` 路由。服务端流可以用 Accept 请求 NDJSON，逐条刷新。双向流通过 POST NDJSON 或原生 RSocket requestChannel 持续接收请求 record 和发送响应 record。
 
-普通 JSON POST 自动采用一次请求一次响应。网关的响应外壳固定为 JSON 对象，`data` 保留服务端 JSON 类型。例如 `Mono<UserPO.DetailVO>` 输出对象，`Mono<String>` 输出字符串，`Mono<Integer>` 输出数字。客户端无需配置自定义类型头。NDJSON 请求体自动识别为双向流，普通请求明确用 `Accept: application/x-ndjson` 请求逐条响应时自动识别为服务端流。路由需要锁定交互方式时在 Nacos 的 metadata 声明，已有自定义头作为兼容输入。
+普通 JSON POST 自动采用一次请求一次响应。网关的响应外壳固定为 JSON 对象，`data` 保留服务端 JSON 类型。例如 `Mono<UserFacade.Detail>` 输出对象，`Mono<String>` 输出字符串，`Mono<Integer>` 输出数字。客户端无需配置自定义类型头。NDJSON 请求体自动识别为双向流，普通请求明确用 `Accept: application/x-ndjson` 请求逐条响应时自动识别为服务端流。路由需要锁定交互方式时在 Nacos 的 metadata 声明，已有自定义头作为兼容输入。
 
 网关默认每个后端实例复用一条 RSocket TCP 连接。需要承受单条连接断开的关键路由可在 Nacos 配置 `rsocketConnectionsPerInstance=2`。连接关闭后按最近一次成功发现的目标列表补建连接。请求已发出时由调用方根据业务幂等规则决定如何处理，网关不自动重放。
 
@@ -377,6 +403,10 @@ RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketR
 私聊与群聊用会话 ID 区分，消息包含发送人、类型、内容、时间。表情用 Unicode，图片与视频的消息内容用对象存储 key。网关可按字节转发小二进制。媒体文件上传和下载使用独立链路，权限、群成员校验、消息幂等和离线拉取由业务实现。
 
 ### 验收与交付
+
+- 核对父工程能一起构建 service 和 facade。业务微服务的依赖方向为 service → facade，RPC 调用方只引入 facade。
+- 核对 `com.<项目名>` 下的包位置、service 包根的业务实现类，以及 facade 模块接口与 service 模块实现的对应关系。
+- 核对 Controller、Facade 实现和 Service 共用接口内的请求、响应 record。用同一业务输入分别验证 HTTP POST 与 RPC，确认响应只包含公开字段。
 
 先复现旧行为，再在相同条件验证修复。性能记录负载、吞吐、延迟、CPU 与进程内存。测试使用唯一 MongoDB 数据库、Redis 前缀、Qdrant 集合与 RabbitMQ 资源名，结束后先停应用，再按清单清理并复查。临时测试代码和日志放仓库外。README 记录启动、接口、框架用法、验收结果和技能。提交前核对真实环境配置与凭据是否混入 Git。
 
@@ -387,22 +417,23 @@ RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketR
 ~~~markdown
 ---
 name: lambda-java-backend
-description: 按统一风格开发、修改或审查 Lambda Framework Java 后端项目。适用于项目命名、POST 接口、实体内 DTO/VO、RSocket RPC、MongoDB、分页、用户体系及交付验收。
+description: 按统一风格开发、修改或审查 Lambda Framework Java 后端项目。适用于项目命名、POST 接口、Facade 契约、RSocket RPC、MongoDB、分页、用户体系及交付验收。
 ---
 
-新建项目或微服务前确认项目名称。用户已提供时直接使用。缺少名称时询问，等待期间可以检查现有代码和准备设计。用已确认的名称派生 Maven artifactId、Java 基础包、Spring 应用名、服务发现名和 Nacos Data ID `<项目名称>.properties`。
+新建项目或微服务前确认项目名称。用户已提供时直接使用。缺少名称时询问，等待期间可以检查现有代码和准备设计。用已确认的名称派生 Maven artifactId、`com.<项目名>` 包根、Spring 应用名、服务发现名和 Nacos Data ID `<项目名称>.properties`。
 
 仓库版规范位于 `../../docs/Java后端开发与架构规范.md`，本机安装版随技能提供 `references/Java后端开发与架构规范.md`。环境值从本地《第三方配置.md》或环境变量读取。提交前检查真实凭据是否混入 Git。
 
-- 业务 HTTP 接口采用 POST 动作路径，HTTP、Service 与 RPC 共用请求 DTO 和响应 VO。
-- 每个数据库表或集合对应一个 PO。DTO 和 VO 定义在所属 PO 内，按业务动作或返回用途命名，内部类型名不重复加实体名或表名。PO 外只导入外层类型，签名保留 `UserPO.FindDTO`、`UserPO.DetailVO`。数据库 PO 只用于持久化，接口参数、返回值和契约继承都不能使用 PO。
+- 业务微服务拆为 `<项目名>-service` 和 `<项目名>-facade`。service 依赖 facade，RPC 调用方只依赖 facade。
+- 对外接口放 facade 模块的 `facade` 包，服务端实现放 service 模块的 `facade` 包。业务类 `UserServiceImpl` 直接放 `service` 包，省略业务接口和 `impl` 子包。
+- HTTP 用 POST 动作路径。Controller、Facade 实现与 Service 共用 Facade 接口内的请求、响应 record。签名保留 `UserFacade.FindRequest`、`UserFacade.Detail` 等外层归属，内层名称按业务动作或用途命名。实体使用 `UserEntity` 等名称，仅在 service 模块持久化使用。
 - 应用运行配置放 Nacos，本地只留项目名、导入声明和 Nacos 引导配置。网关使用 reactive，普通 JSON POST 自动转发并保留响应 JSON 类型。
-- Mongo 主键与关联 ID 使用 ObjectId。HTTP 和 RPC 的 JSON 用十六进制字符串，DTO/VO 单值字段用 @JsonObjectId ObjectId，Repository 直接绑定原生 ID。枚举实现 ConverterEnum。业务金额与标量用字符串，技术字段按规范转换。
+- Mongo 主键与关联 ID 使用 ObjectId。HTTP 和 RPC 的 JSON 用十六进制字符串，公开 record 的单值 ID用 @JsonObjectId ObjectId，Repository 直接绑定原生 ID。枚举实现 ConverterEnum。业务金额与标量用字符串，技术字段按规范转换。
 - 每个持久化实体明确表或集合名及唯一的 @Id，可复用基类标识。按 Repository 的筛选、排序、唯一约束或生命周期需求加索引，说明用途并核对实际索引和执行计划。
 - 按业务读写比例、访问路径和增长设计关系。多对多必须有中间表或关系集合，一对多和多对一直接内嵌或持有引用。内嵌需有业务上限，独立分页和高频更新用引用。聚合用未加引号的占位符绑定 ObjectId，实测复杂关联与执行计划。
 - @Version 按需使用。SKU 以库存足额条件加原子扣减防超卖。字符串金额用旧金额和版本做条件更新，跨文档一致性用事务与幂等键。
 - 复用框架分页、异常、Reactor Context 和数据库连接。区分 SecurityLoginUser、UnifyPO、PrincipalFactory。
-- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。聊天 DTO/VO 描述文字、表情与媒体引用。
+- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。聊天 record 描述文字、表情与媒体引用。
 - 使用现有 JDK 和 IDEA Maven。先复现再修复，在相同条件复测。使用隔离测试资源，验收后按名称清理，核对数据并关闭本次启动的 JVM。
 - README 记录项目运行与契约。报告区分实测、设计方案和未测范围。
 ~~~
