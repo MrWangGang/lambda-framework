@@ -247,6 +247,8 @@ RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketR
 
 普通 JSON POST 自动采用一次请求一次响应。网关的响应外壳固定为 JSON 对象，`data` 保留服务端 JSON 类型。例如 `Mono<UserFacade.Detail>` 输出对象，`Mono<String>` 输出字符串，`Mono<Integer>` 输出数字。客户端无需配置自定义类型头。NDJSON 请求体自动识别为双向流，普通请求明确用 `Accept: application/x-ndjson` 请求逐条响应时自动识别为服务端流。路由需要锁定交互方式时在 Nacos 的 metadata 声明，已有自定义头作为兼容输入。
 
+Java 服务之间可在调用方的 Nacos 配置设置 `lambda.rpc.data-mime-type=application/x-lambda-fory`。调用方和服务端都使用框架的 RSocketStrategiesConfig，并用 `ForyRpcTypes` 声明共享 Facade 的应用类型，包括嵌套 record、枚举和用到的分页类型。需要逐方法覆盖时在 `@RSocketRpcType` 指定 MIME。缺省配置使用 Jackson JSON，外部 HTTP 网关按 JSON 路由，身份元数据使用 JSON。
+
 网关默认每个后端实例复用一条 RSocket TCP 连接。需要承受单条连接断开的关键路由可在 Nacos 配置 `rsocketConnectionsPerInstance=2`。连接关闭后按最近一次成功发现的目标列表补建连接。请求已发出时由调用方根据业务幂等规则决定如何处理，网关不自动重放。
 
 保持首条消息、单次订阅、上下文、背压和取消。处理首信号时区分数据、错误与完成。遵循 RSocket 和 Spring 的 Payload 所有权，写测试确认释放行为。部署经过 HTTP 代理时实测全双工与缓冲策略。

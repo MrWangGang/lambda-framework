@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectReader;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.reactivestreams.Publisher;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.ResolvableType;
@@ -19,14 +20,26 @@ import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 
 @Configuration
 public class RSocketStrategiesConfig {
+    private final List<ForyRpcTypes> foryTypes;
+
+    public RSocketStrategiesConfig() {
+        this(List.of());
+    }
+
+    @Autowired
+    public RSocketStrategiesConfig(List<ForyRpcTypes> foryTypes) {
+        this.foryTypes = foryTypes;
+    }
+
     @Bean
     public RSocketStrategies rSocketStrategies() {
         var mapper = JsonUtil.getJsonFactory();
-        return RSocketStrategies.builder()
+        var builder = RSocketStrategies.builder()
                 .decoder(new Jackson2JsonDecoder(mapper))
                 .encoder(new Jackson2JsonEncoder(mapper))
                 // Spring's default StringEncoder sends raw text, even on a JSON RSocket connection.
@@ -37,8 +50,11 @@ public class RSocketStrategiesConfig {
                     }
                 }))
                 .decoders(decoders -> decoders.addFirst(new JsonStringDecoder(
-                        mapper.readerFor(String.class).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS))))
-                .build();
+                        mapper.readerFor(String.class).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS))));
+        var codec = new ForyRpcCodec(foryTypes);
+        builder.encoders(encoders -> encoders.addFirst(codec.encoder()))
+                .decoders(decoders -> decoders.addFirst(codec.decoder()));
+        return builder.build();
     }
 
     private static final class JsonStringDecoder extends AbstractDecoder<String> {

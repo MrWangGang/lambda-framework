@@ -8,6 +8,7 @@
 | `org.springframework.cloud:spring-cloud-dependencies` | `2025.1.4` |
 | `com.alibaba.cloud:spring-cloud-alibaba-dependencies` | `2025.1.0.0` |
 | `com.alibaba.nacos:nacos-client` | `3.3.0` |
+| `org.apache.fory:fory-core` | `1.7.7` |
 | `org.projectlombok:lombok` | `1.18.48` |
 | `org.modelmapper:modelmapper` | `3.2.8` |
 | `commons-beanutils:commons-beanutils` | `1.11.0` |

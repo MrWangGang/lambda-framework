@@ -15,6 +15,10 @@
 
 	<dependencies>
 		<dependency>
+			<groupId>org.apache.fory</groupId>
+			<artifactId>fory-core</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.lambda.framework</groupId>
 			<artifactId>lambda-framework-common</artifactId>
 		</dependency>
