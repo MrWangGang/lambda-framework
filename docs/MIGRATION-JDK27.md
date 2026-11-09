@@ -21,3 +21,61 @@ Spring Boot 升至 4.1.2，Spring Cloud 升至 2025.1.4，Spring Cloud Alibaba �
 ## 验证范围
 
 构建覆盖全部框架模块。可运行示例及外部验收覆盖 Redis、MongoDB 副本集事务、RabbitMQ 延迟消息、Nacos 配置与发现，以及 Qdrant。验收结果见示例仓库 `docs/TESTING.md`。临时测试代码按交付要求移出仓库；MySQL、Kafka、Elasticsearch、ZooKeeper 等未部署服务不计入实机验证。
+
+
+## 迁移前检查
+
+- 记录原来的 Java、Boot、Cloud、Alibaba、数据库驱动版本。
+- 保存现有配置名称、路由、DTO 和序列化样本。
+- 确认开发与运行环境都能使用 JDK 27。
+- 区分服务端版本与 Java SDK 版本。
+- 备份涉及的数据，明确哪些变更可以只回滚 JAR，哪些需要数据迁移。
+- 先在独立资源名称下迁移，不覆盖共享业务库。
+
+## 分步骤迁移
+
+### 第一步：统一构建环境
+
+设置 JAVA_HOME、IDEA SDK、Maven Runner 和 Importer，执行 Maven -version 检查。POM 的 release=27 只设置编译目标，不能替电脑切换 JDK。
+
+### 第二步：构建框架
+
+从根目录 clean install，确认 15 个 reactor 项目成功。失败时保留第一个编译错误，先解决 API / 包名变化，不使用跳过整个模块的方式宣布完成。
+
+### 第三步：迁移应用配置
+
+- Nacos 改用 application.properties 的 spring.config.import。
+- 区分业务 Mongo database 与账号 auth-database。
+- 副本集名称和服务端一致。
+- Redis ACL 必须显式选择正确用户。
+- Nacos Java SDK 同时需要 API 与 gRPC 网络通路。
+- 有 WebClient.Builder 注入需求时检查 Boot 4 starter 拆分。
+- 不复制旧仓库中的密码、私钥和远程发布配置。
+
+### 第四步：核对运行时行为
+
+启动后不仅查看 Started 日志，还要验证配置导入、索引创建、消息拓扑、向量集合、真实读写以及应用关闭资源释放。
+
+### 第五步：业务回归
+
+按示例 TESTING 执行商品、游标、并发库存、幂等、事务、TTL、延迟消息和向量查询；新业务还要补自己的边界用例。
+
+### 第六步：交付记录
+
+保存代码提交、工具与服务版本、实际用例和清理结果。删除临时测试资源后，推送源码与不含凭据的文档。
+
+## 暂未解决的兼容与实现问题
+
+本次版本升级不表示历史业务缺陷全部清除：
+
+- 通用分页存在排序、页码和 Builder 默认值问题。
+- Security 专用 Redis 未接入 ACL username。
+- 默认认证/授权扩展返回 true，需要业务实现。
+- Web/Gateway/RSocket 线程开关的注册方式和时序需要整理。
+- RSocket 多实例标识与发现恢复等仍需修复和验证。
+
+详见数据分页、用户体系和 RSocket 手册。不要把这些问题与 JDK 27 编译成功混为一谈。
+
+## 回滚原则
+
+应用与框架需回到兼容的提交组合，重新构建并安装。数据和消息格式若已变化，先核验旧代码能否读取；不要仅回退 POM 就直接启动旧版本访问新格式数据。
