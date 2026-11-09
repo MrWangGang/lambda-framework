@@ -41,6 +41,37 @@ public class ChatMessageEntity extends UnifyPO<ObjectId> {
 
 实际实体需提供 Spring Data 可映射的构造器或访问方法。Service 采用上述 DTO 时无需复制一套 Service 参数类。
 
+## 实体注解与主键
+
+每个持久化实体都要明确表或集合名，以及唯一的主键映射。MongoDB 使用 Spring Data 的 `@Document(collection = "...")` 和 `org.springframework.data.annotation.Id`。实体独立声明主键时写成 `@Id ObjectId id`，继承 `UnifyPO<ObjectId>` 时复用基类已有的 `@Id`。同一实体层级只保留一个主键属性。Repository 的 ID 泛型、关联字段和查询绑定类型需与主键一致。
+
+| 注解 | 放置位置 | 使用约定 |
+|---|---|---|
+| `@Document` | MongoDB 实体 | 显式写集合名，让部署、查询和迁移引用同一名称 |
+| `@Table` | Spring Data R2DBC 实体 | 显式写表名，表结构和索引用迁移脚本维护 |
+| `@Id` | 主键字段或 record 组件 | 明确主键映射。MongoDB 对应 BSON `_id` |
+| `@Field` / `@Column` | 字段或 record 组件 | 数据库名与 Java 属性不同时声明映射。变更已有映射时提供数据迁移 |
+| `@Version` | 乐观锁字段 | 业务需要并发写保护时使用。手写更新条件同时核对并递增版本 |
+| `@CreatedDate` / `@LastModifiedDate` | 审计时间字段 | 启用对应的审计配置后使用，核对插入与更新路径是否填充 |
+| `@Indexed` / `@CompoundIndex` | 单字段 / MongoDB 实体 | 有对应查询、排序、唯一或生命周期需求时添加，索引名和用途可追溯 |
+
+HTTP 入参的校验注解放在 DTO。静态 DTO 沿用业务字段约定，数据库映射注解集中在持久化实体或基类。
+
+## 按业务设计索引
+
+为每个新增或变更的索引记录关联的 Repository 方法、筛选条件、排序、预计数据规模和上线方式。单字段查询或唯一键使用单字段索引。等值筛选加排序优先按实际查询组合设计复合索引，再用执行计划验证。合并重复索引时检查已有查询是否依赖它。索引有写入与存储成本，按需求取舍。
+
+~~~java
+// ChatMessageRepository.findHistory 按 conversationId 查询，按 createdAt、_id 倒序取一页。
+@Document(collection = "chat_messages")
+@CompoundIndex(name = "idx_chat_conversation_recent",
+        def = "{'conversationId': 1, 'createdAt': -1, '_id': -1}")
+public record ChatMessageEntity(@Id ObjectId id, ObjectId conversationId,
+                                Instant createdAt, String content) {}
+~~~
+
+集合的 `_id` 已有主键索引，业务幂等键和关系唯一性单独说明，例如收藏的 `(userId, productId)`。上线前用 `getIndexes()` 核对索引名、字段顺序和选项，用 `explain("executionStats")` 核对常用查询的命中、排序和扫描量。生产集合的索引变更安排在部署迁移中。框架 Mongo 配置在 `ApplicationReadyEvent` 异步提交已发现实体的索引创建，依赖唯一约束的业务要确认创建完成再开放流量。[Spring Data 索引管理](https://docs.spring.io/spring-data/mongodb/reference/mongodb/mapping/mapping-index-management.html) · [MongoDB 复合索引顺序](https://www.mongodb.com/docs/manual/tutorial/equality-sort-range-guideline/)
+
 ## MongoDB 类型、枚举与查询
 
 MongoDB 主键和关联字段用 BSON `ObjectId`。HTTP 与 RPC 使用 24 位十六进制字符串，边界用 `ObjectId.isValid` 校验后转换。Repository 泛型和查询参数使用 `ObjectId`，方法名与字段名称保持一致。
@@ -84,6 +115,8 @@ public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessa
 ## RSocket、网关与聊天
 
 RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketRpc` 注入。服务端使用与契约一致的 route，例如 `chat-service.chatMessageRpc.find`。普通请求和服务端流在网关以 `rb://服务名` 路由。服务端流可以用 Accept 请求 NDJSON，逐条刷新。双向流通过 POST NDJSON 或原生 RSocket requestChannel 交换 DTO。
+
+普通 JSON POST 默认选择 request/response 和 response/object。服务端流、双向流、文本、空响应与二进制入口可由网关路由的 metadata 一次定义。未配置模式时，以标准 NDJSON Content-Type 识别双向流，或以显式 NDJSON Accept 识别服务端流。新客户端按接口契约发送请求，已有 RSocket-Model 和 RSocket-Echo 头继续作为无路由配置时的兼容输入。
 
 保持首条消息、单次订阅、上下文、背压和取消。处理首信号时区分数据、错误与完成。遵循 RSocket 和 Spring 的 Payload 所有权，写测试确认释放行为。部署经过 HTTP 代理时实测全双工与缓冲策略。
 

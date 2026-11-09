@@ -14,6 +14,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
+import java.util.Map;
 
 import static org.lambda.framework.gateway.enums.GatewayContract.*;
 import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_000;
@@ -24,6 +25,7 @@ public class GatewayFilter implements GlobalFilter,Ordered{
     public static interface GlobalFilterRoute {
         String host();
         String path();
+        default Map<String, Object> metadata() { return Map.of(); }
     }
 
     @Resource
@@ -59,6 +61,11 @@ public class GatewayFilter implements GlobalFilter,Ordered{
                     @Override
                     public String path() {
                         return targetUri.getPath();
+                    }
+
+                    @Override
+                    public Map<String, Object> metadata() {
+                        return route.getMetadata();
                     }
                 });
             }

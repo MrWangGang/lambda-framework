@@ -76,35 +76,59 @@ spring:
       server:
         webflux:
           routes:
+            - id: chat-channel
+              order: -1
+              uri: rb://chat-service
+              predicates:
+                - Path=/rpc/message/channel
+              metadata:
+                rsocketModel: request/channel
+            - id: chat-history
+              order: -1
+              uri: rb://chat-service
+              predicates:
+                - Path=/rpc/message/stream
+              metadata:
+                rsocketModel: request/stream
+                rsocketStreamFormat: ndjson
             - id: chat
               uri: rb://chat-service
               predicates:
                 - Path=/rpc/message/**
 ~~~
 
-| RSocket-Model | 请求 | 响应 |
-|---|---|---|
-| request/response | POST，application/json 或 application/octet-stream | 单个 JSON envelope |
-| request/stream | POST，JSON DTO | 有界 JSON 数组，或指定 Accept: application/x-ndjson 后逐条输出 |
-| request/channel | POST，application/x-ndjson，每行一个 UTF-8 JSON DTO | 每行一个 NDJSON envelope，双向流 |
+### 自动选择请求与响应类型
 
-普通请求的 RSocket-Echo 可用 response/object、response/char、response/void。Channel 使用 object 或 char。二进制端点由服务端声明 byte[] 等合适类型，按其响应内容选择 Echo。业务请求错误沿用 serviceCode/serviceMessage，网关参数、方法、内容类型与超限错误使用相应 HTTP 状态。
+| HTTP 请求 | 网关选择 |
+|---|---|
+| 普通 POST JSON | request/response + response/object |
+| Content-Type 为 application/x-ndjson | request/channel，每行一个请求或响应 DTO |
+| Accept 明确接受 application/x-ndjson 且请求体是单条 JSON | request/stream，逐条返回 NDJSON |
+| 路由定义了类型 | 按路由契约执行 |
+
+路由 metadata 中的值优先。未配置时，已有 RSocket-Model 和 RSocket-Echo 头仍可显式选择，再由标准头和默认值补齐。普通请求缺少 Content-Type 时按 JSON，已确定为 Channel 时按 NDJSON。路由显式声明输入类型时，冲突的 Content-Type 返回 415。
+
+| 路由键 | 可配置值 |
+|---|---|
+| rsocketModel | request/response、request/stream、request/channel |
+| rsocketEcho | response/object、response/char、response/void |
+| rsocketContentType | application/json、application/x-ndjson、application/octet-stream |
+| rsocketStreamFormat | json、ndjson。适用于 request/stream，控制数组或逐条返回 |
+
+文本与空响应在路由配置 response/char 或 response/void。二进制接口可配置 rsocketContentType 为 application/octet-stream。业务请求错误沿用 serviceCode/serviceMessage，网关参数、方法、内容类型与超限错误使用相应 HTTP 状态。
 
 ~~~bash
-curl -fsS -X POST http://127.0.0.1:8080/rpc/message/find \
-  -H 'Content-Type: application/json' \
-  -H 'RSocket-Model: request/response' -H 'RSocket-Echo: response/object' \
-  -d '{"id":"507f1f77bcf86cd799439011"}'
+curl -fsS --json '{"id":"507f1f77bcf86cd799439011"}' \
+  http://127.0.0.1:8080/rpc/message/find
 ~~~
 
 ~~~bash
-curl -NsS -X POST http://127.0.0.1:8080/rpc/message/channel \
-  -H 'Content-Type: application/x-ndjson' -H 'Accept: application/x-ndjson' \
-  -H 'RSocket-Model: request/channel' -H 'RSocket-Echo: response/object' \
+curl -NsS http://127.0.0.1:8080/rpc/message/channel \
+  -H 'Content-Type: application/x-ndjson' \
   --data-binary @messages.ndjson
 ~~~
 
-示例地址假设已启动相应服务。messages.ndjson 每行对应服务端的 SendDTO。网关在本机 TCP 链路验证过客户端收到首条响应后再发送下一条请求。实际代理、客户端和 HTTP 版本的双向传输行为应在部署时复核。响应已开始后的流错误会结束传输，客户端据其业务协议重试或续读。
+示例地址假设对应服务已经启动。messages.ndjson 每行对应服务端 SendDTO。客户端可在收到首条响应后发送下一条请求。部署时复核代理、客户端和 HTTP 版本的双向传输行为。已开始输出后的错误会结束流，客户端按其业务协议重试或续读。
 
 | 配置 | 默认值与范围 |
 |---|---|
@@ -130,6 +154,10 @@ curl -NsS -X POST http://127.0.0.1:8080/rpc/message/channel \
 Channel 直接检查 13 项、TCP 检查 8 项、分页回归 12 项、双服务/网关/示例实机 26 项均通过。
 
 同配置对照中，128 条 JSON 数组流从 3,177 提升到 3,930 请求/秒，网关 CPU 从 0.3950 降到 0.2411 ms/请求。逐条 NDJSON 将慢流首字节从 1052.9 ms 降到 242.4 ms。单次请求吞吐略低，峰值 RSS 略高。压测为本机短轮次，报告保留所有数值和样本。
+
+### 自动类型与真实业务复测
+
+16 项自动类型、旧头兼容、双向流、限额与超时检查通过。使用同一个聊天服务和真实 MongoDB，在 8 并发下直连约 194 请求/秒，HTTP 网关约 175 请求/秒。在 32 并发下两条链路都约 166 请求/秒，尾延迟明显增加。网关进程 CPU 中位约一个核的 12%–15%。这组结果适用于本机服务与跨网络 MongoDB 的测试环境，逐轮数据见本地汇总报告。
 
 ## Java 后端开发与架构规范
 
@@ -173,6 +201,37 @@ public class ChatMessageEntity extends UnifyPO<ObjectId> {
 ~~~
 
 实际实体需提供 Spring Data 可映射的构造器或访问方法。Service 采用上述 DTO 时无需复制一套 Service 参数类。
+
+### 实体注解与主键
+
+每个持久化实体都要明确表或集合名，以及唯一的主键映射。MongoDB 使用 Spring Data 的 `@Document(collection = "...")` 和 `org.springframework.data.annotation.Id`。实体独立声明主键时写成 `@Id ObjectId id`，继承 `UnifyPO<ObjectId>` 时复用基类已有的 `@Id`。同一实体层级只保留一个主键属性。Repository 的 ID 泛型、关联字段和查询绑定类型需与主键一致。
+
+| 注解 | 放置位置 | 使用约定 |
+|---|---|---|
+| `@Document` | MongoDB 实体 | 显式写集合名，让部署、查询和迁移引用同一名称 |
+| `@Table` | Spring Data R2DBC 实体 | 显式写表名，表结构和索引用迁移脚本维护 |
+| `@Id` | 主键字段或 record 组件 | 明确主键映射。MongoDB 对应 BSON `_id` |
+| `@Field` / `@Column` | 字段或 record 组件 | 数据库名与 Java 属性不同时声明映射。变更已有映射时提供数据迁移 |
+| `@Version` | 乐观锁字段 | 业务需要并发写保护时使用。手写更新条件同时核对并递增版本 |
+| `@CreatedDate` / `@LastModifiedDate` | 审计时间字段 | 启用对应的审计配置后使用，核对插入与更新路径是否填充 |
+| `@Indexed` / `@CompoundIndex` | 单字段 / MongoDB 实体 | 有对应查询、排序、唯一或生命周期需求时添加，索引名和用途可追溯 |
+
+HTTP 入参的校验注解放在 DTO。静态 DTO 沿用业务字段约定，数据库映射注解集中在持久化实体或基类。
+
+### 按业务设计索引
+
+为每个新增或变更的索引记录关联的 Repository 方法、筛选条件、排序、预计数据规模和上线方式。单字段查询或唯一键使用单字段索引。等值筛选加排序优先按实际查询组合设计复合索引，再用执行计划验证。合并重复索引时检查已有查询是否依赖它。索引有写入与存储成本，按需求取舍。
+
+~~~java
+// ChatMessageRepository.findHistory 按 conversationId 查询，按 createdAt、_id 倒序取一页。
+@Document(collection = "chat_messages")
+@CompoundIndex(name = "idx_chat_conversation_recent",
+        def = "{'conversationId': 1, 'createdAt': -1, '_id': -1}")
+public record ChatMessageEntity(@Id ObjectId id, ObjectId conversationId,
+                                Instant createdAt, String content) {}
+~~~
+
+集合的 `_id` 已有主键索引，业务幂等键和关系唯一性单独说明，例如收藏的 `(userId, productId)`。上线前用 `getIndexes()` 核对索引名、字段顺序和选项，用 `explain("executionStats")` 核对常用查询的命中、排序和扫描量。生产集合的索引变更安排在部署迁移中。框架 Mongo 配置在 `ApplicationReadyEvent` 异步提交已发现实体的索引创建，依赖唯一约束的业务要确认创建完成再开放流量。[Spring Data 索引管理](https://docs.spring.io/spring-data/mongodb/reference/mongodb/mapping/mapping-index-management.html) · [MongoDB 复合索引顺序](https://www.mongodb.com/docs/manual/tutorial/equality-sort-range-guideline/)
 
 ### MongoDB 类型、枚举与查询
 
@@ -218,6 +277,8 @@ public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessa
 
 RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketRpc` 注入。服务端使用与契约一致的 route，例如 `chat-service.chatMessageRpc.find`。普通请求和服务端流在网关以 `rb://服务名` 路由。服务端流可以用 Accept 请求 NDJSON，逐条刷新。双向流通过 POST NDJSON 或原生 RSocket requestChannel 交换 DTO。
 
+普通 JSON POST 默认选择 request/response 和 response/object。服务端流、双向流、文本、空响应与二进制入口可由网关路由的 metadata 一次定义。未配置模式时，以标准 NDJSON Content-Type 识别双向流，或以显式 NDJSON Accept 识别服务端流。新客户端按接口契约发送请求，已有 RSocket-Model 和 RSocket-Echo 头继续作为无路由配置时的兼容输入。
+
 保持首条消息、单次订阅、上下文、背压和取消。处理首信号时区分数据、错误与完成。遵循 RSocket 和 Spring 的 Payload 所有权，写测试确认释放行为。部署经过 HTTP 代理时实测全双工与缓冲策略。
 
 私聊与群聊用会话 ID 区分，消息包含发送人、类型、内容、时间。表情用 Unicode，图片与视频的消息内容用对象存储 key。网关可按字节转发小二进制。媒体文件上传和下载使用独立链路，权限、群成员校验、消息幂等和离线拉取由业务实现。
@@ -243,6 +304,7 @@ description: 按统一风格开发、修改或审查 Lambda Framework Java 后�
 - 业务 HTTP 接口采用 POST 动作路径与请求 DTO。RPC 同样使用 DTO 与 Mono 或 Flux。
 - 每个数据库表或集合对应一个实体。所属 DTO 放实体的静态内部类型。Service 复用 Controller 的 DTO。缓存等无实体归属的请求放 Controller 静态类型。
 - Mongo 主键与关联 ID 使用 ObjectId。HTTP 和 RPC 使用十六进制字符串，在 Repository 绑定 BSON 时转换。枚举实现 ConverterEnum。业务金额与标量用字符串，技术字段按规范转换。
+- 每个持久化实体明确表或集合名及唯一的 @Id，可复用基类标识。按 Repository 的筛选、排序、唯一约束或生命周期需求加索引，说明用途并核对实际索引和执行计划。
 - 复用框架分页、异常、Reactor Context 和数据库连接。区分 SecurityLoginUser、UnifyPO、PrincipalFactory。
 - RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。聊天 DTO 描述文字、表情与媒体引用。
 - 使用现有 JDK 和 IDEA Maven。先复现再修复，在相同条件复测。使用隔离测试资源，验收后按名称清理，核对数据并关闭本次启动的 JVM。
