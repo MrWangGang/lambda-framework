@@ -167,14 +167,14 @@ Channel 直接检查 13 项、TCP 检查 8 项、分页回归 12 项、双服务
 | enums 或所属实体 | MessageKind | 值域、持久化值、显示文案 |
 | config | MongoConfiguration | 连接与运行配置 |
 
-类名采用业务名与职责后缀。Service 只有一种实现时直接使用业务 Service 类，有多个实现或跨模块契约时再拆接口。Repository 以归属实体命名。持久化类用大驼峰业务名加 `PO`，例如 `UserPO` 映射到 `user`。请求类型按动作命名，例如 `SendDTO`、`FindDTO`、`PageDTO`。响应类型按返回用途命名，例如 `DetailVO`、`SummaryVO`、`PageItemVO`。
+类名采用业务名与职责后缀。Service 只有一种实现时直接使用业务 Service 类，有多个实现或跨模块契约时再拆接口。Repository 以归属实体命名。持久化类用大驼峰业务名加 `PO`，例如 `UserPO` 映射到 `user`。内部类型名由接口的业务语义决定。请求按动作命名，例如 `FindDTO`、`ChangePasswordDTO`、`PageDTO`。响应按用途命名，例如 `DetailVO`、`SummaryVO`、`PageItemVO`。外层 PO 已表达业务归属，内部类型禁止重复加实体名或表名。例如用户详情用 `UserPO.DetailVO`，用户查询用 `UserPO.FindDTO`。避免 `UserPO.UserDetailVO` 和 `UserPO.UserFindDTO`。
 
 ### PO、DTO、VO 与接口
 
 - 每个数据库表或集合对应一个 PO。请求 DTO 和响应 VO 定义在其所属 PO 中，使用 `public static` 类或隐式静态的 `public record`。无直接落库的接口按业务归属放在对应的 PO 下。
-- Controller、Service 与 RPC 契约复用同一套 DTO、VO。接收使用 DTO，返回使用 VO。RPC 客户端通过共享 Maven 契约依赖引用 `UserPO.FindDTO`、`UserPO.DetailVO`，可以引用外部类名，但 RPC 请求与响应只传内层契约。
+- Controller、Service 与 RPC 契约复用同一套 DTO、VO。接收使用 DTO，返回使用 VO。在 PO 外只导入外层类型，接口签名保留归属，例如 `Mono<UserPO.DetailVO> find(UserPO.FindDTO input)`。不要直接导入 `UserPO.DetailVO` 后在签名里只写 `DetailVO`。RPC 客户端从共享 Maven 契约依赖引用这些类型，请求与响应只传内层契约。
 - 严禁把数据库 PO 用作接口参数或返回值。DTO 和 VO 不继承 PO，即使字段完全一样也单独声明，只暴露业务契约字段。密码哈希、内部权限、审计字段和持久化版本不进入公共契约。
-- 业务 HTTP 接口统一使用 POST 动作路径，例如 `/api/user/find`。请求条件放 JSON 请求体，空请求可用 `EmptyDTO`。RPC 使用具体的 DTO 与 `Mono<DetailVO>`、`Flux<DetailVO>` 等明确类型。底层对字符串与数字的编码兼容性独立测试。
+- 业务 HTTP 接口统一使用 POST 动作路径，例如 `/api/user/find`。请求条件放 JSON 请求体，空请求可用 `EmptyDTO`。RPC 使用具体的 DTO 与 `Mono<UserPO.DetailVO>`、`Flux<UserPO.DetailVO>` 等明确类型。底层对字符串与数字的编码兼容性独立测试。
 - 业务金额和常规业务标量以字符串建模，禁止 BigDecimal。ObjectId、库存计数、版本号、分页计数和日期保留各自的技术类型。CORS 预检、WebSocket 握手和基础设施协议遵循对应协议。
 
 ~~~java
@@ -325,7 +325,7 @@ return mongo.updateFirst(filter, deduction, SkuEntity.class)
 
 ### 分页和索引
 
-`Paging` 对业务使用从 1 开始的页码，默认 1/10。框架转换为从 0 开始的 `PageRequest`。`Paged<T>` 复用 page、size、pages、total、records。页码和大小在入口校验，业务列表限制每页最多 100。RPC 保留 `Mono<Paged<DetailVO>>` 的完整泛型。
+`Paging` 对业务使用从 1 开始的页码，默认 1/10。框架转换为从 0 开始的 `PageRequest`。`Paged<T>` 复用 page、size、pages、total、records。页码和大小在入口校验，业务列表限制每页最多 100。RPC 保留 `Mono<Paged<UserPO.PageItemVO>>` 的完整泛型。
 
 `ReactiveUnifyPagingRepositoryOperation.sqlPaging` 提供 count 与 query 的协调，也可给 Mongo Repository 使用。两者传相同过滤条件，查询应用 Pageable。排序使用可索引的稳定键，例如 `createdAt DESC, _id DESC`。聊天历史等长期增长列表使用复合游标，游标中的 ID 转为 ObjectId。业务需考虑 count 与查询分开执行时的并发更新。
 
@@ -395,7 +395,7 @@ description: 按统一风格开发、修改或审查 Lambda Framework Java 后�
 仓库版规范位于 `../../docs/Java后端开发与架构规范.md`，本机安装版随技能提供 `references/Java后端开发与架构规范.md`。环境值从本地《第三方配置.md》或环境变量读取。提交前检查真实凭据是否混入 Git。
 
 - 业务 HTTP 接口采用 POST 动作路径，HTTP、Service 与 RPC 共用请求 DTO 和响应 VO。
-- 每个数据库表或集合对应一个 PO。DTO 和 VO 是所属 PO 的静态内部类型，按动作或视图命名。数据库 PO 只用于持久化，接口参数、返回值和契约继承都不能使用 PO。
+- 每个数据库表或集合对应一个 PO。DTO 和 VO 定义在所属 PO 内，按业务动作或返回用途命名，内部类型名不重复加实体名或表名。PO 外只导入外层类型，签名保留 `UserPO.FindDTO`、`UserPO.DetailVO`。数据库 PO 只用于持久化，接口参数、返回值和契约继承都不能使用 PO。
 - 应用运行配置放 Nacos，本地只留项目名、导入声明和 Nacos 引导配置。网关使用 reactive，普通 JSON POST 自动转发并保留响应 JSON 类型。
 - Mongo 主键与关联 ID 使用 ObjectId。HTTP 和 RPC 的 JSON 用十六进制字符串，DTO/VO 单值字段用 @JsonObjectId ObjectId，Repository 直接绑定原生 ID。枚举实现 ConverterEnum。业务金额与标量用字符串，技术字段按规范转换。
 - 每个持久化实体明确表或集合名及唯一的 @Id，可复用基类标识。按 Repository 的筛选、排序、唯一约束或生命周期需求加索引，说明用途并核对实际索引和执行计划。
