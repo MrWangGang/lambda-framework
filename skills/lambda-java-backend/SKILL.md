@@ -9,13 +9,13 @@ description: 按统一风格开发、修改或审查 Lambda Framework Java 后�
 
 - 业务微服务拆为 `<项目名>-service` 和 `<项目名>-facade`。service 依赖 facade，RPC 调用方只依赖 facade。
 - 对外接口放 facade 模块的 `facade` 包，服务端实现放 service 模块的 `facade` 包。业务类 `UserServiceImpl` 直接放 `service` 包，省略业务接口和 `impl` 子包。
-- 对外 HTTP 一律经网关转发，使用 POST 动作路径。业务服务只监听内网 RSocket TCP。Controller、Facade 实现与 Service 共用 Facade 接口内的请求、响应 record。签名保留 `UserFacade.FindRequest`、`UserFacade.Detail` 等外层归属，内层名称按业务动作或用途命名。实体使用 `UserEntity` 等名称，仅在 service 模块持久化使用。
-- 应用运行配置放 Nacos，本地只留项目名、导入声明和 Nacos 引导配置。网关使用 reactive，以 rb:// 转发 JSON 并保留响应类型。业务进程用 none 和 TCP。原生 Java RPC 固定 Fory，调用方和服务端注册相同的 Facade 类型。
+- 对外 HTTP 一律经网关转发，使用 POST 动作路径。业务服务只监听内网 RSocket TCP，业务路由统一用 @MessageMapping。Controller、Facade 实现与 Service 共用 Facade 接口内的请求、响应 record。签名保留 `UserFacade.FindRequest`、`UserFacade.Detail` 等外层归属，内层名称按业务动作或用途命名。实体使用 `UserEntity` 等名称，仅在 service 模块持久化使用。
+- 应用运行配置放 Nacos，本地只留项目名、导入声明和 Nacos 引导配置。网关使用 reactive，以 rb:// 转发 JSON 并保留响应类型。业务进程用 none 和 TCP。原生 Java RPC 自动使用 Fory，@RSocketRpcType 无需参数，调用方和服务端注册相同的 Facade 类型。
 - Mongo 主键与关联 ID 使用 ObjectId。HTTP JSON 用十六进制字符串，公开 record 的单值 ID 用 @JsonObjectId ObjectId，Fory 直接处理 ObjectId，Repository 直接绑定原生 ID。枚举实现 ConverterEnum。业务金额与标量用字符串，技术字段按规范转换。
 - 每个持久化实体明确表或集合名及唯一的 @Id，可复用基类标识。按 Repository 的筛选、排序、唯一约束或生命周期需求加索引，说明用途并核对实际索引和执行计划。
 - 按业务读写比例、访问路径和增长设计关系。多对多必须有中间表或关系集合，一对多和多对一直接内嵌或持有引用。内嵌需有业务上限，独立分页和高频更新用引用。聚合用未加引号的占位符绑定 ObjectId，实测复杂关联与执行计划。
 - @Version 按需使用。SKU 以库存足额条件加原子扣减防超卖。字符串金额用旧金额和版本做条件更新，跨文档一致性用事务与幂等键。
 - 复用框架分页、异常、Reactor Context 和数据库连接。区分 SecurityLoginUser、UnifyPO、PrincipalFactory。
-- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。 `rb://` 按后端签名自动选择 Mono 单次响应、Flux 单向流和 Flux 入参配 TFlux 出参的双向流。聊天 record 描述文字、表情与媒体引用。
+- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。 `rb://` 按后端签名自动选择 Mono 单次响应、Flux 单向流和 入参和返回值均为带泛型 TFlux 的双向流。错误签名在启动时拒绝。聊天 record 描述文字、表情与媒体引用。
 - 使用现有 JDK 和 IDEA Maven。先复现再修复，在相同条件复测。使用隔离测试资源，验收后按名称清理，核对数据并关闭本次启动的 JVM。
 - README 记录项目运行与契约。报告区分实测、设计方案和未测范围。

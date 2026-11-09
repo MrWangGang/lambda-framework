@@ -1,11 +1,20 @@
 package org.lambda.framework.rsocket.adapter;
 
+import io.rsocket.frame.FrameType;
+import org.lambda.framework.common.support.TFlux;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.rsocket.server.RSocketServerCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.messaging.rsocket.annotation.support.RSocketFrameTypeMessageCondition;
+import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
+
+import java.lang.reflect.ParameterizedType;
+import java.util.Arrays;
 
 @Configuration
 @Import({GatewayStreamContractController.class, RsocketInterceptorConfig.RejectHttpListener.class})
@@ -20,6 +29,31 @@ public class RsocketInterceptorConfig  {
         return server -> server.maxInboundPayloadSize(maxInboundPayloadBytes)
                 .interceptors(registry -> registry.forSocketAcceptor(interceptor)
                         .forSocketAcceptor(new RpcDataMimeInterceptor()));
+    }
+
+    @Bean
+    SmartInitializingSingleton validateChannelMappings(ObjectProvider<RSocketMessageHandler> handlers) {
+        return () -> handlers.ifAvailable(handler -> handler.getHandlerMethods().forEach((mapping, method) -> {
+            var frames = mapping.getCondition(RSocketFrameTypeMessageCondition.class);
+            boolean channel = frames != null && frames.getFrameTypes().contains(FrameType.REQUEST_CHANNEL);
+            var adapters = handler.getRSocketStrategies().reactiveAdapterRegistry();
+            var streamingParameters = Arrays.stream(method.getMethodParameters()).filter(parameter -> {
+                var adapter = adapters.getAdapter(parameter.getParameterType());
+                return adapter != null && adapter.isMultiValue();
+            }).toList();
+            var result = method.getReturnType();
+            if (!channel && result.getParameterType() != TFlux.class
+                    && streamingParameters.stream().noneMatch(parameter -> parameter.getParameterType() == TFlux.class)) {
+                return;
+            }
+            if (!channel || streamingParameters.size() != 1
+                    || streamingParameters.getFirst().getParameterType() != TFlux.class
+                    || !(streamingParameters.getFirst().getGenericParameterType() instanceof ParameterizedType)
+                    || result.getParameterType() != TFlux.class
+                    || !(result.getGenericParameterType() instanceof ParameterizedType)) {
+                throw new IllegalStateException("RSocket channel requires TFlux<I> input and TFlux<O> return: " + method);
+            }
+        }));
     }
 
     @Configuration(proxyBeanMethods = false)

@@ -1,6 +1,6 @@
 # Java 后端开发与架构规范
 
-版本日期为 **2026-11-09**。本规范供开发者和智能体统一 Java 项目的结构、接口、数据模型和验收方式。部署地址、账号、云资源与 GitHub SSH 认证配置集中到本地《第三方配置.md》。仓库中的示例使用本机地址和环境变量。
+版本日期为 **2026-11-10**。本规范供开发者和智能体统一 Java 项目的结构、接口、数据模型和验收方式。部署地址、账号、云资源与 GitHub SSH 认证配置集中到本地《第三方配置.md》。仓库中的示例使用本机地址和环境变量。
 
 ## GitHub 仓库
 
@@ -43,7 +43,7 @@ user/
 - 公开请求和响应统一声明为对外 Facade 接口内的 `record`。入参按动作命名，例如 `FindRequest`、`ChangePasswordRequest`、`PageRequest`。返回按用途命名，例如 `Detail`、`Summary`、`PageItem`。外层 Facade 已表达业务归属，内层名称不重复加表名或实体名，省略 DTO、VO、PO 后缀。
 - Controller 与 Facade 实现直接注入 `UserServiceImpl`，复用 Facade 的 record。外部类只导入 `UserFacade`，签名写 `UserFacade.FindRequest` 和 `UserFacade.Detail`。公开契约集中在接口，实体和实现类不声明公开入参、出参。
 - 实体留在 service 模块。Controller、Facade 接口和 Service 的公开业务方法使用契约 record，Service 负责从持久化实体映射公开字段。密码哈希和内部权限留在服务端。公开契约按业务需要显式选择可见的审计字段或并发控制字段。
-- 对外业务 HTTP 统一经网关访问，使用 POST 动作路径，例如 `/api/user/find`。服务端 Controller 使用以 `/` 开头的 `@MessageMapping` 承接网关转发。请求条件放 JSON 请求体，空请求可用 `EmptyRequest`。RPC 保留 `Mono<UserFacade.Detail>`、`Flux<UserFacade.Detail>` 等完整类型。底层对字符串与数字的编码兼容性独立测试。
+- 对外业务 HTTP 统一经网关访问，使用 POST 动作路径，例如 `/api/user/find`。业务服务的路由统一使用 `@MessageMapping`。承接网关转发的路径以 `/` 开头。请求条件放 JSON 请求体，空请求可用 `EmptyRequest`。RPC 保留 `Mono<UserFacade.Detail>`、`Flux<UserFacade.Detail>` 等完整类型。底层对字符串与数字的编码兼容性独立测试。
 - 业务金额和常规业务标量以字符串建模，禁止 BigDecimal。ObjectId、库存计数、版本号、分页计数和日期保留各自的技术类型。CORS 预检、WebSocket 握手和基础设施协议遵循对应协议。
 
 ~~~java
@@ -251,7 +251,7 @@ Java RPC 接口使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，调用方由
 |---|---|---|
 | 单条入参，返回 `Mono<T>` | `request/response`，一次请求、一次响应 | 发普通 POST JSON，响应为 JSON，`data` 保留实际值类型。 |
 | 单条入参，返回 `Flux<T>` | `request/stream`，一次请求、逐条响应 | 发普通 POST JSON，网关返回逐行 NDJSON。 |
-| `Flux<I>` 入参，返回 `TFlux<O>` | `request/channel`，双向流 | 客户端可持续发送 JSON 数组元素或 NDJSON 行，同时接收 NDJSON 响应。 |
+| `TFlux<I>` 入参，返回 `TFlux<O>` | `request/channel`，双向流 | 客户端可持续发送 JSON 数组元素或 NDJSON 行，同时接收 NDJSON 响应。 |
 
 网关从服务端的 `RsocketInterceptorConfig` 获取并缓存接口交互类型。新接口通过方法签名表达模式，客户端无需自定义模式头或 `Accept`，网关无需引入业务 Facade 或在 Nacos 逐条声明流式模式。网关到服务的业务负载使用 JSON。已有 `@GatewayStream` 和显式请求头可作为兼容入口。
 
@@ -267,14 +267,14 @@ public Flux<Status> stream(StatusRequest request) {
 }
 
 @MessageMapping("/order/chat")
-public TFlux<Reply> chat(Flux<Message> messages) {
+public TFlux<Reply> chat(TFlux<Message> messages) {
     return TFlux.of(service.chat(messages));
 }
 ~~~
 
-`TFlux` 位于 `org.lambda.framework.common.support`，由 `TFlux.of(Flux)` 封装业务流，Java RPC 的 Facade 可直接声明 `TFlux<Reply> chat(Flux<Message> messages)`。HTTP 双向流要求客户端和代理支持在请求体尚未发完时读取响应。用 `application/json` 时按 JSON 数组逐段发送，用 `application/x-ndjson` 时每行发送一条请求。客户端收到一条回复后可以继续写下一条。
+`TFlux` 位于 `org.lambda.framework.common.support`，由 `TFlux.of(Flux)` 封装业务流，Java RPC 的 Facade 和网关后端都声明 `TFlux<Reply> chat(TFlux<Message> messages)`。Java 调用时用 `chat(TFlux.of(messages))` 传入 Reactor 流。框架在启动时校验双向流签名。普通 `Flux`、单条对象或缺少泛型的 `TFlux` 不能作为双向流入参，返回值也须是带泛型的 `TFlux`。HTTP 双向流要求客户端和代理支持在请求体尚未发完时读取响应。用 `application/json` 时按 JSON 数组逐段发送，用 `application/x-ndjson` 时每行发送一条请求。客户端收到一条回复后可以继续写下一条。
 
-Java 服务间原生 RPC 固定使用 Apache Fory。方法写 `@RSocketRpcType` 即可。两端导入 `RSocketStrategiesConfig`，用 `ForyRpcTypes` 注册共享 Facade 的应用类型，包括嵌套 record、枚举和用到的分页类型。删除旧 `lambda.rpc.data-mime-type` 配置以及显式 JSON MIME 声明，调用方和服务端统一升级。服务端拒绝用 JSON 或二进制连接调用 `service.facade.method` 原生路由。网关 JSON 业务路由使用 `/` 前缀。身份元数据沿用 JSON。
+Java 服务间原生 RPC 固定使用 Apache Fory。Facade 方法写无参数的 `@RSocketRpcType`，框架自动选择协议。两端导入 `RSocketStrategiesConfig`，用 `ForyRpcTypes` 注册共享 Facade 的应用类型，包括嵌套 record、枚举和用到的分页类型。升级时移除旧 `lambda.rpc.data-mime-type` 配置和 `@RSocketRpcType` 的 MIME 参数。调用方和服务端统一升级。服务端拒绝用 JSON 或二进制连接调用 `service.facade.method` 原生路由。网关 JSON 业务路由使用 `/` 前缀。身份元数据沿用 JSON。
 
 网关默认每个后端实例复用一条 RSocket TCP 连接。需要承受单条连接断开的关键路由可在 Nacos 配置 `rsocketConnectionsPerInstance=2`。连接关闭后按最近一次成功发现的目标列表补建连接。请求已发出时由调用方根据业务幂等规则决定如何处理，网关不自动重放。
 

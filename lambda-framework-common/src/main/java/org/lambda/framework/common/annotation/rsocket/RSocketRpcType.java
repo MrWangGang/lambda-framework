@@ -9,6 +9,4 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface RSocketRpcType {
     String FORY_MIME_TYPE = "application/x-lambda-fory";
-
-    String MimeType() default FORY_MIME_TYPE;
 }

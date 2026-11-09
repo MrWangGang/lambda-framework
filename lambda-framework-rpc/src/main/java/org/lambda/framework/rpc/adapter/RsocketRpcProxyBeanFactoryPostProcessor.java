@@ -9,9 +9,11 @@ import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.TFlux;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
+import org.reactivestreams.Publisher;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
@@ -20,6 +22,7 @@ import reactor.core.publisher.Mono;
 
 import java.lang.reflect.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
@@ -98,6 +101,11 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
         Assert.verify(interfaceField,ES_RPC_009);
         Assert.verify(rsocketUrl,ES_RPC_008);
         Assert.verify(connectType,ES_RPC_007);
+        for (Method method : interfaceField.getMethods()) {
+            if (AnnotationUtils.findAnnotation(method, RSocketRpcType.class) != null) {
+                validateChannelSignature(method);
+            }
+        }
         return Proxy.newProxyInstance(
                 interfaceField.getClassLoader(),
                 new Class[]{interfaceField},
@@ -106,11 +114,9 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
                         RSocketRpcType rSocketRpcType = AnnotationUtils.findAnnotation(method, RSocketRpcType.class);
                         if (rSocketRpcType != null) {
-                          //校验头
-                          MimeType mimeType = resolveMimeType(rSocketRpcType.MimeType());
                           if(RPC_CONNECT_LOADBALANCE.equals(connectType)){
                               //负载均衡模式
-                              Mono<RSocketLoadbalance.ProcessResponse> rSocketRequesterMono = rSocketLoadbalance.build(mimeType, rsocketUrl);
+                              Mono<RSocketLoadbalance.ProcessResponse> rSocketRequesterMono = rSocketLoadbalance.build(FORY_MIME_TYPE, rsocketUrl);
                               return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, interfaceField);
                           }
                           if(RPC_CONNECT_DIRECT.equals(connectType)){
@@ -127,7 +133,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                                   }catch (Exception e){
                                       throw new EventException(ES_RPC_012);
                                   }
-                                  Mono<RSocketLoadbalance.ProcessResponse> rSocketRequesterMono = rSocketLoadbalance.build(mimeType, parts[0], port);
+                                  Mono<RSocketLoadbalance.ProcessResponse> rSocketRequesterMono = rSocketLoadbalance.build(FORY_MIME_TYPE, parts[0], port);
                                   return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, interfaceField);
 
                               }
@@ -146,6 +152,11 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                 || returnType.getActualTypeArguments().length != 1) {
             return Mono.error(new EventException(ES_RPC_015));
         }
+        boolean channel = returnType.getRawType() == TFlux.class;
+        if ((channel && !(data instanceof TFlux<?>))
+                || (!channel && data instanceof Publisher<?> && !(data instanceof Mono<?>))) {
+            throw new IllegalArgumentException("RSocket channel requires TFlux<I> input and TFlux<O> return: " + method);
+        }
         String route = buildMessageMapping(serviceName, interfaceType, method);
         var bodyType = ParameterizedTypeReference.forType(returnType.getActualTypeArguments()[0]);
         var connection = requester.switchIfEmpty(Mono.error(new EventException(ES_RPC_013)));
@@ -155,10 +166,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
         if (returnType.getRawType() == Flux.class) {
             return connection.flatMapMany(rpc -> rpc.retrieveFlux(principalStash, route, data, bodyType));
         }
-        if (returnType.getRawType() == TFlux.class) {
-            if (!(data instanceof Flux<?>)) {
-                return TFlux.of(Flux.error(new IllegalArgumentException("TFlux requires a Flux request")));
-            }
+        if (channel) {
             return TFlux.of(connection.flatMapMany(rpc -> rpc.retrieveFlux(principalStash, route, data, bodyType)));
         }
         return Mono.error(new EventException(ES_RPC_015));
@@ -195,12 +203,20 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
 
 
 
-    private MimeType resolveMimeType(String type) {
-        Assert.verify(type, ES_RPC_011);
-        if (FORY_MIME_TYPE.equalsTypeAndSubtype(MimeType.valueOf(type))) {
-            return FORY_MIME_TYPE;
+    private static void validateChannelSignature(Method method) {
+        var adapters = ReactiveAdapterRegistry.getSharedInstance();
+        var parameters = method.getParameterTypes();
+        boolean streamingInput = Arrays.stream(parameters).anyMatch(type -> {
+            var adapter = adapters.getAdapter(type);
+            return adapter != null && adapter.isMultiValue();
+        });
+        if ((streamingInput || method.getReturnType() == TFlux.class)
+                && (parameters.length != 1 || parameters[0] != TFlux.class
+                    || !(method.getGenericParameterTypes()[0] instanceof ParameterizedType)
+                    || method.getReturnType() != TFlux.class
+                    || !(method.getGenericReturnType() instanceof ParameterizedType))) {
+            throw new IllegalArgumentException("RSocket channel requires TFlux<I> input and TFlux<O> return: " + method);
         }
-        throw new EventException(ES_RPC_010);
     }
 
 
