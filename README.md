@@ -90,6 +90,7 @@ spring.cloud.gateway.server.webflux.routes[0].predicates[0]=Path=/rpc/message/**
 
 | HTTP 请求 | 网关选择 |
 |---|---|
+| POST JSON 命中服务端 `@GatewayStream` | request/stream，逐条返回 NDJSON |
 | 普通 POST JSON | 一次请求、一次 JSON 响应。默认走 RSocket request/response |
 | Content-Type 为 application/x-ndjson | 双向 request/channel，客户端每行一个请求 record，服务端每行一个响应 record |
 | Accept 明确接受 application/x-ndjson 且请求体是单条 JSON | request/stream，逐条返回 NDJSON |
@@ -413,7 +414,7 @@ RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketR
 |---|---|---|
 | 普通 HTTP，直连 Controller 或经 `lb://` 网关转发 | `@PostMapping(produces = MediaType.APPLICATION_NDJSON_VALUE)` 返回 `Flux<Status>` | 发 POST JSON，可省略 `Accept`。Controller 声明逐行 JSON 响应。 |
 | Java 服务之间的 RSocket RPC | Facade 方法用 `@RSocketRpcType`，接收一个请求 record，返回 `Flux<Status>` | 调用 Facade 方法。框架按 `Flux` 选用 `request/stream`，调用时无需 HTTP 请求头。 |
-| HTTP 经 `rb://` 网关转成 RSocket | 后端 `@MessageMapping` 方法接收一个请求 record，返回 `Flux<Status>` | 发 POST JSON，并带 `Accept: application/x-ndjson`。网关根据该头选择 `request/stream`。 |
+| HTTP 经 `rb://` 网关转成 RSocket | 后端 `@MessageMapping` 的单向流方法添加 `@GatewayStream`，接收一个请求 record，返回 `Flux<Status>` | 发普通 POST JSON，可省略 `Accept`。网关按服务发布的接口契约选择 `request/stream`，逐行返回 NDJSON。 |
 
 纯 HTTP Controller 可以直接调用业务实现并声明流式输出。只有对外提供 Java RPC 时才在 Facade 上声明 RPC 方法。
 
@@ -437,14 +438,27 @@ public interface OrderFacade {
 }
 ~~~
 
-通过 `rb://` 路由时，网关在发出 RSocket 请求前就要确定交互方式。没有流式提示的普通 POST JSON 按 `request/response` 处理。用标准 `Accept` 选择单向流，省掉 Nacos 中的逐接口流式配置和自定义类型头。
+通过 `rb://` 路由暴露单向流时，在服务端的接口层声明 `@GatewayStream`。它可以标在 `@MessageMapping` 方法上，也可以标在该处理方法实现的接口方法上。映射使用固定的斜杠路径，与网关实际转发给服务的路径一致。
+
+~~~java
+import org.lambda.framework.common.annotation.rsocket.GatewayStream;
+
+@GatewayStream
+@MessageMapping("/order/status/stream")
+public Flux<Status> stream(StatusRequest request) {
+    return service.streamStatuses(request);
+}
+~~~
+
+服务端使用框架的 `RsocketInterceptorConfig` 发布已标记的路径。网关按服务拉取并缓存这些路径，依此选择 RSocket 帧和 NDJSON 响应。网关无需引入业务 Facade，单向流格式也无需在 Nacos 逐条配置。客户端按下面的方式请求。
 
 ~~~bash
-curl -NsS http://127.0.0.1:8080/order/stream \
+curl -NsS http://127.0.0.1:8080/order/status/stream \
   -H 'Content-Type: application/json' \
-  -H 'Accept: application/x-ndjson' \
-  --data-binary '{}'
+  --data-binary '{"orderId":"507f1f77bcf86cd799439011"}'
 ~~~
+
+未标注的路由默认采用普通 JSON 请求响应。需要调用已有未标注的单向流接口时，客户端仍可用 `Accept: application/x-ndjson` 明确选择单向流。
 
 Java 服务之间可在调用方的 Nacos 配置设置 `lambda.rpc.data-mime-type=application/x-lambda-fory`。调用方和服务端都使用框架的 RSocketStrategiesConfig，并用 `ForyRpcTypes` 声明共享 Facade 的应用类型，包括嵌套 record、枚举和用到的分页类型。需要逐方法覆盖时在 `@RSocketRpcType` 指定 MIME。缺省配置使用 Jackson JSON，外部 HTTP 网关按 JSON 路由，身份元数据使用 JSON。
 
@@ -485,7 +499,7 @@ description: 按统一风格开发、修改或审查 Lambda Framework Java 后�
 - 按业务读写比例、访问路径和增长设计关系。多对多必须有中间表或关系集合，一对多和多对一直接内嵌或持有引用。内嵌需有业务上限，独立分页和高频更新用引用。聚合用未加引号的占位符绑定 ObjectId，实测复杂关联与执行计划。
 - @Version 按需使用。SKU 以库存足额条件加原子扣减防超卖。字符串金额用旧金额和版本做条件更新，跨文档一致性用事务与幂等键。
 - 复用框架分页、异常、Reactor Context 和数据库连接。区分 SecurityLoginUser、UnifyPO、PrincipalFactory。
-- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。聊天 record 描述文字、表情与媒体引用。
+- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。 `rb://` 的 HTTP 单向流在服务端接口层用 `@GatewayStream` 声明。聊天 record 描述文字、表情与媒体引用。
 - 使用现有 JDK 和 IDEA Maven。先复现再修复，在相同条件复测。使用隔离测试资源，验收后按名称清理，核对数据并关闭本次启动的 JVM。
 - README 记录项目运行与契约。报告区分实测、设计方案和未测范围。
 ~~~

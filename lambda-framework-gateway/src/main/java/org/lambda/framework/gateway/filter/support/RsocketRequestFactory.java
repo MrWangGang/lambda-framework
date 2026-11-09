@@ -47,6 +47,7 @@ public class RsocketRequestFactory {
             .disable(JsonFactory.Feature.CHARSET_DETECTION);
 
     private final RSocketLoadbalance loadbalance;
+    private final RsocketStreamRoutes streamRoutes;
     private final PrincipalStash principalStash;
     private final int maxRequestBytes;
     private final int maxResponseBytes;
@@ -64,6 +65,7 @@ public class RsocketRequestFactory {
             throw new IllegalArgumentException("Invalid HTTP to RSocket bridge limits");
         }
         this.loadbalance = loadbalance;
+        this.streamRoutes = new RsocketStreamRoutes(loadbalance);
         this.principalStash = principalStash;
         this.maxRequestBytes = maxRequestBytes;
         this.maxResponseBytes = maxResponseBytes;
@@ -88,7 +90,24 @@ public class RsocketRequestFactory {
             return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Use a request DTO in the POST body"));
         }
         HttpHeaders headers = request.getHeaders();
-        RequestFormat format = resolveFormat(route.metadata(), headers);
+        Map<String, Object> metadata = route.metadata();
+        RequestFormat format = resolveFormat(metadata, headers);
+        if (RSOCKET_MODEL_REQUEST_RESPONSE.equals(format.model())
+                && MediaType.APPLICATION_JSON.isCompatibleWith(format.contentType())
+                && !metadata.containsKey("rsocketModel") && !metadata.containsKey("rsocketStreamFormat")
+                && headers.getFirst(RSOCKET_MODEL) == null) {
+            return streamRoutes.forService(route.host()).flatMap(paths -> {
+                RequestFormat selected = paths.contains(route.path())
+                        ? new RequestFormat(RSOCKET_MODEL_REQUEST_STREAM, format.echo(), format.contentType(), true)
+                        : format;
+                return forward(exchange, route, selected);
+            });
+        }
+        return forward(exchange, route, format);
+    }
+
+    private Mono<Void> forward(ServerWebExchange exchange, GatewayFilter.GlobalFilterRoute route, RequestFormat format) {
+        var request = exchange.getRequest();
         String model = format.model();
         String echo = format.echo();
         if (!RSOCKET_MODEL_REQUEST_RESPONSE.equals(model) && !RSOCKET_MODEL_REQUEST_STREAM.equals(model)

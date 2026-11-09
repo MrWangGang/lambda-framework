@@ -4,8 +4,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.rsocket.server.RSocketServerCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 @Configuration
+@Import(GatewayStreamContractController.class)
 public class RsocketInterceptorConfig  {
     @Bean
     public RSocketServerCustomizer rSocketServerCustomizer(RSocketAcceptorInterceptor interceptor,
