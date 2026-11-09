@@ -403,19 +403,16 @@ spring.cloud.nacos.password=${NACOS_PASSWORD}
 
 RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketRpc` 注入。服务端使用与契约一致的 route，例如 `user.userFacade.find`。普通请求和服务端流在网关以 `rb://服务名` 路由。双向流通过 POST NDJSON 或原生 RSocket requestChannel 持续接收请求 record 和发送响应 record。
 
-普通 JSON POST 自动采用一次请求一次响应。网关的响应外壳固定为 JSON 对象，`data` 保留服务端 JSON 类型。例如 `Mono<UserFacade.Detail>` 输出对象，`Mono<String>` 输出字符串，`Mono<Integer>` 输出数字。客户端无需配置自定义类型头。NDJSON 请求体自动识别为双向流。已有自定义头作为兼容输入。
+普通 JSON POST 默认采用一次请求一次响应。网关的响应外壳固定为 JSON 对象，`data` 保留服务端 JSON 类型。例如 `Mono<UserFacade.Detail>` 输出对象，`Mono<String>` 输出字符串，`Mono<Integer>` 输出数字。客户端无需配置自定义类型头。NDJSON 请求体自动识别为双向流。已有自定义头作为兼容输入。
 
-固定返回单向流的接口，在网关项目的 Nacos 路由中同时设置 `rsocketModel=request/stream` 和 `rsocketStreamFormat=ndjson`。客户端发送普通 POST JSON 即可，省略 `Accept`。例如在网关项目的 Data ID 中配置订单流路由。
+单向流由客户端用标准 HTTP 头选择。普通查询和单向流都可以用 JSON 请求体。发送 `Content-Type: application/json` 和 `Accept: application/x-ndjson` 时，网关自动选用 `request/stream` 并按行刷新响应。单向流的交互方式和响应格式由请求头决定，无需在 Nacos 路由里逐个配置。
 
-~~~properties
-spring.cloud.gateway.server.webflux.routes[0].id=order-stream
-spring.cloud.gateway.server.webflux.routes[0].uri=rb://order
-spring.cloud.gateway.server.webflux.routes[0].predicates[0]=Path=/order/stream
-spring.cloud.gateway.server.webflux.routes[0].metadata.rsocketModel=request/stream
-spring.cloud.gateway.server.webflux.routes[0].metadata.rsocketStreamFormat=ndjson
+~~~bash
+curl -NsS http://127.0.0.1:8080/order/stream \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/x-ndjson' \
+  --data-binary '{}'
 ~~~
-
-路由没有固定交互方式时，普通查询和单向流都可以使用 JSON 请求体。客户端通过 `Accept: application/x-ndjson` 明确选择单向流，网关按行刷新响应。
 
 Java 服务之间可在调用方的 Nacos 配置设置 `lambda.rpc.data-mime-type=application/x-lambda-fory`。调用方和服务端都使用框架的 RSocketStrategiesConfig，并用 `ForyRpcTypes` 声明共享 Facade 的应用类型，包括嵌套 record、枚举和用到的分页类型。需要逐方法覆盖时在 `@RSocketRpcType` 指定 MIME。缺省配置使用 Jackson JSON，外部 HTTP 网关按 JSON 路由，身份元数据使用 JSON。
 
