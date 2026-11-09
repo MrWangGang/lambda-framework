@@ -9,7 +9,7 @@ description: 按统一风格开发、修改或审查 Lambda Framework Java 后�
 
 - 业务 HTTP 接口采用 POST 动作路径与请求 DTO。RPC 同样使用 DTO 与 Mono 或 Flux。
 - 每个数据库表或集合对应一个实体。所属 DTO 放实体的静态内部类型。Service 复用 Controller 的 DTO。缓存等无实体归属的请求放 Controller 静态类型。
-- Mongo 主键与关联 ID 使用 ObjectId。HTTP 和 RPC 使用十六进制字符串，在 Repository 绑定 BSON 时转换。枚举实现 ConverterEnum。业务金额与标量用字符串，技术字段按规范转换。
+- Mongo 主键与关联 ID 使用 ObjectId。HTTP 和 RPC 的 JSON 用十六进制字符串，DTO 单值字段用 @JsonObjectId ObjectId，Repository 直接绑定原生 ID。枚举实现 ConverterEnum。业务金额与标量用字符串，技术字段按规范转换。
 - 每个持久化实体明确表或集合名及唯一的 @Id，可复用基类标识。按 Repository 的筛选、排序、唯一约束或生命周期需求加索引，说明用途并核对实际索引和执行计划。
 - 按业务读写比例、访问路径和增长设计关系。多对多必须有中间表或关系集合，一对多和多对一直接内嵌或持有引用。内嵌需有业务上限，独立分页和高频更新用引用。聚合用未加引号的占位符绑定 ObjectId，实测复杂关联与执行计划。
 - @Version 按需使用。SKU 以库存足额条件加原子扣减防超卖。字符串金额用旧金额和版本做条件更新，跨文档一致性用事务与幂等键。

@@ -256,7 +256,16 @@ public record ChatMessageEntity(@Id ObjectId id, ObjectId conversationId,
 
 ### MongoDB 类型、枚举与查询
 
-MongoDB 主键和关联字段用 BSON `ObjectId`。HTTP 与 RPC 使用 24 位十六进制字符串，边界用 `ObjectId.isValid` 校验后转换。Repository 泛型和查询参数使用 `ObjectId`，方法名与字段名称保持一致。
+MongoDB 主键和关联字段用 BSON `ObjectId`，Repository 泛型和查询参数也使用 `ObjectId`。HTTP 与 RPC 的 JSON ID 使用 24 位十六进制字符串。新 DTO 的 Mongo ID 字段声明为 `@JsonObjectId ObjectId`，Jackson 2 和 3 在读入时校验并转换，写出时输出小写十六进制字符串。Service 直接把原生 ID 交给 Repository。
+
+~~~java
+import org.lambda.framework.common.jackson.JsonObjectId;
+
+// 定义在所属数据库实体类中
+public static record FindDTO(@JsonObjectId @NotNull ObjectId id) {}
+~~~
+
+`@JsonObjectId` 只作用于标注的单值字段。必填 ID 配合 `@NotNull` 和入口 Bean Validation，游标等可选 ID 允许为空。字符串业务键继续用 `String`。既有字符串 DTO 若暂不迁移，在调用 Repository 前校验并转换一次。
 
 ~~~java
 public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessageEntity, ObjectId> {
@@ -271,7 +280,7 @@ public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessa
 
 ### `@Aggregation` 中的 ObjectId
 
-HTTP/RPC DTO 接收十六进制字符串时，在调用 Repository 前校验并转成 `ObjectId` 一次。Repository 的 `@Aggregation` 用未加引号的 `?0`、`?1` 绑定原生参数，批量条件用 `List<ObjectId>`。已是 ObjectId 的值直接传入。各集合关联字段的 BSON 类型必须一致。顶层字段会按 Repository 实体映射，例如 `userId` 映射为 `user_id`。跨集合阶段按目标集合的实际 BSON 字段名编写并验收。
+HTTP/RPC DTO 用 `@JsonObjectId ObjectId` 接收十六进制 JSON 字符串。解码后把原生 ID 直接交给 Repository。Repository 的 `@Aggregation` 用未加引号的 `?0`、`?1` 绑定原生参数，批量条件用 `List<ObjectId>`。已是 ObjectId 的值直接传入。各集合关联字段的 BSON 类型必须一致。顶层字段会按 Repository 实体映射，例如 `userId` 映射为 `user_id`。跨集合阶段按目标集合的实际 BSON 字段名编写并验收。
 
 下面从收藏中间集合按用户过滤，关联商品和商家，再按 ObjectId 类型的评论者 ID 统计评论，最后按商家汇总。结果 DTO 定义在 `FavoriteEntity` 内，例如 `public record MerchantStats(@Id ObjectId merchantId, int favoriteCount, int reviewCount) {}`。
 
@@ -383,7 +392,7 @@ description: 按统一风格开发、修改或审查 Lambda Framework Java 后�
 
 - 业务 HTTP 接口采用 POST 动作路径与请求 DTO。RPC 同样使用 DTO 与 Mono 或 Flux。
 - 每个数据库表或集合对应一个实体。所属 DTO 放实体的静态内部类型。Service 复用 Controller 的 DTO。缓存等无实体归属的请求放 Controller 静态类型。
-- Mongo 主键与关联 ID 使用 ObjectId。HTTP 和 RPC 使用十六进制字符串，在 Repository 绑定 BSON 时转换。枚举实现 ConverterEnum。业务金额与标量用字符串，技术字段按规范转换。
+- Mongo 主键与关联 ID 使用 ObjectId。HTTP 和 RPC 的 JSON 用十六进制字符串，DTO 单值字段用 @JsonObjectId ObjectId，Repository 直接绑定原生 ID。枚举实现 ConverterEnum。业务金额与标量用字符串，技术字段按规范转换。
 - 每个持久化实体明确表或集合名及唯一的 @Id，可复用基类标识。按 Repository 的筛选、排序、唯一约束或生命周期需求加索引，说明用途并核对实际索引和执行计划。
 - 按业务读写比例、访问路径和增长设计关系。多对多必须有中间表或关系集合，一对多和多对一直接内嵌或持有引用。内嵌需有业务上限，独立分页和高频更新用引用。聚合用未加引号的占位符绑定 ObjectId，实测复杂关联与执行计划。
 - @Version 按需使用。SKU 以库存足额条件加原子扣减防超卖。字符串金额用旧金额和版本做条件更新，跨文档一致性用事务与幂等键。
