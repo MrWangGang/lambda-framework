@@ -17,6 +17,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.type.filter.AbstractTypeHierarchyTraversingFilter;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -74,7 +75,8 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
                 String beanClassName = beanDefinition.getBeanClassName();
                 if (StringUtils.isNotBlank(beanClassName)) {
                     Class<?> beanClass = Class.forName(beanClassName);
-                    if (hasInterfaceAnnotatedWithRSocket(beanClass)) {
+                    if (hasInterfaceAnnotatedWithRSocket(beanClass)
+                            && !AnnotatedElementUtils.hasAnnotation(beanClass, Controller.class)) {
                         Class<?> intf  = this.getAnnotatedInterfaces(beanClass, RSocketRpcDiscorvery.class);
                         String serviceName = intf.getAnnotation(RSocketRpcDiscorvery.class).value();
                         if(StringUtils.isBlank(serviceName)){
@@ -243,12 +245,14 @@ public class RsocketAsmProxyClassFactoryPostProcessor implements BeanDefinitionR
                                 AnnotationVisitor av = super.visitAnnotation(Type.getDescriptor(MessageMapping.class), true);
                                 // 访问注解的value属性
                                 AnnotationVisitor valueAv = av.visitArray("value");
-                                // 设置数组元素值
-                                String route = buildMessageMapping(serviceName,interfaceMethod.getDeclaringClass(),interfaceMethod);
-
-                                valueAv.visit(null, route);
-                                // 如果您有多个值，可以重复上面的步骤
-                                // valueAv.visit(null, "/another/rpc/test");
+                                var mapping = AnnotatedElementUtils.findMergedAnnotation(interfaceMethod, MessageMapping.class);
+                                if (mapping == null) {
+                                    valueAv.visit(null, buildMessageMapping(serviceName, interfaceMethod.getDeclaringClass(), interfaceMethod));
+                                } else {
+                                    for (String path : mapping.value()) {
+                                        valueAv.visit(null, path);
+                                    }
+                                }
                                 valueAv.visitEnd(); // 结束数组访问
                                 av.visitEnd(); // 结束注解访问
                             }

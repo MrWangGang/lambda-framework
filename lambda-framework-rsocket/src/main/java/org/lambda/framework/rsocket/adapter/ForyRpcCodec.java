@@ -19,21 +19,30 @@ import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.MimeType;
+import org.springframework.util.function.SingletonSupplier;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 final class ForyRpcCodec {
     private static final MimeType MIME_TYPE = MimeType.valueOf(RSocketRpcType.FORY_MIME_TYPE);
-    private final ThreadSafeFory fory;
+    private final SingletonSupplier<ThreadSafeFory> fory;
 
-    ForyRpcCodec(List<ForyRpcTypes> groups) {
-        fory = Fory.builder().withXlang(false).withCompatible(true).requireClassRegistration(true)
+    ForyRpcCodec(List<ForyRpcTypes> groups, Supplier<Set<Class<?>>> contracts) {
+        fory = SingletonSupplier.of(() -> create(groups, contracts.get()));
+    }
+
+    private static ThreadSafeFory create(List<ForyRpcTypes> groups, Set<Class<?>> contractTypes) {
+        var fory = Fory.builder().withXlang(false).withCompatible(true).requireClassRegistration(true)
                 .withDeserializeUnknownClass(false).serializeEnumByName(true).buildThreadSafeFory();
         fory.registerSerializer(ObjectId.class, resolver -> new ObjectIdSerializer(resolver.getConfig()));
-        groups.stream().flatMap(group -> group.types().stream()).distinct()
+        Stream.concat(contractTypes.stream(), groups.stream().flatMap(group -> group.types().stream())).distinct()
                 .filter(type -> type != ObjectId.class).forEach(type -> fory.register(type, type.getName()));
+        return fory;
     }
 
     AbstractEncoder<Object> encoder() {
@@ -47,7 +56,7 @@ final class ForyRpcCodec {
             public DataBuffer encodeValue(Object value, DataBufferFactory factory, ResolvableType type,
                                           MimeType mimeType, Map<String, Object> hints) {
                 try {
-                    return factory.wrap(fory.serialize(value));
+                    return factory.wrap(fory.obtain().serialize(value));
                 } catch (RuntimeException error) {
                     throw new EncodingException("Cannot encode Fory RPC payload", error);
                 }
@@ -74,7 +83,7 @@ final class ForyRpcCodec {
                 try {
                     byte[] bytes = new byte[input.readableByteCount()];
                     input.read(bytes);
-                    decoded = fory.deserialize(bytes);
+                    decoded = fory.obtain().deserialize(bytes);
                 } catch (RuntimeException error) {
                     throw new DecodingException("Cannot decode Fory RPC payload", error);
                 } finally {

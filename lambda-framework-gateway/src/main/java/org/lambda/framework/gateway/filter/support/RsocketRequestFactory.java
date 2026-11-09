@@ -97,14 +97,17 @@ public class RsocketRequestFactory {
         }
         HttpHeaders headers = request.getHeaders();
         Map<String, Object> metadata = route.metadata();
-        RequestFormat format = resolveFormat(metadata, headers);
-        if (MediaType.APPLICATION_JSON.isCompatibleWith(format.contentType())
-                && !metadata.containsKey("rsocketModel") && !metadata.containsKey("rsocketStreamFormat")
-                && headers.getFirst(RSOCKET_MODEL) == null) {
-            return streamRoutes.forService(route.host()).flatMap(interactions ->
-                    forward(exchange, route, format.withInteraction(interactions.get(route.path()))));
+        MediaType contentType = resolveContentType(metadata, headers);
+        if (contentType == null || MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
+                || MediaType.APPLICATION_NDJSON.isCompatibleWith(contentType)) {
+            return streamRoutes.forService(route.host()).flatMap(interactions -> {
+                var interaction = interactions.get(route.path());
+                var format = interaction == null ? resolveFormat(metadata, headers, contentType)
+                        : RequestFormat.fromInteraction(interaction, contentType);
+                return forward(exchange, route, format);
+            });
         }
-        return forward(exchange, route, format);
+        return forward(exchange, route, resolveFormat(metadata, headers, contentType));
     }
 
     private Mono<Void> forward(ServerWebExchange exchange, GatewayFilter.GlobalFilterRoute route, RequestFormat format) {
@@ -207,28 +210,36 @@ public class RsocketRequestFactory {
         return loadbalance.buildForService(mimeType, route.host(), connections);
     }
 
-    private static RequestFormat resolveFormat(Map<String, Object> metadata, HttpHeaders headers) {
-        String model = option(metadata, "rsocketModel", headers.getFirst(RSOCKET_MODEL));
-        String echo = option(metadata, "rsocketEcho", headers.getFirst(RSOCKET_ECHO));
+    private static MediaType resolveContentType(Map<String, Object> metadata, HttpHeaders headers) {
         String configuredContentType = option(metadata, "rsocketContentType", null);
-        String streamFormat = option(metadata, "rsocketStreamFormat", null);
         MediaType contentType;
-        boolean ndjson;
         try {
             contentType = headers.getContentType();
+        } catch (InvalidMediaTypeException error) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid HTTP media type", error);
+        }
+        if (configuredContentType == null) {
+            return contentType;
+        }
+        MediaType expected = MediaType.valueOf(configuredContentType);
+        if (contentType != null && !expected.includes(contentType)) {
+            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                    "Content-Type does not match the RSocket route");
+        }
+        return expected;
+    }
+
+    private static RequestFormat resolveFormat(Map<String, Object> metadata, HttpHeaders headers, MediaType contentType) {
+        String model = option(metadata, "rsocketModel", headers.getFirst(RSOCKET_MODEL));
+        String echo = option(metadata, "rsocketEcho", headers.getFirst(RSOCKET_ECHO));
+        String streamFormat = option(metadata, "rsocketStreamFormat", null);
+        boolean ndjson;
+        try {
             ndjson = (model == null || RSOCKET_MODEL_REQUEST_STREAM.equals(model))
                     && headers.getAccept().stream().anyMatch(type ->
                             MediaType.APPLICATION_NDJSON.includes(type) && type.getQualityValue() > 0);
         } catch (InvalidMediaTypeException error) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid HTTP media type", error);
-        }
-        if (configuredContentType != null) {
-            MediaType expected = MediaType.valueOf(configuredContentType);
-            if (contentType != null && !expected.includes(contentType)) {
-                throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-                        "Content-Type does not match the RSocket route");
-            }
-            contentType = expected;
         }
         if (model == null) {
             if (MediaType.APPLICATION_NDJSON.includes(contentType)) {
@@ -262,14 +273,12 @@ public class RsocketRequestFactory {
     }
 
     private record RequestFormat(String model, String echo, MediaType contentType, boolean ndjson) {
-        RequestFormat withInteraction(GatewayInteraction interaction) {
-            if (interaction == null) {
-                return this;
-            }
+        static RequestFormat fromInteraction(GatewayInteraction interaction, MediaType contentType) {
+            var requestType = contentType == null ? MediaType.APPLICATION_JSON : contentType;
             return switch (interaction) {
-                case REQUEST_RESPONSE -> new RequestFormat(RSOCKET_MODEL_REQUEST_RESPONSE, echo, contentType, false);
-                case REQUEST_STREAM -> new RequestFormat(RSOCKET_MODEL_REQUEST_STREAM, echo, contentType, true);
-                case REQUEST_CHANNEL -> new RequestFormat(RSOCKET_MODEL_REQUEST_CHANNEL, echo, contentType, true);
+                case REQUEST_RESPONSE -> new RequestFormat(RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_ECHO_OBJECT, requestType, false);
+                case REQUEST_STREAM -> new RequestFormat(RSOCKET_MODEL_REQUEST_STREAM, RSOCKET_ECHO_OBJECT, requestType, true);
+                case REQUEST_CHANNEL -> new RequestFormat(RSOCKET_MODEL_REQUEST_CHANNEL, RSOCKET_ECHO_OBJECT, requestType, true);
             };
         }
     }

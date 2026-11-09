@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.common.support.TFlux;
 import org.reactivestreams.Publisher;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryAware;
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,10 +28,12 @@ import reactor.core.publisher.Flux;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Configuration
-public class RSocketStrategiesConfig {
+public class RSocketStrategiesConfig implements BeanFactoryAware {
     private final List<ForyRpcTypes> foryTypes;
+    private ListableBeanFactory beans;
 
     public RSocketStrategiesConfig() {
         this(List.of());
@@ -37,6 +42,13 @@ public class RSocketStrategiesConfig {
     @Autowired
     public RSocketStrategiesConfig(List<ForyRpcTypes> foryTypes) {
         this.foryTypes = foryTypes;
+    }
+
+    @Override
+    public void setBeanFactory(BeanFactory beanFactory) {
+        if (beanFactory instanceof ListableBeanFactory listable) {
+            beans = listable;
+        }
     }
 
     @Bean
@@ -58,7 +70,7 @@ public class RSocketStrategiesConfig {
                 }))
                 .decoders(decoders -> decoders.addFirst(new JsonStringDecoder(
                         mapper.readerFor(String.class).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS))));
-        var codec = new ForyRpcCodec(foryTypes);
+        var codec = new ForyRpcCodec(foryTypes, () -> beans == null ? Set.of() : ForyRpcContracts.discover(beans));
         builder.encoders(encoders -> encoders.addFirst(codec.encoder()))
                 .decoders(decoders -> decoders.addFirst(codec.decoder()));
         return builder.build();

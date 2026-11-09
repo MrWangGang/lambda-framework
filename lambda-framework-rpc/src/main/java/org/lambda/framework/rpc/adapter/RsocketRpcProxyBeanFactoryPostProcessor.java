@@ -15,6 +15,7 @@ import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
 import reactor.core.publisher.Flux;
@@ -24,6 +25,8 @@ import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,7 +40,7 @@ import static org.lambda.framework.rpc.enums.RpcExceptionEnum.*;
 public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcessor {
     private static final MimeType FORY_MIME_TYPE = MimeType.valueOf(RSocketRpcType.FORY_MIME_TYPE);
 
-    private ConcurrentHashMap concurrentHashMap = new ConcurrentHashMap();
+    private final Map<Class<?>, Object> proxies = new ConcurrentHashMap<>();
 
     @Resource
     private RSocketLoadbalance rSocketLoadbalance;
@@ -54,100 +57,92 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
     }
 
     public void inspectClassProperties(Class<?> clazz,Object bean) throws BeansException {
-        if(clazz!=null){
-            List<Field> fields = getAllFields(clazz);
-            if(this.verifys(fields)){
-                for (Field field : fields) {
-                    if (field.isAnnotationPresent(RSocketRpc.class)) {
-                        //@RsocketRpc 只能标记在属性上，且必须是接口类型
-                        if(field.getType().isInterface()){
-                            //获取这个类
-                            Class<?> interfaceField = field.getType();
-                            if(interfaceField.isAnnotationPresent(RSocketRpcDiscorvery.class)){
-                                RSocketRpcDiscorvery rsocketRpcDiscorvery = AnnotationUtils.findAnnotation(interfaceField, RSocketRpcDiscorvery.class);
-                                if(rsocketRpcDiscorvery == null){
-                                    throw new EventException(ES_RPC_002);
-                                }
-                                Assert.verify(rsocketRpcDiscorvery.value(),ES_RPC_004);
-                                String rsocketUrl = rsocketRpcDiscorvery.value();
-                                String connectType =  confirmConnectType(rsocketUrl);
-                                field.setAccessible(true);
-                                try {
-                                    //让代理类成为单例
-                                    Object _proxy = concurrentHashMap.get(interfaceField);
-                                    if(_proxy == null){
-                                        Object proxy = createProxy(rsocketUrl,connectType,interfaceField);
-                                        field.set(bean, proxy);
-                                        concurrentHashMap.put(interfaceField,proxy);
-                                    }else {
-                                        field.set(bean, _proxy);
-                                    }
-                                } catch (IllegalAccessException e) {
-                                    throw new EventException(ES_RPC_016);
-                                }
-                                continue;
-                            }
-                            throw new EventException(ES_RPC_002);
-                        }
-                        throw new EventException(ES_RPC_000);
-                    }
+        for (Field field : getAllFields(clazz)) {
+            Class<?> facade = field.getType();
+            if (!facade.isInterface()) {
+                throw new EventException(ES_RPC_000);
+            }
+            try {
+                field.set(bean, proxies.computeIfAbsent(facade, this::createProxy));
+            } catch (IllegalAccessException error) {
+                throw new EventException(ES_RPC_016);
+            }
+        }
+    }
+
+    private Object createProxy(Class<?> facade) {
+        var discovery = AnnotationUtils.findAnnotation(facade, RSocketRpcDiscorvery.class);
+        String service = discovery == null ? null : discovery.value();
+        if (discovery != null) {
+            Assert.verify(service, ES_RPC_004);
+        }
+        Map<Method, String> routes = new HashMap<>();
+        for (Method method : facade.getMethods()) {
+            var mapping = AnnotationUtils.findAnnotation(method, MessageMapping.class);
+            if (Modifier.isStatic(method.getModifiers())
+                    || (method.isDefault() && mapping == null && !method.isAnnotationPresent(RSocketRpcType.class))) {
+                continue;
+            }
+            validateChannelSignature(method);
+            String route;
+            if (mapping != null) {
+                var nativeRoutes = Arrays.stream(mapping.value()).filter(path -> !path.startsWith("/")).toList();
+                if (nativeRoutes.size() != 1 || !nativeRoutes.getFirst().contains(".")) {
+                    throw new IllegalArgumentException("Expected one native @MessageMapping route on " + method);
                 }
-            }
-        }
-    }
-
-
-    private Object createProxy(String rsocketUrl, String connectType, Class<?> interfaceField) {
-        Assert.verify(interfaceField,ES_RPC_009);
-        Assert.verify(rsocketUrl,ES_RPC_008);
-        Assert.verify(connectType,ES_RPC_007);
-        for (Method method : interfaceField.getMethods()) {
-            if (AnnotationUtils.findAnnotation(method, RSocketRpcType.class) != null) {
-                validateChannelSignature(method);
-            }
-        }
-        return Proxy.newProxyInstance(
-                interfaceField.getClassLoader(),
-                new Class[]{interfaceField},
-                new InvocationHandler() {
-                    @Override
-                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-                        RSocketRpcType rSocketRpcType = AnnotationUtils.findAnnotation(method, RSocketRpcType.class);
-                        if (rSocketRpcType != null) {
-                          if(RPC_CONNECT_LOADBALANCE.equals(connectType)){
-                              //负载均衡模式
-                              Mono<RSocketLoadbalance.ProcessResponse> rSocketRequesterMono = rSocketLoadbalance.build(FORY_MIME_TYPE, rsocketUrl);
-                              return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, interfaceField);
-                          }
-                          if(RPC_CONNECT_DIRECT.equals(connectType)){
-                              //直连模式
-                              //直连模式需要把地址解析出来
-                              //因为invoke之前已经校验了rsocketUrl 必须是ip类型，不要在这里做校验，减少调用时候的代码复杂度
-                              String[] parts = rsocketUrl.split(":");
-                              if(verifys(parts)){
-                                  Assert.verify(parts[0],ES_RPC_012);
-                                  Assert.verify(parts[1],ES_RPC_012);
-                                  Integer port = null;
-                                  try {
-                                      port = Integer.valueOf(parts[1]);
-                                  }catch (Exception e){
-                                      throw new EventException(ES_RPC_012);
-                                  }
-                                  Mono<RSocketLoadbalance.ProcessResponse> rSocketRequesterMono = rSocketLoadbalance.build(FORY_MIME_TYPE, parts[0], port);
-                                  return getResult(rsocketUrl,getData(args),method,rSocketRequesterMono, interfaceField);
-
-                              }
-                              throw new EventException(ES_RPC_012);
-                          }
-                        }
-                        throw new EventException(ES_RPC_003);
+                route = nativeRoutes.getFirst();
+                if (discovery == null) {
+                    String target = route.substring(0, route.indexOf('.'));
+                    if (target.isBlank() || (service != null && !service.equals(target))) {
+                        throw new IllegalArgumentException("Facade routes must share one service prefix: " + facade.getName());
                     }
-
-                });
+                    service = target;
+                }
+            } else {
+                if (discovery == null) {
+                    throw new IllegalArgumentException("Declare @MessageMapping on " + method);
+                }
+                route = buildMessageMapping(service, facade, method);
+            }
+            routes.put(method, route);
+        }
+        Assert.verify(service, ES_RPC_004);
+        var connection = requester(service);
+        return Proxy.newProxyInstance(facade.getClassLoader(), new Class<?>[]{facade}, (proxy, method, args) -> {
+            if (method.getDeclaringClass() == Object.class) {
+                return switch (method.getName()) {
+                    case "toString" -> "RSocket facade " + facade.getName();
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "equals" -> proxy == args[0];
+                    default -> throw new EventException(ES_RPC_003);
+                };
+            }
+            String route = routes.get(method);
+            if (route != null) {
+                return getResult(route, getData(args), method, connection);
+            }
+            if (method.isDefault()) {
+                return InvocationHandler.invokeDefault(proxy, method, args);
+            }
+            throw new EventException(ES_RPC_003);
+        });
     }
 
-    private Object getResult(String serviceName, Object data, Method method,
-                             Mono<RSocketLoadbalance.ProcessResponse> requester, Class<?> interfaceType) {
+    private Mono<RSocketLoadbalance.ProcessResponse> requester(String target) {
+        String connectType = confirmConnectType(target);
+        if (RPC_CONNECT_LOADBALANCE.equals(connectType)) {
+            return rSocketLoadbalance.build(FORY_MIME_TYPE, target);
+        }
+        String[] parts = target.split(":");
+        try {
+            return rSocketLoadbalance.build(FORY_MIME_TYPE, parts[0], Integer.valueOf(parts[1]));
+        } catch (NumberFormatException error) {
+            throw new EventException(ES_RPC_012);
+        }
+    }
+
+    private Object getResult(String route, Object data, Method method,
+                             Mono<RSocketLoadbalance.ProcessResponse> requester) {
         if (!(method.getGenericReturnType() instanceof ParameterizedType returnType)
                 || returnType.getActualTypeArguments().length != 1) {
             return Mono.error(new EventException(ES_RPC_015));
@@ -157,7 +152,6 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                 || (!channel && data instanceof Publisher<?> && !(data instanceof Mono<?>))) {
             throw new IllegalArgumentException("RSocket channel requires TFlux<I> input and TFlux<O> return: " + method);
         }
-        String route = buildMessageMapping(serviceName, interfaceType, method);
         var bodyType = ParameterizedTypeReference.forType(returnType.getActualTypeArguments()[0]);
         var connection = requester.switchIfEmpty(Mono.error(new EventException(ES_RPC_013)));
         if (returnType.getRawType() == Mono.class) {

@@ -158,7 +158,7 @@ Nacos 3 的端口用途：8080 控制台、8848 API、9848 Java 客户端 gRPC�
 - 框架公共 `ResponseTemplete` 定义 `serviceCode / serviceMessage / data`，不代表示例所有 HTTP 响应都有这个外壳。
 - Web / Gateway 内的请求上下文过滤器和 Security 模块配合使用，需要验证过滤顺序。
 - Gateway 的路由、目标协议和 RSocket 服务名必须明确，不能将 HTTP 端口注册后当作 RSocket TCP 端口使用。
-- RPC 注解保留历史拼写 `RSocketRpcDiscorvery`，以及 `RSocketRpcType.MimeType` 属性，使用时按源码名称写。
+- Facade 方法用 `@MessageMapping` 定义路由。Java 原生 RPC 自动使用 Fory，网关根据已发现的签名自动选择交互。
 
 RPC 使用与已知问题统一见 [RSocket 手册](RSOCKET-AND-VIRTUAL-THREADS.md)。
 

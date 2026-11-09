@@ -17,42 +17,29 @@ common 提供注解；rpc 生成代理/路由；loadbalance 管理 requester；r
 ## 2. 注解与接口约定
 
 ~~~java
-@RSocketRpcDiscorvery("catalog-service")
 public interface CatalogApi {
-    @RSocketRpcType
+    @MessageMapping({"catalog-service.catalogApi.findName", "/api/catalog/findName"})
     Mono<String> findName();
 }
 ~~~
 
 这是 API 结构示意，当前示例没有 CatalogApi RPC 服务。实际使用还需要：
 
-1. 服务端实现类使用 `@RSocketRpcApi` 并被相应扫描器发现。
+1. 服务端以 `@Controller` 实现 Facade，继承 Facade 方法的映射。
 2. 客户端字段使用 `@RSocketRpc`。
 3. 配置 TCP 服务监听端口和 Nacos 服务信息。
 4. 两端使用兼容的 Facade record 与路由约定。业务服务统一使用 `@MessageMapping`。
 5. 校验身份传递和异常转换。
 
-注解保留历史拼写 `Discorvery`。原生 Java RPC 的数据格式由框架固定，`@RSocketRpcType` 无配置属性。返回 `Mono` 是单次响应，普通请求返回 `Flux` 是单向流。双向流要求入参 `TFlux<I>` 和返回值 `TFlux<O>` 配对，错误签名在启动阶段拒绝。
+使用方法级 `@MessageMapping` 时，点分隔的路由首段对应服务发现名。同一个 Facade 使用同一服务名。旧项目可继续使用 `@RSocketRpcDiscorvery` 与约定路由。返回 `Mono` 是单次响应，普通请求返回 `Flux` 是单向流。双向流要求入参 `TFlux<I>` 和返回值 `TFlux<O>` 配对，错误签名在启动阶段拒绝。
 
 ### 内部 Java RPC 使用 Fory
 
 原生 Java RPC 固定使用 `application/x-lambda-fory`。网关使用独立 JSON 连接访问以 `/` 开头的业务映射，身份元数据使用 JSON。Requester 按数据 MIME 分开缓存连接。Java 调用方和服务端均引入 `lambda-framework-rsocket` 并使用 `RSocketStrategiesConfig`。
 
-两端在应用配置中以 Spring Bean 声明本次 RPC 会交换的应用类型。例如 README 的 `ChatMessageFacade` 可以注册如下类型。
+框架从调用方已注入的 Facade 和服务端原生路由收集类型。已声明的 record、嵌套泛型、枚举和 `Paged<T>` 自动注册。框架为 `ObjectId` 提供 12 字节编解码，Fory 保持类型注册校验。旧项目使用非 record DTO 或未出现在签名中的实际子类型时，可以继续用 `ForyRpcTypes` 显式注册。
 
-~~~java
-@Bean
-ForyRpcTypes messageForyTypes() {
-    return new ForyRpcTypes(List.of(
-        ChatMessageFacade.FindRequest.class,
-        ChatMessageFacade.Detail.class
-    ));
-}
-~~~
-
-`ForyRpcTypes` 位于 `org.lambda.framework.rsocket.adapter`。将契约图中的自定义嵌套 record、枚举和分页包装类型一并注册。框架为 `ObjectId` 提供 12 字节编解码。应用类型按 Java 全限定名注册，两端使用同一份 Facade 契约，避免独立维护数字类型编号。Fory 使用 Java 原生兼容模式，保持类型注册校验。[Apache Fory 类型注册](https://fory.apache.org/docs/object-serialization/java/type-registration/)
-
-业务方法声明 `@RSocketRpcType`。删除旧 `lambda.rpc.data-mime-type` 配置和注解上的 MIME 参数，原生 RPC 路由只接受 Fory。应用发布时统一升级调用方与服务端，并部署同版本 Facade 契约。
+发布时两端使用兼容的 Facade 契约。网关发现固定路径的签名后，按 Mono、Flux、TFlux 自动选择交互。
 
 业务服务导入 `RsocketInterceptorConfig`，设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.transport=tcp`。只把 reactive 网关的 HTTP 端口对外开放。服务端 TCP 端口限网关与授权服务访问。
 
