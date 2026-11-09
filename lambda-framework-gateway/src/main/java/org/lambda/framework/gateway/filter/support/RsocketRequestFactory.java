@@ -95,19 +95,24 @@ public class RsocketRequestFactory {
         if (!request.getQueryParams().isEmpty()) {
             return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Use a request DTO in the POST body"));
         }
+        String path = route.path();
+        if (!GatewayInteraction.isPublicPath(path)) {
+            return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public MessageMapping for this path"));
+        }
         HttpHeaders headers = request.getHeaders();
         Map<String, Object> metadata = route.metadata();
-        MediaType contentType = resolveContentType(metadata, headers);
-        if (contentType == null || MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
-                || MediaType.APPLICATION_NDJSON.isCompatibleWith(contentType)) {
-            return streamRoutes.forService(route.host()).flatMap(interactions -> {
-                var interaction = interactions.get(route.path());
-                var format = interaction == null ? resolveFormat(metadata, headers, contentType)
-                        : RequestFormat.fromInteraction(interaction, contentType);
-                return forward(exchange, route, format);
-            });
-        }
-        return forward(exchange, route, resolveFormat(metadata, headers, contentType));
+        return streamRoutes.forService(route.host()).flatMap(interactions -> {
+            var interaction = interactions.get(path);
+            if (interaction == null) {
+                return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No public MessageMapping for this path"));
+            }
+            MediaType contentType = resolveContentType(metadata, headers);
+            var format = MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(contentType)
+                    ? resolveFormat(metadata, headers, contentType)
+                    : RequestFormat.fromInteraction(interaction, contentType);
+            return forward(exchange, route, format);
+        });
     }
 
     private Mono<Void> forward(ServerWebExchange exchange, GatewayFilter.GlobalFilterRoute route, RequestFormat format) {

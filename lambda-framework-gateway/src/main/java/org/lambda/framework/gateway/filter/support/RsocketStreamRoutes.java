@@ -1,22 +1,18 @@
 package org.lambda.framework.gateway.filter.support;
 
-import org.lambda.framework.common.annotation.rsocket.GatewayStream;
 import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 final class RsocketStreamRoutes {
-    private static final ParameterizedTypeReference<List<String>> PATHS = new ParameterizedTypeReference<>() {};
     private static final ParameterizedTypeReference<Map<String, GatewayInteraction>> INTERACTIONS =
             new ParameterizedTypeReference<>() {};
     private final ConcurrentHashMap<String, Mono<Map<String, GatewayInteraction>>> byService = new ConcurrentHashMap<>();
@@ -31,19 +27,14 @@ final class RsocketStreamRoutes {
     }
 
     private Mono<Map<String, GatewayInteraction>> cachedLookup(String service) {
-        var lastKnown = new AtomicReference<Map<String, GatewayInteraction>>(Map.of());
         return loadbalance.build(MediaType.APPLICATION_JSON, service)
                 .flatMap(requester -> requester.retrieveMono(Mono::empty, GatewayInteraction.DISCOVERY_ROUTE,
-                                new byte[0], INTERACTIONS)
-                        .onErrorResume(error -> requester.retrieveMono(Mono::empty, GatewayStream.DISCOVERY_ROUTE,
-                                        new byte[0], PATHS)
-                                .map(paths -> paths.stream().distinct().collect(Collectors.toUnmodifiableMap(
-                                        Function.identity(), ignored -> GatewayInteraction.REQUEST_STREAM)))))
+                        new byte[0], INTERACTIONS))
                 .map(Map::copyOf)
                 .timeout(Duration.ofMillis(500))
-                .doOnNext(lastKnown::set)
-                .onErrorResume(error -> Mono.fromSupplier(lastKnown::get))
-                .switchIfEmpty(Mono.fromSupplier(lastKnown::get))
-                .cache(Duration.ofSeconds(30));
+                .switchIfEmpty(Mono.error(() -> new IllegalStateException("Empty route contract response")))
+                .onErrorMap(error -> new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "RSocket route contract unavailable", error))
+                .cache(ignored -> Duration.ofSeconds(30), error -> Duration.ofSeconds(1), () -> Duration.ZERO);
     }
 }

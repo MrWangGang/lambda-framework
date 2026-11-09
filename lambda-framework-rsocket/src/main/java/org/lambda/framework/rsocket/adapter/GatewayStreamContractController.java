@@ -36,7 +36,7 @@ class GatewayStreamContractController {
                         .getFrameTypes().contains(FrameType.REQUEST_STREAM))
                 .flatMap(entry -> entry.getKey().getCondition(DestinationPatternsMessageCondition.class)
                         .getPatterns().stream())
-                .filter(path -> path.startsWith("/"))
+                .filter(GatewayInteraction::isPublicPath)
                 .distinct()
                 .sorted()
                 .toList());
@@ -51,7 +51,7 @@ class GatewayStreamContractController {
                 var interaction = classify(handler.getMethod().getReturnType(), frames);
                 if (interaction != null) {
                     mapping.getCondition(DestinationPatternsMessageCondition.class).getPatterns().stream()
-                            .filter(path -> path.startsWith("/"))
+                            .filter(GatewayInteraction::isPublicPath)
                             .forEach(path -> byPath.computeIfAbsent(path, ignored -> EnumSet.noneOf(GatewayInteraction.class))
                                     .add(interaction));
                 }

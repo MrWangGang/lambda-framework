@@ -6,10 +6,13 @@ import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.gateway.filter.support.RsocketRequestFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.cloud.gateway.filter.RouteToRequestUrlFilter;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.core.Ordered;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -46,40 +49,35 @@ public class GatewayFilter implements GlobalFilter,Ordered{
                 throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由配置信息");
             }
 
+            if (!RB_SCHEME.equals(targetRoute.getScheme())) {
+                return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No public MessageMapping for this route"));
+            }
             URI targetUri = (URI)exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR);
             if(targetUri == null){
                 throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由信息");
             }
+            return rsocketRequestFactory.execute(exchange, chain, new GlobalFilterRoute() {
+                @Override
+                public String host() {
+                    return targetRoute.getHost();
+                }
 
-            if (RB_SCHEME.equals(targetRoute.getScheme())) {
-                return rsocketRequestFactory.execute(exchange, chain, new GlobalFilterRoute() {
-                    @Override
-                    public String host() {
-                        return targetRoute.getHost();
-                    }
+                @Override
+                public String path() {
+                    return targetUri.getPath();
+                }
 
-                    @Override
-                    public String path() {
-                        return targetUri.getPath();
-                    }
-
-                    @Override
-                    public Map<String, Object> metadata() {
-                        return route.getMetadata();
-                    }
-                });
-            }
-
-            if (LB_SCHEME.equals(targetRoute.getScheme())) {
-                return chain.filter(exchange);
-            }
-            //throw new EventException(ES_GATEWAY_000,"scheme仅支持rb与lb");
-            return chain.filter(exchange);
+                @Override
+                public Map<String, Object> metadata() {
+                    return route.getMetadata();
+                }
+            });
         }
         throw new EventException(ES_GATEWAY_000,"请求协议仅支持http与https");
     }
     @Override
     public int getOrder() {
-        return Ordered.LOWEST_PRECEDENCE;
+        return RouteToRequestUrlFilter.ROUTE_TO_URL_FILTER_ORDER + 1;
     }
 }

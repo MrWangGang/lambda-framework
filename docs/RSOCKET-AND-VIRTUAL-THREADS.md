@@ -39,7 +39,7 @@ public interface CatalogApi {
 
 框架从调用方已注入的 Facade 和服务端原生路由收集类型。已声明的 record、嵌套泛型、枚举和 `Paged<T>` 自动注册。框架为 `ObjectId` 提供 12 字节编解码，Fory 保持类型注册校验。旧项目使用非 record DTO 或未出现在签名中的实际子类型时，可以继续用 `ForyRpcTypes` 显式注册。
 
-发布时两端使用兼容的 Facade 契约。网关发现固定路径的签名后，按 Mono、Flux、TFlux 自动选择交互。
+发布时两端使用兼容的 Facade 契约。业务网关使用 `rb://` 转发。服务端发布固定 `@MessageMapping` 路径的签名后，网关按 Mono、Flux、TFlux 自动选择交互。未发布路径返回 404，契约不可用返回 503。
 
 业务服务导入 `RsocketInterceptorConfig`，设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.transport=tcp`。只把 reactive 网关的 HTTP 端口对外开放。服务端 TCP 端口限网关与授权服务访问。
 
