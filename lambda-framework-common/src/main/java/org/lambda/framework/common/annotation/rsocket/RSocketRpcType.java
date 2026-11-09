@@ -10,6 +10,5 @@ import java.lang.annotation.Target;
 public @interface RSocketRpcType {
     String FORY_MIME_TYPE = "application/x-lambda-fory";
 
-    /** An empty value uses the caller's configured RPC MIME type. */
-    String MimeType() default "";
+    String MimeType() default FORY_MIME_TYPE;
 }

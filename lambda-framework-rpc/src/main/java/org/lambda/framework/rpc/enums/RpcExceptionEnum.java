@@ -17,7 +17,7 @@ public enum RpcExceptionEnum implements ExceptionEnumFunction {
     ES_RPC_007("ES_RPC_007","Rsocket连接类型不能为空"),
     ES_RPC_008("ES_RPC_008","Rsocket路由地址不能为空"),
     ES_RPC_009("ES_RPC_009","Rsocket元数据接口类型不存在"),
-    ES_RPC_010("ES_RPC_010","Rsocket rpc调用MimeType只支持application/json或application/octet-stream"),
+    ES_RPC_010("ES_RPC_010","Java RSocket RPC 只支持 application/x-lambda-fory"),
     ES_RPC_011("ES_RPC_011","Rsocket rpc调用MimeType 不能为空"),
     ES_RPC_012("ES_RPC_012","Rsocket rpc直连模式的ip不合规"),
     ES_RPC_013("ES_RPC_013","无效的Rsocket rpc客户端"),

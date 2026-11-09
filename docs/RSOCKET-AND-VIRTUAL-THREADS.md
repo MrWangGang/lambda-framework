@@ -34,9 +34,9 @@ public interface CatalogApi {
 
 注解保留历史拼写 `Discorvery` 及属性 `MimeType`。当前代理按 Mono / Flux 与 MIME 选择调用方式，复杂嵌套泛型需要专门验证反序列化。
 
-### 启用内部 Fory RPC
+### 内部 Java RPC 使用 Fory
 
-Fory 与 Jackson 使用各自的数据 MIME，Requester 按 MIME 分开缓存连接。外部 HTTP 网关继续发 JSON，身份元数据也继续使用 JSON。Java 调用方和服务端均引入 `lambda-framework-rsocket` 并使用 `RSocketStrategiesConfig`。
+原生 Java RPC 固定使用 `application/x-lambda-fory`。网关使用独立 JSON 连接访问以 `/` 开头的业务映射，身份元数据使用 JSON。Requester 按数据 MIME 分开缓存连接。Java 调用方和服务端均引入 `lambda-framework-rsocket` 并使用 `RSocketStrategiesConfig`。
 
 两端在应用配置中以 Spring Bean 声明本次 RPC 会交换的应用类型。例如 README 的 `ChatMessageFacade` 可以注册如下类型。
 
@@ -52,13 +52,9 @@ ForyRpcTypes messageForyTypes() {
 
 `ForyRpcTypes` 位于 `org.lambda.framework.rsocket.adapter`。将契约图中的自定义嵌套 record、枚举和分页包装类型一并注册。框架为 `ObjectId` 提供 12 字节编解码。应用类型按 Java 全限定名注册，两端使用同一份 Facade 契约，避免独立维护数字类型编号。Fory 使用 Java 原生兼容模式，保持类型注册校验。[Apache Fory 类型注册](https://fory.apache.org/docs/object-serialization/java/type-registration/)
 
-在调用方项目的 Nacos Data ID 中配置：
+业务方法声明 `@RSocketRpcType`。删除旧 `lambda.rpc.data-mime-type` 配置和方法上的 JSON MIME 覆盖，原生 RPC 路由只接受 Fory。应用发布时统一升级调用方与服务端，并部署同版本 Facade 契约。
 
-~~~properties
-lambda.rpc.data-mime-type=application/x-lambda-fory
-~~~
-
-省略该配置时，`@RSocketRpcType` 默认选用 Jackson JSON。也可给单个方法显式指定 `@RSocketRpcType(MimeType = RSocketRpcType.FORY_MIME_TYPE)`，或显式指定 `application/json` 供迁移期间使用。发布时先升级接收方并注册共享类型，再切换调用方配置。按启动期配置发布并重启应用。请求失败时沿用该次调用所选的协议。
+业务服务导入 `RsocketInterceptorConfig`，设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.transport=tcp`。只把 reactive 网关的 HTTP 端口对外开放。服务端 TCP 端口限网关与授权服务访问。
 
 ## 3. 拦截器与握手的关系
 

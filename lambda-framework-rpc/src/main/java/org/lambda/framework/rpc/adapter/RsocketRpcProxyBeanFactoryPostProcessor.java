@@ -10,13 +10,11 @@ import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.TFlux;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
-import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -43,9 +41,6 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
 
     @Resource
     private PrincipalStash principalStash;
-
-    @Value("${lambda.rpc.data-mime-type:application/json}")
-    private String defaultMimeType = MimeTypeUtils.APPLICATION_JSON_VALUE;
 
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
@@ -201,13 +196,9 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
 
 
     private MimeType resolveMimeType(String type) {
-        String configured = type.isEmpty() ? defaultMimeType : type;
-        Assert.verify(configured, ES_RPC_011);
-        MimeType mimeType = MimeType.valueOf(configured);
-        if (MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(mimeType)
-                || MimeTypeUtils.APPLICATION_OCTET_STREAM.isCompatibleWith(mimeType)
-                || FORY_MIME_TYPE.equalsTypeAndSubtype(mimeType)) {
-            return mimeType;
+        Assert.verify(type, ES_RPC_011);
+        if (FORY_MIME_TYPE.equalsTypeAndSubtype(MimeType.valueOf(type))) {
+            return FORY_MIME_TYPE;
         }
         throw new EventException(ES_RPC_010);
     }
