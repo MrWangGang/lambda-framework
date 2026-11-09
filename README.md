@@ -90,13 +90,14 @@ spring.cloud.gateway.server.webflux.routes[0].predicates[0]=Path=/rpc/message/**
 
 | HTTP 请求 | 网关选择 |
 |---|---|
-| POST JSON 命中服务端 `@GatewayStream` | request/stream，逐条返回 NDJSON |
+| POST JSON 命中后端返回 `Flux` 的单向流方法 | request/stream，逐条返回 NDJSON |
+| POST JSON 命中后端 `Flux` 入参、`TFlux` 出参的方法 | request/channel，可分块发送 JSON 数组并读取 NDJSON 响应 |
 | 普通 POST JSON | 一次请求、一次 JSON 响应。默认走 RSocket request/response |
 | Content-Type 为 application/x-ndjson | 双向 request/channel，客户端每行一个请求 record，服务端每行一个响应 record |
 | Accept 明确接受 application/x-ndjson 且请求体是单条 JSON | request/stream，逐条返回 NDJSON |
 | 路由定义了类型 | 按路由契约执行 |
 
-普通接口只需发送 JSON 请求体。响应外壳是 JSON 对象，`data` 保留实际类型。响应 record 是对象，`Mono<String>` 是字符串，`Mono<Integer>` 是数字。JSON RSocket 服务使用框架 `RSocketStrategiesConfig` 编码字符串。路由 metadata 中的值优先。未配置时，已有 RSocket-Model 和 RSocket-Echo 头仍可显式选择，再由标准头和默认值补齐。普通请求缺少 Content-Type 时按 JSON，已确定为 Channel 时按 NDJSON。路由显式声明输入类型时，冲突的 Content-Type 返回 415。
+网关从服务端缓存方法交互类型。普通接口只需发送 JSON 请求体。响应外壳是 JSON 对象，`data` 保留实际类型。响应 record 是对象，`Mono<String>` 是字符串，`Mono<Integer>` 是数字。JSON RSocket 服务使用框架 `RSocketStrategiesConfig` 编码字符串。路由 metadata 中的值优先。未配置时，已有 RSocket-Model 和 RSocket-Echo 头仍可显式选择，再由标准头和默认值补齐。普通请求缺少 Content-Type 时按 JSON，已确定为 Channel 时按 NDJSON。路由显式声明输入类型时，冲突的 Content-Type 返回 415。
 
 | 路由键 | 可配置值 |
 |---|---|
@@ -404,61 +405,38 @@ spring.cloud.nacos.password=${NACOS_PASSWORD}
 
 ### RSocket、网关与聊天
 
-RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketRpc` 注入。服务端使用与契约一致的 route，例如 `user.userFacade.find`。普通请求和服务端流在网关以 `rb://服务名` 路由。双向流通过 POST NDJSON 或原生 RSocket requestChannel 持续接收请求 record 和发送响应 record。
+Java RPC 接口使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，调用方由 `@RSocketRpc` 注入。服务端实现与接口使用一致的 RSocket route，例如 `order.orderFacade.find`。通过 `rb://` 暴露给 HTTP 时，使用与网关转发路径一致的固定 `@MessageMapping` 路径。
 
-普通 JSON POST 默认采用一次请求一次响应。网关的响应外壳固定为 JSON 对象，`data` 保留服务端 JSON 类型。例如 `Mono<UserFacade.Detail>` 输出对象，`Mono<String>` 输出字符串，`Mono<Integer>` 输出数字。客户端无需配置自定义类型头。NDJSON 请求体自动识别为双向流。已有自定义头作为兼容输入。
+### 按返回类型选择交互方式
 
-单向流根据实际调用链选择写法。`Content-Type` 表示请求体的格式，`Accept` 表示 HTTP 客户端希望接收的响应格式。
-
-| 调用链 | 接口写法 | 客户端用法 |
+| 后端签名 | RSocket 交互 | 经 `rb://` 网关的 HTTP 用法 |
 |---|---|---|
-| 普通 HTTP，直连 Controller 或经 `lb://` 网关转发 | `@PostMapping(produces = MediaType.APPLICATION_NDJSON_VALUE)` 返回 `Flux<Status>` | 发 POST JSON，可省略 `Accept`。Controller 声明逐行 JSON 响应。 |
-| Java 服务之间的 RSocket RPC | Facade 方法用 `@RSocketRpcType`，接收一个请求 record，返回 `Flux<Status>` | 调用 Facade 方法。框架按 `Flux` 选用 `request/stream`，调用时无需 HTTP 请求头。 |
-| HTTP 经 `rb://` 网关转成 RSocket | 后端 `@MessageMapping` 的单向流方法添加 `@GatewayStream`，接收一个请求 record，返回 `Flux<Status>` | 发普通 POST JSON，可省略 `Accept`。网关按服务发布的接口契约选择 `request/stream`，逐行返回 NDJSON。 |
+| 单条入参，返回 `Mono<T>` | `request/response`，一次请求、一次响应 | 发普通 POST JSON，响应为 JSON，`data` 保留实际值类型。 |
+| 单条入参，返回 `Flux<T>` | `request/stream`，一次请求、逐条响应 | 发普通 POST JSON，网关返回逐行 NDJSON。 |
+| `Flux<I>` 入参，返回 `TFlux<O>` | `request/channel`，双向流 | 客户端可持续发送 JSON 数组元素或 NDJSON 行，同时接收 NDJSON 响应。 |
 
-纯 HTTP Controller 可以直接调用业务实现并声明流式输出。只有对外提供 Java RPC 时才在 Facade 上声明 RPC 方法。
+网关从服务端的 `RsocketInterceptorConfig` 获取并缓存接口交互类型。新接口通过方法签名表达模式，客户端无需自定义模式头或 `Accept`，网关无需引入业务 Facade 或在 Nacos 逐条声明流式模式。网关到服务的业务负载使用 JSON。已有 `@GatewayStream` 和显式请求头可作为兼容入口。
 
 ~~~java
-@PostMapping(value = "/order/status/stream", produces = MediaType.APPLICATION_NDJSON_VALUE)
-public Flux<Status> stream(@RequestBody StatusRequest request) {
-    return service.streamStatuses(request);
+@MessageMapping("/order/find")
+public Mono<Detail> find(FindRequest request) {
+    return service.find(request);
 }
-~~~
 
-Java RPC 调用按 Facade 的返回类型选择交互方式。普通查询返回 `Mono<T>`，单向流返回 `Flux<T>`。
-
-~~~java
-@RSocketRpcDiscorvery("order")
-public interface OrderFacade {
-    @RSocketRpcType
-    Flux<Status> stream(StatusRequest request);
-
-    record StatusRequest(@JsonObjectId ObjectId orderId) {}
-    record Status(String value) {}
-}
-~~~
-
-通过 `rb://` 路由暴露单向流时，在服务端的接口层声明 `@GatewayStream`。它可以标在 `@MessageMapping` 方法上，也可以标在该处理方法实现的接口方法上。映射使用固定的斜杠路径，与网关实际转发给服务的路径一致。
-
-~~~java
-import org.lambda.framework.common.annotation.rsocket.GatewayStream;
-
-@GatewayStream
 @MessageMapping("/order/status/stream")
 public Flux<Status> stream(StatusRequest request) {
     return service.streamStatuses(request);
 }
+
+@MessageMapping("/order/chat")
+public TFlux<Reply> chat(Flux<Message> messages) {
+    return TFlux.of(service.chat(messages));
+}
 ~~~
 
-服务端使用框架的 `RsocketInterceptorConfig` 发布已标记的路径。网关按服务拉取并缓存这些路径，依此选择 RSocket 帧和 NDJSON 响应。网关无需引入业务 Facade，单向流格式也无需在 Nacos 逐条配置。客户端按下面的方式请求。
+`TFlux` 位于 `org.lambda.framework.common.support`，由 `TFlux.of(Flux)` 封装业务流，Java RPC 的 Facade 可直接声明 `TFlux<Reply> chat(Flux<Message> messages)`。HTTP 双向流要求客户端和代理支持在请求体尚未发完时读取响应。用 `application/json` 时按 JSON 数组逐段发送，用 `application/x-ndjson` 时每行发送一条请求。客户端收到一条回复后可以继续写下一条。
 
-~~~bash
-curl -NsS http://127.0.0.1:8080/order/status/stream \
-  -H 'Content-Type: application/json' \
-  --data-binary '{"orderId":"507f1f77bcf86cd799439011"}'
-~~~
-
-未标注的路由默认采用普通 JSON 请求响应。需要调用已有未标注的单向流接口时，客户端仍可用 `Accept: application/x-ndjson` 明确选择单向流。
+纯 HTTP 直连或经 `lb://` 转发时，由后端 Controller 决定响应格式。需要逐行返回时，在 `@PostMapping` 声明 `produces = MediaType.APPLICATION_NDJSON_VALUE` 并返回 `Flux<T>`。
 
 Java 服务之间可在调用方的 Nacos 配置设置 `lambda.rpc.data-mime-type=application/x-lambda-fory`。调用方和服务端都使用框架的 RSocketStrategiesConfig，并用 `ForyRpcTypes` 声明共享 Facade 的应用类型，包括嵌套 record、枚举和用到的分页类型。需要逐方法覆盖时在 `@RSocketRpcType` 指定 MIME。缺省配置使用 Jackson JSON，外部 HTTP 网关按 JSON 路由，身份元数据使用 JSON。
 
@@ -499,7 +477,7 @@ description: 按统一风格开发、修改或审查 Lambda Framework Java 后�
 - 按业务读写比例、访问路径和增长设计关系。多对多必须有中间表或关系集合，一对多和多对一直接内嵌或持有引用。内嵌需有业务上限，独立分页和高频更新用引用。聚合用未加引号的占位符绑定 ObjectId，实测复杂关联与执行计划。
 - @Version 按需使用。SKU 以库存足额条件加原子扣减防超卖。字符串金额用旧金额和版本做条件更新，跨文档一致性用事务与幂等键。
 - 复用框架分页、异常、Reactor Context 和数据库连接。区分 SecurityLoginUser、UnifyPO、PrincipalFactory。
-- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。 `rb://` 的 HTTP 单向流在服务端接口层用 `@GatewayStream` 声明。聊天 record 描述文字、表情与媒体引用。
+- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。 `rb://` 按后端签名自动选择 Mono 单次响应、Flux 单向流和 Flux 入参配 TFlux 出参的双向流。聊天 record 描述文字、表情与媒体引用。
 - 使用现有 JDK 和 IDEA Maven。先复现再修复，在相同条件复测。使用隔离测试资源，验收后按名称清理，核对数据并关闭本次启动的 JVM。
 - README 记录项目运行与契约。报告区分实测、设计方案和未测范围。
 ~~~

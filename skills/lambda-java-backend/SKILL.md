@@ -16,6 +16,6 @@ description: 按统一风格开发、修改或审查 Lambda Framework Java 后�
 - 按业务读写比例、访问路径和增长设计关系。多对多必须有中间表或关系集合，一对多和多对一直接内嵌或持有引用。内嵌需有业务上限，独立分页和高频更新用引用。聚合用未加引号的占位符绑定 ObjectId，实测复杂关联与执行计划。
 - @Version 按需使用。SKU 以库存足额条件加原子扣减防超卖。字符串金额用旧金额和版本做条件更新，跨文档一致性用事务与幂等键。
 - 复用框架分页、异常、Reactor Context 和数据库连接。区分 SecurityLoginUser、UnifyPO、PrincipalFactory。
-- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。 `rb://` 的 HTTP 单向流在服务端接口层用 `@GatewayStream` 声明。聊天 record 描述文字、表情与媒体引用。
+- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。 `rb://` 按后端签名自动选择 Mono 单次响应、Flux 单向流和 Flux 入参配 TFlux 出参的双向流。聊天 record 描述文字、表情与媒体引用。
 - 使用现有 JDK 和 IDEA Maven。先复现再修复，在相同条件复测。使用隔离测试资源，验收后按名称清理，核对数据并关闭本次启动的 JVM。
 - README 记录项目运行与契约。报告区分实测、设计方案和未测范围。

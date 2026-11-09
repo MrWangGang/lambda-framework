@@ -7,6 +7,7 @@ import org.lambda.framework.common.annotation.rsocket.RSocketRpcType;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.PrincipalStash;
+import org.lambda.framework.common.support.TFlux;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Value;
@@ -158,6 +159,12 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
         }
         if (returnType.getRawType() == Flux.class) {
             return connection.flatMapMany(rpc -> rpc.retrieveFlux(principalStash, route, data, bodyType));
+        }
+        if (returnType.getRawType() == TFlux.class) {
+            if (!(data instanceof Flux<?>)) {
+                return TFlux.of(Flux.error(new IllegalArgumentException("TFlux requires a Flux request")));
+            }
+            return TFlux.of(connection.flatMapMany(rpc -> rpc.retrieveFlux(principalStash, route, data, bodyType)));
         }
         return Mono.error(new EventException(ES_RPC_015));
     }

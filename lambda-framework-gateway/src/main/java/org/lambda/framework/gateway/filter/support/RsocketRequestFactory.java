@@ -3,6 +3,8 @@ package org.lambda.framework.gateway.filter.support;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.JsonNode;
+import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.sample.JsonUtil;
@@ -16,6 +18,7 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.http.*;
+import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.MethodNotAllowedException;
@@ -54,6 +57,7 @@ public class RsocketRequestFactory {
     private final int maxResponseItems;
     private final Duration requestTimeout;
     private final StringDecoder lineDecoder;
+    private final Jackson2JsonDecoder channelJsonDecoder;
 
     public RsocketRequestFactory(RSocketLoadbalance loadbalance, PrincipalStash principalStash,
                                  @Value("${lambda.gateway.rsocket.max-request-bytes:1048576}") int maxRequestBytes,
@@ -74,6 +78,8 @@ public class RsocketRequestFactory {
         this.lineDecoder = StringDecoder.allMimeTypes(List.of("\n"), true);
         this.lineDecoder.setMaxInMemorySize(maxRequestBytes);
         this.lineDecoder.setDefaultCharset(StandardCharsets.UTF_8);
+        this.channelJsonDecoder = new Jackson2JsonDecoder(JsonUtil.getJsonFactory());
+        this.channelJsonDecoder.setMaxInMemorySize(maxRequestBytes);
     }
 
     public Mono<Void> execute(ServerWebExchange exchange, GatewayFilterChain chain,
@@ -92,16 +98,11 @@ public class RsocketRequestFactory {
         HttpHeaders headers = request.getHeaders();
         Map<String, Object> metadata = route.metadata();
         RequestFormat format = resolveFormat(metadata, headers);
-        if (RSOCKET_MODEL_REQUEST_RESPONSE.equals(format.model())
-                && MediaType.APPLICATION_JSON.isCompatibleWith(format.contentType())
+        if (MediaType.APPLICATION_JSON.isCompatibleWith(format.contentType())
                 && !metadata.containsKey("rsocketModel") && !metadata.containsKey("rsocketStreamFormat")
                 && headers.getFirst(RSOCKET_MODEL) == null) {
-            return streamRoutes.forService(route.host()).flatMap(paths -> {
-                RequestFormat selected = paths.contains(route.path())
-                        ? new RequestFormat(RSOCKET_MODEL_REQUEST_STREAM, format.echo(), format.contentType(), true)
-                        : format;
-                return forward(exchange, route, selected);
-            });
+            return streamRoutes.forService(route.host()).flatMap(interactions ->
+                    forward(exchange, route, format.withInteraction(interactions.get(route.path()))));
         }
         return forward(exchange, route, format);
     }
@@ -121,15 +122,18 @@ public class RsocketRequestFactory {
         ServerHttpResponse response = exchange.getResponse();
         Class<?> responseType = RSOCKET_ECHO_OBJECT.equals(echo) ? Object.class : String.class;
         if (RSOCKET_MODEL_REQUEST_CHANNEL.equals(model)) {
-            if (!MediaType.APPLICATION_NDJSON.isCompatibleWith(contentType) || RSOCKET_ECHO_VOID.equals(echo)) {
+            boolean ndjson = MediaType.APPLICATION_NDJSON.isCompatibleWith(contentType);
+            if ((!ndjson && !MediaType.APPLICATION_JSON.isCompatibleWith(contentType)) || RSOCKET_ECHO_VOID.equals(echo)) {
                 return Mono.error(new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-                        "request/channel requires UTF-8 application/x-ndjson and an object or char reply"));
+                        "request/channel requires JSON or NDJSON input and an object or char reply"));
             }
-            Flux<byte[]> frames = lineDecoder.decode(request.getBody(), ResolvableType.forClass(String.class),
+            Flux<byte[]> decodedFrames = ndjson
+                    ? lineDecoder.decode(request.getBody(), ResolvableType.forClass(String.class),
                             MediaType.APPLICATION_NDJSON, Map.of())
-                    .filter(line -> !line.isBlank())
-                    .map(line -> {
-                        byte[] bytes = line.getBytes(StandardCharsets.UTF_8);
+                        .filter(line -> !line.isBlank()).map(line -> line.getBytes(StandardCharsets.UTF_8))
+                    : channelJsonDecoder.decode(request.getBody(), ResolvableType.forClass(JsonNode.class),
+                            contentType, Map.of()).map(RsocketRequestFactory::encode);
+            Flux<byte[]> frames = decodedFrames.map(bytes -> {
                         if (bytes.length > maxRequestBytes) {
                             throw new DataBufferLimitException("Channel record exceeds limit");
                         }
@@ -257,7 +261,18 @@ public class RsocketRequestFactory {
         throw new IllegalArgumentException("Invalid route metadata: " + key);
     }
 
-    private record RequestFormat(String model, String echo, MediaType contentType, boolean ndjson) {}
+    private record RequestFormat(String model, String echo, MediaType contentType, boolean ndjson) {
+        RequestFormat withInteraction(GatewayInteraction interaction) {
+            if (interaction == null) {
+                return this;
+            }
+            return switch (interaction) {
+                case REQUEST_RESPONSE -> new RequestFormat(RSOCKET_MODEL_REQUEST_RESPONSE, echo, contentType, false);
+                case REQUEST_STREAM -> new RequestFormat(RSOCKET_MODEL_REQUEST_STREAM, echo, contentType, true);
+                case REQUEST_CHANNEL -> new RequestFormat(RSOCKET_MODEL_REQUEST_CHANNEL, echo, contentType, true);
+            };
+        }
+    }
 
     private Mono<byte[]> collectArray(Flux<byte[]> values) {
         return values.collect(JsonArray::new, JsonArray::append).map(JsonArray::finish);
