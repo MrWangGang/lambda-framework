@@ -114,6 +114,7 @@ spring:
 | rsocketEcho | response/object、response/char、response/void |
 | rsocketContentType | application/json、application/x-ndjson、application/octet-stream |
 | rsocketStreamFormat | json、ndjson。适用于 request/stream，控制数组或逐条返回 |
+| rsocketStreamConnectionsPerInstance | 1–8，默认 1。仅用于 request/stream，同一个后端实例可复用多条 RSocket TCP 连接 |
 
 文本与空响应在路由配置 response/char 或 response/void。二进制接口可配置 rsocketContentType 为 application/octet-stream。业务请求错误沿用 serviceCode/serviceMessage，网关参数、方法、内容类型与超限错误使用相应 HTTP 状态。
 
@@ -139,7 +140,9 @@ curl -NsS http://127.0.0.1:8080/rpc/message/channel \
 | lambda.rsocket.server.max-inbound-payload-bytes | 16777216，服务端 Payload 重组上限 |
 | lambda.rsocket.client.max-inbound-payload-bytes | 16777216，框架客户端 Payload 重组上限 |
 
-请求体读取一次。传统数组在限制内组装，NDJSON 边接收边写出。连接按目标与数据 MIME 缓存，后台刷新服务实例，关闭应用时释放。身份元数据条目独立使用 JSON。
+请求体读取一次。传统数组先累计条目和字节数，再按最终长度分配响应缓冲区。NDJSON 边接收边写出。连接按目标、数据 MIME 和连接数缓存，后台刷新服务实例，关闭应用时释放。身份元数据条目独立使用 JSON。
+
+大数组或持续高流量的 request/stream 路由可以设置 `rsocketStreamConnectionsPerInstance: 2`。路由声明 `rsocketModel: request/stream` 后，客户端仍可只发送普通 JSON POST。连接数为 2 时，每个后端实例在该流连接池内最多建立两条连接。同一条流保持在选中的连接上，独立流之间的顺序由业务定义。普通请求和双向 Channel 继续使用原连接策略。同一目标的流式路由使用相同连接数时可以共享连接池。
 
 ## 用户、分页、配置和维护
 
@@ -158,6 +161,12 @@ Channel 直接检查 13 项、TCP 检查 8 项、分页回归 12 项、双服务
 ### 自动类型与真实业务复测
 
 16 项自动类型、旧头兼容、双向流、限额与超时检查通过。使用同一个聊天服务和真实 MongoDB，在 8 并发下直连约 194 请求/秒，HTTP 网关约 175 请求/秒。在 32 并发下两条链路都约 166 请求/秒，尾延迟明显增加。网关进程 CPU 中位约一个核的 12%–15%。这组结果适用于本机服务与跨网络 MongoDB 的测试环境，逐轮数据见本地汇总报告。
+
+### 流式吞吐与虚拟线程复测
+
+24 并发的本机 HTTP 到 TCP RSocket 测试中，128 项数组流原版约 3,857 请求/秒，改用 4 条流式连接后约 5,101 请求/秒，P99 从 7.9 ms 升到 14.3 ms。保持 1 条连接时，新数组实现每请求 CPU 下降约 12%，吞吐接近。每次请求订阅切换到虚拟线程使普通请求吞吐下降约 10.5%，网关保留响应式执行路径。[Reactor 线程与调度器](https://projectreactor.io/docs/core/release/reference/coreFeatures/schedulers.html)
+
+真实 MongoDB 混合读负载下，新网关对流式路由配置 2 条连接。8 并发时旧版和新版约为 195 和 190 请求/秒，32 并发时约为 163 和 178，两版均出现超时。普通查询适合 JSON POST。需要逐条下发时用 NDJSON 单向流，连续聊天收发用双向 Channel。HTTP NDJSON 双向联调已验证首条回复返回后客户端可继续发送，吞吐对照表测量的是普通查询和单向流。
 
 ## Java 后端开发与架构规范
 

@@ -30,6 +30,7 @@ import reactor.core.scheduler.Schedulers;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.IntStream;
 
 import static org.lambda.framework.loadbalance.enums.LoadBalanceExceptionEnum.*;
 
@@ -42,7 +43,7 @@ public class RSocketLoadbalance {
     private final int maxInboundPayloadBytes;
     private final ConcurrentHashMap<RequesterKey, ProcessResponse> requesters = new ConcurrentHashMap<>();
 
-    private record RequesterKey(String target, Integer port, MimeType dataMimeType) {}
+    private record RequesterKey(String target, Integer port, MimeType dataMimeType, int connectionsPerInstance) {}
 
     public RSocketLoadbalance(DiscoveryClient discoveryClient, ObjectProvider<RSocketRequester.Builder> builders,
                               RSocketStrategies strategies,
@@ -96,13 +97,20 @@ public class RSocketLoadbalance {
     public Mono<ProcessResponse> build(MimeType mimeType, String ip, Integer port) {
         Assert.verify(ip, EB_LOADBALANCE_005);
         Assert.verify(port, EB_LOADBALANCE_006);
-        RequesterKey key = new RequesterKey(ip, port, mimeType);
+        RequesterKey key = new RequesterKey(ip, port, mimeType, 1);
         return Mono.fromSupplier(() -> requesters.computeIfAbsent(key, this::createRequester));
     }
 
     public Mono<ProcessResponse> build(MimeType mimeType, String serviceName) {
+        return buildForService(mimeType, serviceName, 1);
+    }
+
+    public Mono<ProcessResponse> buildForService(MimeType mimeType, String serviceName, int connectionsPerInstance) {
         Assert.verify(serviceName, EB_LOADBALANCE_001);
-        RequesterKey key = new RequesterKey(serviceName, null, mimeType);
+        if (connectionsPerInstance < 1 || connectionsPerInstance > 8) {
+            throw new IllegalArgumentException("RSocket connections per instance must be between 1 and 8");
+        }
+        RequesterKey key = new RequesterKey(serviceName, null, mimeType, connectionsPerInstance);
         return Mono.fromSupplier(() -> requesters.computeIfAbsent(key, this::createRequester));
     }
 
@@ -113,20 +121,24 @@ public class RSocketLoadbalance {
             builder.rsocketStrategies(strategies).dataMimeType(key.dataMimeType());
             builder.rsocketConnector(connector -> connector.maxInboundPayloadSize(maxInboundPayloadBytes));
             requester = key.port() == null
-                    ? builder.transports(loadBalanceTargets(key.target()), new RoundRobinLoadbalanceStrategy())
+                    ? builder.transports(loadBalanceTargets(key), new RoundRobinLoadbalanceStrategy())
                     : builder.transport(TcpClientTransport.create(key.target(), key.port()));
         }
         return new ProcessResponse(requester);
     }
 
-    private Flux<List<LoadbalanceTarget>> loadBalanceTargets(String serviceName) {
-        return Mono.fromCallable(() -> discoveryClient.getInstances(serviceName).stream()
-                        .map(instance -> LoadbalanceTarget.from(instance.getHost() + ":" + instance.getPort(),
-                                TcpClientTransport.create(instance.getHost(), instance.getPort())))
+    private Flux<List<LoadbalanceTarget>> loadBalanceTargets(RequesterKey key) {
+        return Mono.fromCallable(() -> discoveryClient.getInstances(key.target()).stream()
+                        .flatMap(instance -> {
+                            String address = instance.getHost() + ":" + instance.getPort();
+                            return IntStream.range(0, key.connectionsPerInstance()).mapToObj(index ->
+                                    LoadbalanceTarget.from(index == 0 ? address : address + "#" + index,
+                                            TcpClientTransport.create(instance.getHost(), instance.getPort())));
+                        })
                         .toList())
                 .subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(error -> {
-                    log.warn("RSocket discovery failed for {}", serviceName, error);
+                    log.warn("RSocket discovery failed for {}", key.target(), error);
                     return Mono.empty();
                 })
                 .repeatWhen(completions -> completions.delayElements(Duration.ofSeconds(30)));

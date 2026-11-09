@@ -24,10 +24,10 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -131,13 +131,15 @@ public class RsocketRequestFactory {
         Mono<byte[]> body = DataBufferUtils.join(request.getBody(), maxRequestBytes)
                 .map(RsocketRequestFactory::readAndRelease)
                 .defaultIfEmpty(EMPTY_BODY);
-        if (RSOCKET_MODEL_REQUEST_STREAM.equals(model) && format.ndjson()) {
-            return stream(response, body.flatMapMany(bytes -> loadbalance.build(mimeType, route.host())
+        boolean requestStream = RSOCKET_MODEL_REQUEST_STREAM.equals(model);
+        if (requestStream && format.ndjson()) {
+            return stream(response, body.flatMapMany(bytes -> streamRequester(mimeType, route)
                     .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, responseType))));
         }
-        Mono<byte[]> result = body.flatMap(bytes -> loadbalance.build(mimeType, route.host()).flatMap(rpc -> {
+        Mono<byte[]> result = body.flatMap(bytes -> (requestStream
+                ? streamRequester(mimeType, route) : loadbalance.build(mimeType, route.host())).flatMap(rpc -> {
             boolean jsonObjects = MediaType.APPLICATION_JSON.equals(mimeType) && RSOCKET_ECHO_OBJECT.equals(echo);
-            if (RSOCKET_MODEL_REQUEST_STREAM.equals(model)) {
+            if (requestStream) {
                 Flux<byte[]> encoded = jsonObjects
                         ? rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, byte[].class)
                             .map(this::validateJson).filter(item -> item.length != 0)
@@ -163,6 +165,21 @@ public class RsocketRequestFactory {
                     response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
                     return response.writeWith(Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes)));
                 });
+    }
+
+    private Mono<RSocketLoadbalance.ProcessResponse> streamRequester(MediaType mimeType,
+                                                                       GatewayFilter.GlobalFilterRoute route) {
+        Object configured = route.metadata().get("rsocketStreamConnectionsPerInstance");
+        if (configured == null) {
+            return loadbalance.build(mimeType, route.host());
+        }
+        int connections;
+        try {
+            connections = Integer.parseInt(configured.toString());
+        } catch (NumberFormatException error) {
+            throw new IllegalArgumentException("rsocketStreamConnectionsPerInstance must be an integer", error);
+        }
+        return loadbalance.buildForService(mimeType, route.host(), connections);
     }
 
     private static RequestFormat resolveFormat(Map<String, Object> metadata, HttpHeaders headers) {
@@ -226,29 +243,31 @@ public class RsocketRequestFactory {
     }
 
     private final class JsonArray {
-        private final ByteArrayOutputStream output = new ByteArrayOutputStream();
-        private int items;
-
-        private JsonArray() {
-            output.writeBytes(ARRAY_START);
-        }
+        private final List<byte[]> items = new ArrayList<>();
+        private int length = ARRAY_START.length + ARRAY_END.length;
 
         private void append(byte[] value) {
-            int separatorBytes = items == 0 ? 0 : 1;
-            if (items >= maxResponseItems
-                    || (long) output.size() + value.length + ARRAY_END.length + separatorBytes > maxResponseBytes) {
+            long nextLength = (long) length + value.length + (items.isEmpty() ? 0 : 1);
+            if (items.size() >= maxResponseItems || nextLength > maxResponseBytes) {
                 throw responseLimit();
             }
-            if (separatorBytes != 0) {
-                output.write(',');
-            }
-            output.writeBytes(value);
-            items++;
+            items.add(value);
+            length = (int) nextLength;
         }
 
         private byte[] finish() {
-            output.writeBytes(ARRAY_END);
-            return output.toByteArray();
+            byte[] result = Arrays.copyOf(ARRAY_START, length);
+            int offset = ARRAY_START.length;
+            for (int index = 0; index < items.size(); index++) {
+                if (index != 0) {
+                    result[offset++] = ',';
+                }
+                byte[] item = items.get(index);
+                System.arraycopy(item, 0, result, offset, item.length);
+                offset += item.length;
+            }
+            System.arraycopy(ARRAY_END, 0, result, offset, ARRAY_END.length);
+            return result;
         }
     }
 
