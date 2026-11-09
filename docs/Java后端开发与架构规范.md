@@ -247,7 +247,37 @@ RPC 客户端使用 `@RSocketRpcDiscorvery`、`@RSocketRpcType`，由 `@RSocketR
 
 普通 JSON POST 默认采用一次请求一次响应。网关的响应外壳固定为 JSON 对象，`data` 保留服务端 JSON 类型。例如 `Mono<UserFacade.Detail>` 输出对象，`Mono<String>` 输出字符串，`Mono<Integer>` 输出数字。客户端无需配置自定义类型头。NDJSON 请求体自动识别为双向流。已有自定义头作为兼容输入。
 
-单向流由客户端用标准 HTTP 头选择。普通查询和单向流都可以用 JSON 请求体。发送 `Content-Type: application/json` 和 `Accept: application/x-ndjson` 时，网关自动选用 `request/stream` 并按行刷新响应。单向流的交互方式和响应格式由请求头决定，无需在 Nacos 路由里逐个配置。
+单向流根据实际调用链选择写法。`Content-Type` 表示请求体的格式，`Accept` 表示 HTTP 客户端希望接收的响应格式。
+
+| 调用链 | 接口写法 | 客户端用法 |
+|---|---|---|
+| 普通 HTTP，直连 Controller 或经 `lb://` 网关转发 | `@PostMapping(produces = MediaType.APPLICATION_NDJSON_VALUE)` 返回 `Flux<Status>` | 发 POST JSON，可省略 `Accept`。Controller 声明逐行 JSON 响应。 |
+| Java 服务之间的 RSocket RPC | Facade 方法用 `@RSocketRpcType`，接收一个请求 record，返回 `Flux<Status>` | 调用 Facade 方法。框架按 `Flux` 选用 `request/stream`，调用时无需 HTTP 请求头。 |
+| HTTP 经 `rb://` 网关转成 RSocket | 后端 `@MessageMapping` 方法接收一个请求 record，返回 `Flux<Status>` | 发 POST JSON，并带 `Accept: application/x-ndjson`。网关根据该头选择 `request/stream`。 |
+
+纯 HTTP Controller 可以直接调用业务实现并声明流式输出。只有对外提供 Java RPC 时才在 Facade 上声明 RPC 方法。
+
+~~~java
+@PostMapping(value = "/order/status/stream", produces = MediaType.APPLICATION_NDJSON_VALUE)
+public Flux<Status> stream(@RequestBody StatusRequest request) {
+    return service.streamStatuses(request);
+}
+~~~
+
+Java RPC 调用按 Facade 的返回类型选择交互方式。普通查询返回 `Mono<T>`，单向流返回 `Flux<T>`。
+
+~~~java
+@RSocketRpcDiscorvery("order")
+public interface OrderFacade {
+    @RSocketRpcType
+    Flux<Status> stream(StatusRequest request);
+
+    record StatusRequest(@JsonObjectId ObjectId orderId) {}
+    record Status(String value) {}
+}
+~~~
+
+通过 `rb://` 路由时，网关在发出 RSocket 请求前就要确定交互方式。没有流式提示的普通 POST JSON 按 `request/response` 处理。用标准 `Accept` 选择单向流，省掉 Nacos 中的逐接口流式配置和自定义类型头。
 
 ~~~bash
 curl -NsS http://127.0.0.1:8080/order/stream \
