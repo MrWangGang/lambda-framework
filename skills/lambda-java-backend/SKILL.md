@@ -30,7 +30,7 @@ description: 创建、开发和审查 Lambda Framework Java 后端。规范分�
 
 ## 3. 代码与持久化
 
-- 包根使用 `com.<项目名>`，按 `controller`、`service`、`repository`、`po` 和业务需要的 `contract` 细分。持久化类用 `UserPO`，放 `po` 包，使用普通 Java 类和 Lombok。仓储用 `UserRepository`，Service 类直接以 `Impl` 结尾。依赖 Bean 在字段上用 `@Resource`，可选提供者用 `@Autowired`。Service 不使用构造函数注入。
+- 在 `-server` 组件包下按 `controller`、`service`、`repository`、`po` 和业务需要的 `contract` 细分。持久化类用 `UserPO`，放 `po` 包，使用普通 Java 类和 Lombok。仓储用 `UserRepository`，Service 类直接以 `Impl` 结尾。依赖 Bean 在字段上用 `@Resource`，可选提供者用 `@Autowired`。Service 不使用构造函数注入。
 - Repository 只执行数据读写与持久化映射，禁止业务逻辑和校验。Service 负责请求校验、默认值、类型转换、业务规则、权限、事务和响应映射。
 - 每个 MongoDB 集合的 PO 继承 `UnifyPO<ObjectId>`。公共字段为 `id`、`createdAt`、`updatedAt` 和 `@Version Long version`。在 PO 声明 `@Document` 和按业务设计的索引。PO 只放持久化字段、映射和业务枚举，接口请求和响应使用独立契约 record。
 - 普通保存由框架审计。用 `MongoAuditUpdates.modified` 维护原子更新的时间和版本，用 `insertOnly` 维护幂等插入。编辑匹配客户端版本，库存扣减匹配足额条件。部署新版本前补齐旧集合公共字段。
@@ -110,7 +110,9 @@ db.products.updateMany({status: "inactive"}, {$set: {status: "下架"}});
 
 ## 项目名称、包名和 Maven 模块
 
-新建项目时确认项目名和服务名。一个应用一个 Git 仓库，App、网关、业务服务和 IM 等独立应用各有仓库。仓库名与根目录采用 `<项目名>-<微服务名>`，例如 `tazhoo-server`。统一使用小写连字符命名。Maven 父工程 artifactId、Spring 应用名、服务发现名和 Nacos Data ID 的基名与仓库名一致。每个 Java 仓库根目录各有 Maven 父 POM，直接继承已安装的 Lambda Framework。Java 包根使用 `com.<项目名>`，按服务和职责细分。
+新建项目时确认项目名和服务名。一个应用一个 Git 仓库，App、网关、业务服务和 IM 等独立应用各有仓库。仓库名与根目录采用 `<项目名>-<微服务名>`，例如 `tazhoo-server`。统一使用小写连字符命名。Maven 父工程 artifactId、Spring 应用名、服务发现名和 Nacos Data ID 的基名与仓库名一致。每个 Java 仓库根目录各有 Maven 父 POM，直接继承已安装的 Lambda Framework。
+
+Java 源码按 `com.<项目名>.<微服务名>.<组件名>` 分包，源码目录与 `package` 声明一致。启动类位于 `server` 组件包根，运行时 Bean 位于它的子包。RPC 契约放在 `facade` 组件包。异常码模块使用 `enums` 包，`enum` 是 Java 关键字。
 
 子模块使用 `<仓库名>-<模块职责>` 命名，目录名与 Maven artifactId 一致。部署目录沿用此前缀加 `-docker`。以下是 `mall-order` 独立仓库的结构。
 
@@ -121,7 +123,7 @@ mall-order/
 ├── mall-order-server/                  启动类和服务端实现
 │   ├── pom.xml
 │   └── src/main/
-│       ├── java/com/mall/order/
+│       ├── java/com/mall/order/server/
 │       └── resources/application.properties
 ├── mall-order-facade/                  Java RPC 契约
 │   ├── pom.xml
@@ -173,7 +175,7 @@ Service 类直接以 `Impl` 结尾，放在 `service` 包。用字段上的 `@Re
 - 业务金额和常规业务标量以字符串建模，禁止 BigDecimal。ObjectId、库存计数、版本号、分页计数和日期保留各自的技术类型。CORS 预检、WebSocket 握手和基础设施协议遵循对应协议。
 
 ~~~java
-package com.user.facade;
+package com.mall.user.facade;
 
 import jakarta.validation.constraints.NotNull;
 import org.bson.types.ObjectId;
