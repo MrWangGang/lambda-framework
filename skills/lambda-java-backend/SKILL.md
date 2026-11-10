@@ -126,17 +126,23 @@ mall-order/
 ├── mall-order-facade/                  Java RPC 契约
 │   ├── pom.xml
 │   └── src/main/java/com/mall/order/facade/
-└── mall-order-enum/                    本服务异常码枚举
-    ├── pom.xml
-    └── src/main/java/com/mall/order/enums/
+├── mall-order-enum/                    本服务异常码枚举
+│   ├── pom.xml
+│   └── src/main/java/com/mall/order/enums/
+└── mall-order-docker/                  容器部署目录
+    ├── Dockerfile
+    ├── compose.yaml
+    └── .dockerignore
 ~~~
 
-- 每个 Java 应用必建同级的 `-server` 与 `-facade`，包括网关。当前没有 Java RPC 接口时，保留普通 JAR 模块和契约包。业务微服务另建 `-enum`，基础设施网关使用框架网关异常码。需要容器部署时再加同级 `-docker`。
+- 每个 Java 应用必建同级的 `-server` 与 `-facade`，包括网关。当前没有 Java RPC 接口时，保留普通 JAR 模块和契约包。业务微服务另建 `-enum`，基础设施网关使用框架网关异常码。新建时提供同级 `-docker` 部署目录。
 - 父工程使用 `pom` 打包。它声明 Java 子模块和共用的插件配置。POM 统一 XML 声明、Maven 命名空间和四空格缩进，版本优先由父工程管理。
 - `-server` 打包为 Spring Boot 可执行 JAR，按需依赖本服务的 `-enum` 和 `-facade`。契约和异常码模块打包为普通 JAR。跨服务调用方只依赖提供方的 `-facade`。每个仓库维护自己的 `.gitignore`，排除 `target/`、`*.class`、打包产物和本地私有配置。
 - 服务端 Facade 实现、业务 `*ServiceImpl` 和实体 `*PO` 放在 `-server`，按职责分包。新建项目时先核对目录、POM 坐标和依赖方向，再写业务代码。
 
 ## Docker 部署编译产物
+
+`-docker` 与 `-server` 同级，独立作为镜像构建上下文。提交 Dockerfile、Compose 文件和 `.dockerignore`。构建生成的 `app.jar` 与部署环境文件通过 `.gitignore` 排除。
 
 1. 用项目约定的 JDK 和 Maven 执行 `clean install`。先构建并重打包 `-server` 的 Spring Boot 可执行 JAR，随后在 Maven 的 `install` 阶段把主 JAR 复制到同级 `-docker/app.jar`。父 POM 集中维护复制插件，只有可运行模块启用该执行并指定自己的目标目录。Maven `clean` 清除生成的 `app.jar`。
 2. 检查部署目录中的 `app.jar` 与此次构建的可执行 JAR 相同。上传整个 `-docker` 目录。Docker 构建上下文就是该目录，`Dockerfile` 复制目录内的 `app.jar`，使用部署环境指定的 Java 运行时镜像启动。
