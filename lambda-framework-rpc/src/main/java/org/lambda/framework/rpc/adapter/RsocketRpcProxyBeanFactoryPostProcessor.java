@@ -2,9 +2,9 @@ package org.lambda.framework.rpc.adapter;
 
 import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
 import org.lambda.framework.common.enums.RSocketContract;
-import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.PrincipalStash;
+import org.lambda.framework.common.support.RpcRoutes;
 import org.lambda.framework.common.support.BiFlux;
 import org.lambda.framework.common.support.UiFlux;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
@@ -13,18 +13,13 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.core.ReactiveAdapterRegistry;
-import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.util.MimeType;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -33,7 +28,9 @@ import static org.lambda.framework.rpc.enums.RpcExceptionEnum.*;
 public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcessor {
     private static final MimeType FORY_MIME_TYPE = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
 
-    private final Map<Class<?>, Object> proxies = new ConcurrentHashMap<>();
+    private final Map<ProxyKey, Object> proxies = new ConcurrentHashMap<>();
+
+    private record ProxyKey(Class<?> facade, String service) {}
 
     private final ObjectProvider<RSocketLoadbalance> loadbalance;
     private final PrincipalStash principalStash;
@@ -59,44 +56,18 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                 throw new EventException(ES_RPC_000);
             }
             try {
-                field.set(bean, proxies.computeIfAbsent(facade, this::createProxy));
+                String service = field.getAnnotation(RSocketRpc.class).value();
+                field.set(bean, proxies.computeIfAbsent(new ProxyKey(facade, service), this::createProxy));
             } catch (IllegalAccessException error) {
                 throw new EventException(ES_RPC_016);
             }
         }
     }
 
-    private Object createProxy(Class<?> facade) {
-        String service = null;
-        Map<Method, String> routes = new HashMap<>();
-        for (Method method : facade.getMethods()) {
-            var mapping = AnnotationUtils.findAnnotation(method, MessageMapping.class);
-            if (Modifier.isStatic(method.getModifiers()) || (method.isDefault() && mapping == null)) {
-                continue;
-            }
-            if (mapping == null) {
-                throw new IllegalArgumentException("Declare @MessageMapping on " + method);
-            }
-            validateSignature(method);
-            var nativeRoutes = Arrays.stream(mapping.value()).filter(path -> !path.startsWith("/")).toList();
-            if (nativeRoutes.size() != 1) {
-                throw new IllegalArgumentException("Expected one native @MessageMapping route on " + method);
-            }
-            String route = nativeRoutes.getFirst();
-            int separator = route.indexOf('.');
-            if (separator <= 0 || separator == route.length() - 1) {
-                throw new IllegalArgumentException("Expected a service prefix and method route on " + method);
-            }
-            String target = route.substring(0, separator);
-            if (target.isBlank() || (service != null && !service.equals(target))) {
-                throw new IllegalArgumentException("Facade routes must share one service prefix: " + facade.getName());
-            }
-            service = target;
-            routes.put(method, route);
-        }
-        Assert.verify(service, ES_RPC_004);
-        String targetService = service;
-        var connection = Mono.defer(() -> loadbalance.getObject().build(FORY_MIME_TYPE, targetService));
+    private Object createProxy(ProxyKey key) {
+        Class<?> facade = key.facade();
+        var routes = RpcRoutes.routes(key.service(), facade);
+        var connection = Mono.defer(() -> loadbalance.getObject().build(FORY_MIME_TYPE, key.service()));
         return Proxy.newProxyInstance(facade.getClassLoader(), new Class<?>[]{facade}, (proxy, method, args) -> {
             if (method.getDeclaringClass() == Object.class) {
                 return switch (method.getName()) {
@@ -168,24 +139,4 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
         return arguments[0];
     }
 
-    private static void validateSignature(Method method) {
-        var adapters = ReactiveAdapterRegistry.getSharedInstance();
-        var parameters = method.getParameterTypes();
-        boolean streamingInput = Arrays.stream(parameters).anyMatch(type -> {
-            var adapter = adapters.getAdapter(type);
-            return adapter != null && adapter.isMultiValue();
-        });
-        var result = method.getReturnType();
-        if (!(method.getGenericReturnType() instanceof ParameterizedType)
-                || (result != Mono.class && result != Flux.class && result != BiFlux.class && result != UiFlux.class)) {
-            throw new EventException(ES_RPC_015);
-        }
-        if (parameters.length > 1) {
-            throw new EventException(ES_RPC_014);
-        }
-        if (streamingInput && (result != BiFlux.class
-                || !(method.getGenericParameterTypes()[0] instanceof ParameterizedType))) {
-            throw new IllegalArgumentException("A streaming request requires a typed publisher and BiFlux<O> return: " + method);
-        }
-    }
 }

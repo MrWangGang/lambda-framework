@@ -14,11 +14,29 @@
 
 ## 2. 公共实体
 
-`UnifyPO<ID>` 提供 id、createTime、updateTime，并使用 Lombok `@SuperBuilder`。它没有内置账号密码、租户、乐观锁版本或软删除字段。
+所有 MongoDB 集合实体继承 `UnifyPO<ObjectId>`，统一持久化 `_id`、`createdAt`、`updatedAt` 和 `version`。Spring Data 审计负责实体写入，原子更新使用 `MongoAuditUpdates`。业务需要的租户、软删除等字段由实体单独定义。 [统一字段规范](Java后端开发与架构规范.md#实体注解与主键)
 
-业务需要这些字段时显式定义，明确 ID 格式和唯一性范围、时间字段类型和时区、version 的维护方式、删除后的关系清理方式。
+### 旧集合迁移
 
-示例使用 ProductEntity，主键是 BSON ObjectId，金额为 String，商品状态实现 ConverterEnum。
+先在目标项目中确定要迁移的集合和历史时间来源，并暂停旧版本写入。下面以 MongoDB 的 `products` 集合为例。脚本保留已有值，只匹配至少一个公共字段缺失或为 null 的记录，可重跑。示例最后用 ObjectId 的生成时间补齐缺失的创建时间，已有业务审计时间时优先用业务数据。
+
+~~~javascript
+const needsAudit = {
+  $or: [{createdAt: null}, {updatedAt: null}, {version: null}]
+};
+
+db.products.updateMany(needsAudit, [
+  {$set: {createdAt: {$ifNull: ["$createdAt", "$createTime", {$toDate: "$_id"}]}}},
+  {$set: {
+    updatedAt: {$ifNull: ["$updatedAt", "$updateTime", "$createdAt"]},
+    version: {$ifNull: ["$version", NumberLong("0")]}
+  }}
+]);
+
+db.products.countDocuments(needsAudit);
+~~~
+
+对其他已确认的集合分别执行，计数为零后启动新版本。旧字段的移除按项目的数据保留策略单独安排。
 
 ## 3. 通用 CRUD
 

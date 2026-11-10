@@ -8,5 +8,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
 public @interface RSocketRpc {
+    /** Nacos service that provides this Facade. */
+    String value();
 
 }

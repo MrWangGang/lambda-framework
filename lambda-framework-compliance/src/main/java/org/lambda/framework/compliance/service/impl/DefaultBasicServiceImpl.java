@@ -7,6 +7,7 @@ import org.lambda.framework.compliance.service.IDefaultBasicService;
 import org.lambda.framework.repository.operation.*;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.*;
 import org.springframework.data.repository.query.ReactiveQueryByExampleExecutor;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
@@ -14,7 +15,6 @@ import org.springframework.data.repository.reactive.ReactiveSortingRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
@@ -37,44 +37,33 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
     @Override
     public Mono<PO> update(PO po) {
-        if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
-        po.setUpdateTime(LocalDateTime.now());
-        return repository.save(po);
+        return Mono.fromSupplier(() -> requireVersion(po)).flatMap(repository::save);
     }
 
     @Override
     public Mono<PO> insert(PO po) {
-        if(po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
-        LocalDateTime now = LocalDateTime.now();
-        po.setCreateTime(now);
-        po.setUpdateTime(now);
+        if (po == null) return Mono.error(new EventException(ES_COMPLIANCE_000));
         return repository.save(po);
     }
 
     @Override
     public Flux<PO> update(Publisher<PO> pos) {
-        if(pos == null) throw new EventException(ES_COMPLIANCE_000);
-        LocalDateTime now = LocalDateTime.now();
-        return Flux.from(pos).flatMap(po->{
-            po.setUpdateTime(now);
-            return Flux.just(po);
-        }).collectList().flatMapMany(e->{
-             return repository.saveAll(e);
-        });
+        if (pos == null) throw new EventException(ES_COMPLIANCE_000);
+        return Flux.from(pos).map(this::requireVersion).collectList().flatMapMany(repository::saveAll);
     }
 
     @Override
     public Flux<PO> insert(Publisher<PO> pos) {
-        if(pos == null) throw new EventException(ES_COMPLIANCE_000);
-        LocalDateTime now = LocalDateTime.now();
-        return Flux.from(pos).flatMap(po->{
-            po.setCreateTime(now);
-            po.setUpdateTime(now);
-            return Flux.just(po);
-        }).collectList().flatMapMany(e->{
-            return repository.saveAll(e);
-        });
+        if (pos == null) throw new EventException(ES_COMPLIANCE_000);
+        return Flux.from(pos).collectList().flatMapMany(repository::saveAll);
+    }
 
+    private PO requireVersion(PO po) {
+        if (po == null) throw new EventException(ES_COMPLIANCE_000);
+        if (po.getVersion() == null) {
+            throw new OptimisticLockingFailureException("Updating an entity requires its persisted version");
+        }
+        return po;
     }
 
     @Override

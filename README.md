@@ -38,11 +38,10 @@ class UserController {
 }
 ~~~
 
-Java RPC 的契约 JAR 放在提供方服务目录内。接口用点分隔路由，首段是 Nacos 服务名。提供方实现类用 `@RSocketFacade`，调用方字段用 `@RSocketRpc`。
+Java RPC 的契约 JAR 放在提供方服务目录内。实现类用 `@RSocketFacade`，调用方字段用 `@RSocketRpc("user")` 指定 Nacos 服务。框架自动生成 `user.userFacade.find`，同一路由注册两次会在启动时失败。
 
 ~~~java
 public interface UserFacade {
-    @MessageMapping("user.userFacade.find")
     Mono<Detail> find(FindRequest request);
 
     record FindRequest(ObjectId id) {}
@@ -51,6 +50,8 @@ public interface UserFacade {
 ~~~
 
 返回 `Mono` 生成一次响应，`Flux` 可聚合成 JSON 数组，`UiFlux` 用于单向 NDJSON，`Flux<I> → BiFlux<O>` 用于双向流。前端 WSS 路由使用 `ws://服务名`，网关用 RSocket Channel 转发。示例仓库展示完整链路和认证配置。 [示例仓库](https://github.com/MrWangGang/lambda-framework-example)
+
+所有 MongoDB 集合实体放在 `po` 包并以 `PO` 结尾，继承 `UnifyPO<ObjectId>`。Spring Data 审计自动维护 `createdAt`、`updatedAt` 和 `@Version`。手写更新和已有数据迁移见 [数据访问手册](docs/DATA-AND-PAGINATION.md)。
 
 ## 获取当前用户
 

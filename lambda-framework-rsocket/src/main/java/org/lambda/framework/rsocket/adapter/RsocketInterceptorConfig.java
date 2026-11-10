@@ -10,8 +10,11 @@ import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.AnyNestedCondition;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.rsocket.autoconfigure.RSocketMessageHandlerCustomizer;
+import org.springframework.boot.rsocket.autoconfigure.RSocketMessagingAutoConfiguration;
 import org.springframework.boot.rsocket.autoconfigure.RSocketServerAutoConfiguration;
 import org.springframework.boot.rsocket.server.RSocketServerCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -19,17 +22,31 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.messaging.handler.DestinationPatternsMessageCondition;
+import org.springframework.messaging.rsocket.RSocketStrategies;
 import org.springframework.messaging.rsocket.annotation.support.RSocketFrameTypeMessageCondition;
 import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
+import org.springframework.validation.Validator;
 
 import java.lang.reflect.ParameterizedType;
 import java.util.Arrays;
 
-@AutoConfiguration(before = RSocketServerAutoConfiguration.class)
+@AutoConfiguration(before = {RSocketMessagingAutoConfiguration.class, RSocketServerAutoConfiguration.class})
 @Conditional(RsocketInterceptorConfig.ServerConfigured.class)
 @Import({GatewayContractController.class, RsocketInterceptorConfig.RejectHttpListener.class,
         RSocketAcceptorInterceptor.class, RsocketGlobalExceptionHandler.class})
 public class RsocketInterceptorConfig {
+    @Bean
+    @ConditionalOnMissingBean(RSocketMessageHandler.class)
+    RSocketMessageHandler lambdaRSocketMessageHandler(RSocketStrategies strategies,
+            ObjectProvider<RSocketMessageHandlerCustomizer> customizers, ObjectProvider<Validator> validators,
+            @Value("${spring.application.name:}") String service) {
+        var handler = new FacadeRSocketMessageHandler(service);
+        handler.setRSocketStrategies(strategies);
+        validators.ifUnique(handler::setValidator);
+        customizers.orderedStream().forEach(customizer -> customizer.customize(handler));
+        return handler;
+    }
+
     @Bean
     public RSocketServerCustomizer rSocketServerCustomizer(RSocketAcceptorInterceptor interceptor,
             @Value("${lambda.rsocket.server.max-inbound-payload-bytes:16777216}") int maxInboundPayloadBytes,

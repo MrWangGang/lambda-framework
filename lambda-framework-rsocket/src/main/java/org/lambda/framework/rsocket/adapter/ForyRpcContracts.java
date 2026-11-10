@@ -6,14 +6,12 @@ import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.ResolvableType;
 import org.springframework.messaging.handler.DestinationPatternsMessageCondition;
-import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.lambda.framework.common.support.RpcRoutes;
 import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
 import org.springframework.core.annotation.AnnotatedElementUtils;
-import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -31,12 +29,7 @@ final class ForyRpcContracts {
                 ReflectionUtils.doWithFields(beanType, field -> {
                     Class<?> facade = field.getType();
                     if (facade.isInterface()) {
-                        for (Method method : facade.getMethods()) {
-                            if (!Modifier.isStatic(method.getModifiers()) && (!method.isDefault()
-                                    || AnnotationUtils.findAnnotation(method, MessageMapping.class) != null)) {
-                                contracts.addMethod(method, facade);
-                            }
-                        }
+                        RpcRoutes.methods(facade).forEach(method -> contracts.addMethod(method, facade));
                     }
                 }, field -> field.isAnnotationPresent(RSocketRpc.class));
             }

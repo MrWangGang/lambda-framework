@@ -17,25 +17,18 @@ common 提供注解；rpc 生成代理/路由；loadbalance 管理 requester；r
 ## 2. 注解与接口约定
 
 ~~~java
-public interface CatalogApi {
-    @MessageMapping({"catalog-service.catalogApi.findName", "/api/catalog/findName"})
+public interface CatalogFacade {
     Mono<String> findName();
 }
 ~~~
 
-这是 API 结构示意，当前示例没有 CatalogApi RPC 服务。实际使用还需要：
+实现类用 `@RSocketFacade`，调用方字段用 `@RSocketRpc("catalog-service")`。服务端应用名为 `catalog-service`，框架生成路由 `catalog-service.catalogFacade.findName`。同服务内的重复路由和方法重载会阻止启动。网关入口由独立 Controller 的斜杠 `@MessageMapping` 声明。
 
-1. 服务端用 `@RSocketFacade` 标记实现类，继承 Facade 方法的映射。共享接口留在 Facade JAR。
-2. 客户端字段使用 `@RSocketRpc`。
-3. 配置 TCP 服务监听端口和 Nacos 服务信息。
-4. 两端使用兼容的 Facade record 与路由约定。业务服务统一使用 `@MessageMapping`。
-5. 校验身份传递和异常转换。
-
-使用方法级 `@MessageMapping` 时，点分隔的路由首段对应服务发现名。同一个 Facade 使用同一服务名。返回 `Mono` 是单次响应。普通 `Flux` 在网关聚合为数组，`UiFlux` 逐行发送 NDJSON，`BiFlux` 可接收普通 `Flux<I>` 入参走双向交互。
+返回 `Mono` 是单次响应。普通 `Flux` 在网关聚合为数组，`UiFlux` 逐行发送 NDJSON，`BiFlux` 可接收普通 `Flux<I>` 入参走双向交互。
 
 ### 内部 Java RPC 使用 Fory
 
-原生 Java RPC 固定使用 `application/x-lambda-fory`。网关使用独立 JSON 连接访问以 `/` 开头的业务映射，身份元数据使用 JSON。Requester 按数据 MIME 分开缓存连接。Java 调用方引入 `lambda-framework-rpc`，提供方引入 `lambda-framework-rsocket`，Spring Boot 自动配置 Fory 编解码。
+原生 Java RPC 固定使用 `application/x-lambda-fory`。网关使用独立 JSON 连接访问以 `/` 开头的业务映射。Java RPC 的身份元数据使用 Fory，网关身份元数据使用 JSON。Requester 按数据 MIME 分开缓存连接。Java 调用方引入 `lambda-framework-rpc`，提供方引入 `lambda-framework-rsocket`，Spring Boot 自动配置 Fory 编解码。
 
 框架从调用方已注入的 Facade 和服务端原生路由收集类型。已声明的 record、嵌套泛型、枚举和 `Paged<T>` 自动注册。框架为 `ObjectId` 提供 12 字节编解码，Fory 保持类型注册校验。旧项目使用非 record DTO 或未出现在签名中的实际子类型时，可以继续用 `ForyRpcTypes` 显式注册。
 

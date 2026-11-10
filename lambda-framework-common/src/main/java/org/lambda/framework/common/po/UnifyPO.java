@@ -5,10 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.Version;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @SuperBuilder
@@ -20,8 +23,14 @@ public class UnifyPO<ID> implements Serializable {
     private ID id;
 
     @JsonProperty
-    private LocalDateTime createTime;
+    @CreatedDate
+    private Instant createdAt;
 
     @JsonProperty
-    private LocalDateTime updateTime;
+    @LastModifiedDate
+    private Instant updatedAt;
+
+    @JsonProperty
+    @Version
+    private Long version;
 }

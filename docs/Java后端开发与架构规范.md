@@ -24,7 +24,7 @@ user/
 │       │   ├── controller/UserController.java
 │       │   ├── service/UserServiceImpl.java
 │       │   ├── facade/UserFacadeImpl.java
-│       │   ├── entity/UserEntity.java
+│       │   ├── po/UserPO.java
 │       │   └── repository/UserRepository.java
 │       └── resources/application.properties
 └── facade/
@@ -36,14 +36,14 @@ user/
 - 父工程使用 `pom` 打包，管理模块与版本。`app/` 是可运行模块，依赖同一服务目录中的 `facade/`。其他微服务通过 `<项目名>-facade` 引入 RPC 契约。
 - `facade/` 打包成 `<项目名>-facade` 契约 JAR，`facade` 包内放对外接口和接口内的入参、出参 `record`。该模块只引入编译和使用契约所需的依赖。
 - 服务端的 `UserFacadeImpl` 放在 service 模块的 `facade` 包。业务实现直接命名为 `UserServiceImpl`，放在 `service` 包根，省略 `UserService` 接口和 `service.impl` 子包。
-- 每个数据库表或集合对应一个持久化实体。`UserEntity` 映射到 `user`，由 `UserRepository` 访问。枚举按业务归属放在实体或 `enums` 包，连接配置放在 `config` 包。
+- 每个 MongoDB 集合对应一个持久化类，放在 `po` 包并以 `PO` 结尾。`UserPO` 映射到 `user`，由 `UserRepository` 访问。枚举按业务归属放在实体或 `enums` 包，连接配置放在 `config` 包。
 
 ## Facade 契约与 record 命名
 
 - 跨服务共享的请求和响应声明为对外 Facade 接口内的 `record`。仅由网关访问的接口可以在 service 模块定义本地请求、响应 record。入参按动作命名，例如 `FindRequest`、`ChangePasswordRequest`、`PageRequest`。返回按用途命名，例如 `Detail`、`Summary`、`PageItem`。外层 Facade 已表达业务归属，内层名称不重复加表名或实体名，省略 DTO、VO、PO 后缀。
 - Controller 与 Facade 实现直接注入 `UserServiceImpl`，复用 Facade 的 record。外部类只导入 `UserFacade`，签名写 `UserFacade.FindRequest` 和 `UserFacade.Detail`。公开契约集中在接口，实体和实现类不声明公开入参、出参。
 - 实体留在 service 模块。Controller、Facade 接口和 Service 的公开业务方法使用契约 record，Service 负责从持久化实体映射公开字段。密码哈希和内部权限留在服务端。公开契约按业务需要显式选择可见的审计字段或并发控制字段。
-- 对外业务 HTTP 统一经网关访问，使用 POST 动作路径，例如 `/api/user/find`。业务服务的路由统一使用 `@MessageMapping`。承接网关转发的路径以 `/` 开头，并使用固定路径。动态业务条件放请求体。请求条件放 JSON 请求体，空请求可用 `EmptyRequest`。RPC 保留 `Mono<UserFacade.Detail>`、`Flux<UserFacade.Detail>` 等完整类型。
+- 对外业务 HTTP 统一经网关访问，使用 POST 动作路径，例如 `/api/user/find`。业务 Controller 使用 `@MessageMapping` 声明网关路径。承接网关转发的路径以 `/` 开头，并使用固定路径。动态业务条件放请求体。请求条件放 JSON 请求体，空请求可用 `EmptyRequest`。RPC 保留 `Mono<UserFacade.Detail>`、`Flux<UserFacade.Detail>` 等完整类型。
 - 业务金额和常规业务标量以字符串建模，禁止 BigDecimal。ObjectId、库存计数、版本号、分页计数和日期保留各自的技术类型。CORS 预检、WebSocket 握手和基础设施协议遵循对应协议。
 
 ~~~java
@@ -51,11 +51,9 @@ package com.user.facade;
 
 import jakarta.validation.constraints.NotNull;
 import org.bson.types.ObjectId;
-import org.springframework.messaging.handler.annotation.MessageMapping;
 import reactor.core.publisher.Mono;
 
 public interface UserFacade {
-    @MessageMapping({"user.userFacade.find", "/api/user/find"})
     Mono<Detail> find(FindRequest request);
 
     record FindRequest(@NotNull ObjectId id) {}
@@ -63,20 +61,20 @@ public interface UserFacade {
 }
 ~~~
 
-`UserFacadeImpl` 标记 `@RSocketFacade` 并实现 `find`，Spring 继承 Facade 接口的 `@MessageMapping`。共享 Facade 接口本身保持为 Java 契约。同一方法处理 Java RPC 的 `user.userFacade.find` 和网关的 `/api/user/find`，内部调用 `UserServiceImpl.find(UserFacade.FindRequest)`。Facade 模块使用 `spring-messaging` 提供的注解。
+`UserFacadeImpl` 标记 `@RSocketFacade` 并实现 `UserFacade`。RPC 方法路由自动生成。若需向前端开放同一业务，由独立 Controller 声明 `@MessageMapping("/api/user/find")`。两者调用同一个 `UserServiceImpl.find(UserFacade.FindRequest)`。
 
 ## 实体注解与主键
 
-每个持久化实体都要明确表或集合名，以及唯一的主键映射。MongoDB 使用 Spring Data 的 `@Document(collection = "...")` 和 `org.springframework.data.annotation.Id`。实体独立声明主键时写成 `@Id ObjectId id`，继承 `UnifyPO<ObjectId>` 时复用基类已有的 `@Id`。同一实体层级只保留一个主键属性。Repository 的 ID 泛型、关联字段和查询绑定类型需与主键一致。
+所有 MongoDB 集合实体都使用普通 Java 类，可以用 Lombok 生成构造方法和访问器。PO 只声明持久化内容，接口 record 放在独立契约中。所有 PO 继承 `UnifyPO<ObjectId>`，并用 `@Document(collection = "...")` 显式声明集合名。包括关系集合、审计记录和消息回执。框架启动时检查已注册的 `@Document` 实体，四个公共属性由超类统一声明。
 
-| 注解 | 放置位置 | 使用约定 |
+| Java 字段 | MongoDB 字段与类型 | 使用约定 |
 |---|---|---|
-| `@Document` | MongoDB 实体 | 显式写集合名，让部署、查询和迁移引用同一名称 |
-| `@Id` | 主键字段或 record 组件 | 明确主键映射。MongoDB 对应 BSON `_id` |
-| `@Field` / `@Column` | 字段或 record 组件 | 数据库名与 Java 属性不同时声明映射。变更已有映射时提供数据迁移 |
-| `@Version` | 乐观锁字段 | 按业务选用。依赖旧版本的手写更新必须显式匹配版本，并在同一操作中推进 |
-| `@CreatedDate` / `@LastModifiedDate` | 审计时间字段 | 启用对应的审计配置后使用，核对插入与更新路径是否填充 |
-| `@Indexed` / `@CompoundIndex` | 单字段 / MongoDB 实体 | 有对应查询、排序、唯一或生命周期需求时添加，索引名和用途可追溯 |
+| `id` | `_id`，BSON ObjectId | 基类 `@Id`。Repository 的 ID 泛型和关联字段使用 ObjectId |
+| `createdAt` | `createdAt`，BSON Date | `@CreatedDate`，首次写入填充，后续保留 |
+| `updatedAt` | `updatedAt`，BSON Date | `@LastModifiedDate`，插入和成功修改时填充 |
+| `version` | `version`，BSON Int64 | 必须有 `@Version Long`。初始为 0，成功更新递增一次 |
+
+时间字段在 Java 使用 `Instant`。MongoDB 自动装配会启用响应式审计。普通实体 `insert`、`save` 和 Repository 的保存入口由框架填写时间与版本。`@Field` 用于业务属性需要特殊存储名的场景。索引根据业务查询、排序、唯一约束或生命周期需求添加。
 
 HTTP 和 RPC 入参的校验注解放在请求 record 组件上。公开 record 只声明契约需要的字段，持久化映射注解集中在实体或基类。
 
@@ -86,7 +84,7 @@ HTTP 和 RPC 入参的校验注解放在请求 record 组件上。公开 record 
 
 | 关系 | 结构要求 | 读多时 | 更新多或持续增长时 |
 |---|---|---|---|
-| 多对多 | 必须建中间表，MongoDB 建独立关系集合。两端 ID 均用 ObjectId，关系实体也有自己的 `@Id` | 收藏列表从 `favorites` 按 `userId` 分页，再按当前页关联商品。商品反查用户时，按反查条件增加索引 | 新增或取消一条收藏只写一条关系记录。用 `(userId, productId)` 唯一约束，租户场景把租户键纳入唯一范围 |
+| 多对多 | 必须建中间表，MongoDB 建独立关系集合。两端 ID 均用 ObjectId，关系实体同样继承 `UnifyPO<ObjectId>` | 收藏列表从 `favorites` 按 `userId` 分页，再按当前页关联商品。商品反查用户时，按反查条件增加索引 | 新增或取消一条收藏只写一条关系记录。用 `(userId, productId)` 唯一约束，租户场景把租户键纳入唯一范围 |
 | 一对多 | 直接内嵌或在子表保存父 ID，无需中间表 | 用户与少量收货地址可内嵌。前提是经常一起读取、地址有业务上限且随用户管理 | 会话与聊天消息拆集合，消息保存 `conversationId`，按时间和 `_id` 游标翻页。高频写消息不改同一份会话文档 |
 | 多对一 | 多端持有一端 ID，无需中间表 | 商品列表常读店铺名称时，可保留少量展示快照，写清可接受的延迟和刷新方式。需要实时店铺信息时批量查询或用 `$lookup` | 商品持有 `merchantId`，商家资料保存在商家集合。商家频繁变更时集中更新，避免改名触发所有商品重写 |
 
@@ -101,11 +99,13 @@ HTTP 和 RPC 入参的校验注解放在请求 record 组件上。公开 record 
 @Document(collection = "chat_messages")
 @CompoundIndex(name = "idx_chat_conversation_recent",
         def = "{'conversationId': 1, 'createdAt': -1, '_id': -1}")
-public record ChatMessageEntity(@Id ObjectId id, ObjectId conversationId,
-                                Instant createdAt, String content) {}
+public class ChatMessagePO extends UnifyPO<ObjectId> {
+    private ObjectId conversationId;
+    private String content;
+}
 ~~~
 
-集合的 `_id` 已有主键索引，业务幂等键和关系唯一性单独说明，例如收藏的 `(userId, productId)`。上线前用 `getIndexes()` 核对索引名、字段顺序和选项，用 `explain("executionStats")` 核对常用查询的命中、排序和扫描量。生产集合的索引变更安排在部署迁移中。框架 Mongo 配置在 `ApplicationReadyEvent` 异步提交已发现实体的索引创建，依赖唯一约束的业务要确认创建完成再开放流量。[Spring Data 索引管理](https://docs.spring.io/spring-data/mongodb/reference/mongodb/mapping/mapping-index-management.html) · [MongoDB 复合索引顺序](https://www.mongodb.com/docs/manual/tutorial/equality-sort-range-guideline/)
+集合的 `_id` 已有主键索引，业务幂等键和关系唯一性单独说明，例如收藏的 `(userId, productId)`。上线前用 `getIndexes()` 核对索引名、字段顺序和选项，用 `explain("executionStats")` 核对常用查询的命中、排序和扫描量。生产集合的索引变更安排在部署迁移中。框架在启动检查时创建已注册 PO 注解声明的索引，检查完成后开放流量。[Spring Data 索引管理](https://docs.spring.io/spring-data/mongodb/reference/mongodb/mapping/mapping-index-management.html) · [MongoDB 复合索引顺序](https://www.mongodb.com/docs/manual/tutorial/equality-sort-range-guideline/)
 
 ## MongoDB 类型、枚举与查询
 
@@ -120,9 +120,9 @@ record FindRequest(@NotNull ObjectId id) {}
 框架的 Jackson 2 与 Spring Boot Jackson 3 自动处理 `ObjectId` 和 `List<ObjectId>`。必填 ID 配合 `@NotNull` 与入口校验，可选游标允许为空。字符串业务键使用 `String`。
 
 ~~~java
-public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessageEntity, ObjectId> {
+public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessagePO, ObjectId> {
     @Query("{ '_id': ?0 }")
-    Mono<ChatMessageEntity> findWithQuery(ObjectId id);
+    Mono<ChatMessagePO> findWithQuery(ObjectId id);
 }
 ~~~
 
@@ -165,7 +165,11 @@ Flux<FavoriteRepository.MerchantStats> stats(ObjectId userId, ObjectId reviewerI
 
 ## 乐观锁、SKU 库存和金额原子更新
 
-`@Version` 按业务选用。商品资料等先读取、后提交且可能被多人编辑的数据，使用 `@Version Long version`，更新时检查客户端看到的版本。Spring Data MongoDB 的版本化 `save` 会校验旧版本并递增，冲突抛出 `OptimisticLockingFailureException`。追加写的审计日志、由唯一键保护的关系记录、只走条件原子更新的计数文档通常无需加。使用自定义更新、原生驱动或批量更新时，显式核对更新条件、版本推进和写入结果。版本字段已有框架自动递增时，手写更新也只能递增一次。乐观锁要求服务器确认写入。所有可能覆盖同一业务字段的写入口须遵守同一并发约定。[Spring Data MongoDB 乐观锁](https://docs.spring.io/spring-data/data-mongo/reference/mongodb/template-crud-operations.html#mongo-template.optimistic-locking)
+所有集合都使用 `@Version`。通过 `save` 保存已读取的实体时，Spring Data MongoDB 用旧版本匹配并在成功后递增。版本过期时抛出 `OptimisticLockingFailureException`。使用有写确认的连接。编辑接口接收客户端看到的版本，并在查询条件中匹配 `_id + version`。[Spring Data MongoDB 乐观锁](https://docs.spring.io/spring-data/mongodb/reference/mongodb/template-crud-operations.html#mongo-template.optimistic-locking)
+
+`Update`、`findAndModify`、原生驱动和批量写入需要核对审计字段。使用 `MongoAuditUpdates.modified(update)` 同步维护 `updatedAt` 与版本。库存扣减以可用库存作为原子条件，在同一条语句中扣库存、更新日期和递增版本。收藏关系、消息回执等只插入一次的幂等写入，使用 `MongoAuditUpdates.insertOnly(update, createdAt, updatedAt)`，重复命中时保留初始版本和审计时间。
+
+升级已有项目时，先在部署迁移中回填缺失或为空的公共字段，已有值保留。旧 `createTime` 和 `updateTime` 迁到 `createdAt` 和 `updatedAt`，缺失的版本初始化为 BSON Int64 `0`。在所有旧写入方停写后执行迁移，核对缺失数为零，再启动启用版本的应用。见 [数据访问手册](DATA-AND-PAGINATION.md#旧集合迁移)。
 
 ### SKU 防超卖
 
@@ -175,7 +179,7 @@ Flux<FavoriteRepository.MerchantStats> stats(ObjectId userId, ObjectId reviewerI
 Query filter = Query.query(Criteria.where("_id").is(skuId)
     .and("status").is("active").and("available").gte(quantity));
 Update deduction = new Update().inc("available", -quantity);
-return mongo.updateFirst(filter, deduction, SkuEntity.class)
+return mongo.updateFirst(filter, deduction, SkuPO.class)
     .map(result -> result.getMatchedCount() == 1);
 ~~~
 
@@ -191,7 +195,7 @@ return mongo.updateFirst(filter, deduction, SkuEntity.class)
 
 ## 用户与会话
 
-业务用户实体可继承 `UnifyPO<ObjectId>` 并实现 `SecurityLoginUser<ObjectId>`，复用 id、createTime、updateTime。登录快照使用独立类型实现 `SecurityLoginUser<String>`，ID 使用十六进制字符串。登录接口对外返回的 record 定义在相应 Facade 接口中。快照保留昵称、状态和必要的权限版本，避免包含密码哈希、验证码和敏感业务字段。
+业务用户实体可继承 `UnifyPO<ObjectId>` 并实现 `SecurityLoginUser<ObjectId>`，复用 `id`、`createdAt`、`updatedAt` 和 `version`。登录快照使用独立类型实现 `SecurityLoginUser<String>`，ID 使用十六进制字符串。登录接口对外返回的 record 定义在相应 Facade 接口中。快照保留昵称、状态和必要的权限版本，避免包含密码哈希、验证码和敏感业务字段。
 
 在 Controller、Service、Facade 注入 `PrincipalFactory`。只需用户 ID 时用 `currentUserId()`，MongoDB 主键用 `currentUserObjectId()`，读取完整快照用 `currentUser(LoginUser.class)`。框架从当前请求的 Reactor Context 读取身份。应用在业务层校验资源归属和权限。
 
@@ -240,11 +244,15 @@ spring.cloud.nacos.password=${NACOS_PASSWORD}
 
 - 网关的 `order-gateway.properties` 在 Nacos 配置 `spring.main.web-application-type=reactive`、监听地址及端口、`spring.cloud.gateway.server.webflux.routes`。业务服务的 Nacos 配置填写内网 RSocket 地址和端口，并登记实际 TCP 端口。连接数、超时等框架参数也由对应项目的配置文件提供。连接池、监听端口与路由的热更新需逐项验证，涉及启动期绑定的值按发布流程重启。
 
+本地配置只保留 Nacos 引导属性，业务、数据库、MQ、锁和网关配置写入 Nacos。Data ID 使用 `<项目名>.properties`。
+
 ## RSocket、网关与聊天
 
 RSocket 提供端、RPC 调用方和 reactive 网关通过 Maven 依赖与配置自动装配。Spring Boot 启动类使用 `@SpringBootApplication`。使用 Nacos 时配置各项目的应用名、连接信息与发现组。
 
-Java RPC 的 Facade 方法写完整的 `@MessageMapping`，例如 `order.orderFacade.find`。首段 `order` 是服务发现名，同一个 Facade 的方法使用同一服务名。调用方通过 `@RSocketRpc` 注入 Facade。需要同时提供网关入口时，在同一个注解中加上以 `/` 开头的固定路径，由网关的 `rb://<服务名>` 或 `ws://<服务名>` 路由转发。仅经网关访问的方法放在 `@Controller` 中，直接声明斜杠路径。使用默认的 Spring Boot 包结构。Facade JAR 只放接口和契约类型，提供方实现留在 service 模块。
+Java RPC 的提供类使用 `@RSocketFacade`，每个实现类关联一个最具体的 `*Facade` 接口。调用方通过 `@RSocketRpc("order")` 指定目标 Nacos 服务。提供方读取 `spring.application.name`，两端按相同规则生成 `order.orderFacade.find`。公开的是接口抽象方法，默认方法留在客户端本地执行。同一服务禁止路由重名和 Facade 方法重载，冲突时启动失败。
+
+网关的普通 HTTP 和 WSS 在独立 `@Controller` 上声明固定的斜杠 `@MessageMapping` 路径，按服务路由转发。框架自动接入应用的 Spring `Validator`。入参需要校验时在方法参数和 record 上声明 `@Valid` 与约束注解。Facade JAR 放接口与契约类型，提供方实现放 service 模块。
 
 ### HTTP 按返回类型选择交互方式
 
@@ -297,7 +305,7 @@ spring.cloud.gateway.server.webflux.routes[1].filters[0]=StripPrefix=1
 
 每条 WebSocket 文本消息包含一个 JSON 请求值。每个响应元素独立发送一条 JSON 文本消息，例如 `{"serviceCode":"E00000000","serviceMessage":"操作成功","data":[{"sku":"A1"}]}`。业务失败发送错误外壳，`data` 为 `[]`，随后关闭连接。客户端可在同一个连接上先收到回复再发送下一条请求。
 
-服务 A 可以将入站 `Flux<I>` 传给服务 B 的 Facade，由服务 B 的 `BiFlux<O>` 直接返回给 A。B 的 Facade 使用点分隔的 `@MessageMapping`，A 用 `@RSocketRpc` 注入。前端到网关是 WebSocket JSON，网关到 A 是 RSocket JSON，A 到 B 是 RSocket Fory。业务逻辑保留响应式链路，取消随订阅传递。
+服务 A 可以将入站 `Flux<I>` 传给服务 B 的 Facade，由服务 B 的 `BiFlux<O>` 直接返回给 A。B 的实现用 `@RSocketFacade`，A 用 `@RSocketRpc("service-b")` 注入。前端到网关是 WebSocket JSON，网关到 A 是 RSocket JSON，A 到 B 是 RSocket Fory。业务逻辑保留响应式链路，取消随订阅传递。
 
 Java 服务间原生 RPC 固定使用 Apache Fory。提供方依赖 `lambda-framework-rsocket`，调用方依赖 `lambda-framework-rpc`。Spring Boot 自动配置编解码器，框架从已声明的请求、响应类型中自动收集 record、嵌套泛型、枚举和框架分页类型。保持 Facade 契约同版。签名之外的多态子类型用 `ForyRpcTypes` 显式注册。服务端拒绝用 JSON 或二进制连接调用点分隔的原生 RPC 路由。网关 JSON 业务路由使用 `/` 前缀。Java RPC 身份元数据使用 Fory，网关到服务的身份元数据使用 JSON。
 

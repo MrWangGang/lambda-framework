@@ -222,8 +222,10 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
                     dto.getNode().setOrganizationId(e.getOrganizationId());
                     dto.getNode().setParentId(e.getParentId());
                     //将统一的信息复制过去
-                    dto.getNode().setCreateTime(e.getCreateTime());
-                    dto.getNode().setUpdateTime(e.getUpdateTime());
+                    dto.getNode().setCreatedAt(e.getCreatedAt());
+                    if (dto.getNode().getVersion() == null) {
+                        dto.getNode().setVersion(e.getVersion());
+                    }
 
                     return super.update(dto.getNode());
                 }).then();

@@ -6,7 +6,7 @@ import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
 public enum RpcExceptionEnum implements ExceptionEnumFunction {
     ES_RPC_000("ES_RPC_000", "@RSocketRpc 只能标注接口类型的字段"),
-    ES_RPC_003("ES_RPC_003", "Facade 方法须声明一个点分隔的 @MessageMapping 路由"),
+    ES_RPC_003("ES_RPC_003", "Facade 方法未注册 RPC 路由"),
     ES_RPC_004("ES_RPC_004", "Facade 方法的服务名须一致"),
     ES_RPC_013("ES_RPC_013", "无效的 RSocket RPC 客户端"),
     ES_RPC_014("ES_RPC_014", "Facade 方法最多接收一个非空参数"),

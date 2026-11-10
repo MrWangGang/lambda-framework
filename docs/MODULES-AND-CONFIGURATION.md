@@ -55,4 +55,4 @@ return locks.getLock("order:" + id)
 - 网关依赖 `lambda-framework-gateway`，使用 reactive 模式。HTTP 路由用 `rb://服务名`，WSS 路由用 `ws://服务名`，按服务划分路径前缀。
 - 业务提供方配置 RSocket TCP 端口。Nacos 客户端配置各应用名、namespace 和 group，Data ID 为 `<项目名称>.properties`。集群环境使用可达的 Nacos 入口。
 - 网关加 `lambda-framework-security` 即启用 Redis 令牌认证。公开路径写在 `lambda.security.permit-paths`，其他路径由 Bearer 令牌认证。服务通过 `PrincipalFactory` 获取身份。RSocket TCP 端口仅允许网关和可信服务访问。
-- Spring Bean 以构造函数注入。普通业务 Controller 写斜杠 `@MessageMapping`。Java Facade 依赖契约 JAR，提供方实现用 `@RSocketFacade`，调用方用 `@RSocketRpc`。
+- Spring Bean 以构造函数注入。普通业务 Controller 写斜杠 `@MessageMapping`。Java Facade 依赖契约 JAR，提供方实现用 `@RSocketFacade`，调用方用 `@RSocketRpc("服务名")`，方法路由自动生成。
