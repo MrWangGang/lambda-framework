@@ -1,10 +1,12 @@
-package org.lambda.framework.rpc.adapter;
+package org.lambda.framework.rpc.proxy;
 
 import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
 import org.lambda.framework.common.enums.RSocketContract;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.RpcRoutes;
+import org.lambda.framework.common.util.OptionalUtil;
+import org.lambda.framework.common.util.ReactiveValues;
 import org.lambda.framework.common.support.BiFlux;
 import org.lambda.framework.common.support.UiFlux;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
@@ -96,9 +98,11 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
             throw new IllegalArgumentException("A streaming request requires BiFlux<O> return: " + method);
         }
         var bodyType = ParameterizedTypeReference.forType(returnType.getActualTypeArguments()[0]);
-        var connection = requester.switchIfEmpty(Mono.error(new EventException(ES_RPC_013)));
+        var connection = ReactiveValues.require(requester, () -> new EventException(ES_RPC_013));
         if (resultType == Mono.class) {
-            return connection.flatMap(rpc -> rpc.retrieveMono(principalStash, route, data, bodyType));
+            var result = connection.flatMap(rpc -> rpc.retrieveMono(principalStash, route, data, bodyType));
+            return bodyType.getType() == Void.class
+                    ? result : ReactiveValues.require(result, () -> new EventException(ES_RPC_017));
         }
         var values = connection.flatMapMany(rpc -> rpc.retrieveFlux(principalStash, route, data, bodyType));
         if (resultType == Flux.class) {
@@ -133,10 +137,10 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
         if (arguments == null || arguments.length == 0) {
             return new byte[0];
         }
-        if (arguments.length != 1 || arguments[0] == null) {
+        if (arguments.length != 1) {
             throw new EventException(ES_RPC_014);
         }
-        return arguments[0];
+        return OptionalUtil.require(arguments[0], () -> new EventException(ES_RPC_014));
     }
 
 }

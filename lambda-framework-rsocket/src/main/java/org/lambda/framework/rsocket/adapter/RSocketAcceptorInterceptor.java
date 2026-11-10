@@ -1,5 +1,6 @@
 package org.lambda.framework.rsocket.adapter;
 
+import org.lambda.framework.rsocket.error.RsocketGlobalExceptionHandler;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import io.netty.util.ReferenceCountUtil;
 import io.rsocket.Payload;
@@ -11,7 +12,7 @@ import io.rsocket.util.RSocketProxy;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.enums.RSocketContract;
 import org.lambda.framework.common.support.SecurityStash;
-import org.lambda.framework.common.util.sample.JsonUtil;
+import org.lambda.framework.common.util.JsonUtil;
 import org.reactivestreams.Publisher;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
@@ -31,7 +32,7 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
     private static final MimeType FORY = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
     private static final ResolvableType IDENTITY_TYPE = ResolvableType.forClass(SecurityStash.class);
     private static final int MAX_IDENTITY_BYTES = 48 * 1024;
-    private static final com.fasterxml.jackson.databind.ObjectReader JSON_IDENTITY = JsonUtil.getJsonFactory()
+    private static final com.fasterxml.jackson.databind.ObjectReader JSON_IDENTITY = JsonUtil.mapper()
             .readerFor(SecurityStash.class).with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
                     DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final SecurityStash ANONYMOUS = new SecurityStash();

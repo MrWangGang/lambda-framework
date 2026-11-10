@@ -17,7 +17,7 @@ public class ResponseTemplete implements Serializable {
 
     private String serviceCode = JsonSymbolicFinalConfig.DEFAULT_SUCCESS_SERVICE_CODE;
 
-    private String serviceMessage = JsonSymbolicFinalConfig.DEFAULT_SUCCESS_SERVICE_MESSAGE;;
+    private String serviceMessage = JsonSymbolicFinalConfig.DEFAULT_SUCCESS_SERVICE_MESSAGE;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Object data;

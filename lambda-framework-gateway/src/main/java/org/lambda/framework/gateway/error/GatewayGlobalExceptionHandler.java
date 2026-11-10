@@ -1,12 +1,13 @@
-package org.lambda.framework.gateway.adapter;
+package org.lambda.framework.gateway.error;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.rsocket.exceptions.ConnectionErrorException;
-import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.common.exception.basic.GlobalException;
+import org.lambda.framework.common.exception.ExceptionEnumFunction;
+import org.lambda.framework.gateway.enums.GatewayExceptionEnum;
 import org.lambda.framework.common.templete.ResponseTemplete;
-import org.lambda.framework.common.util.sample.JsonUtil;
+import org.lambda.framework.common.util.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
@@ -26,8 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 
-import static org.lambda.framework.common.exception.basic.GlobalException.EX_PRIEX;
-import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_000;
+import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.*;
 
 
 /**
@@ -51,7 +51,7 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
         GatewayInteraction interaction = exchange.getAttribute(INTERACTION_ATTRIBUTE);
         boolean ndjson = interaction != null && interaction.isNdjson();
         return writeResponse(response, errorResponse(response, throwable,
-                interaction != null && interaction != GatewayInteraction.REQUEST_RESPONSE), ndjson);
+                interaction != null && !interaction.isUnary()), ndjson);
     }
 
     public static ResponseTemplete errorResponse(ServerHttpResponse response, Throwable throwable, boolean arrayData) {
@@ -70,52 +70,57 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
                 response.setStatusCode(HttpStatus.OK);
             }
         }
-        var result = upstreamUnavailable ? result(ES_GATEWAY_000.getCode(), "RSocket upstream unavailable")
-                : handleTransferException(throwable);
+        var result = upstreamUnavailable ? result(UPSTREAM_UNAVAILABLE) : handleTransferException(throwable);
         if (arrayData) {
             result.setData(List.of());
         }
         return result;
     }
 
-    private static ResponseTemplete handleTransferException(Throwable e) {
-        if (!(e instanceof ErrorResponse) && !(e instanceof DataBufferLimitException)) {
-            logger.error("Gateway request failed", e);
+    private static ResponseTemplete handleTransferException(Throwable error) {
+        if (error instanceof ErrorResponse http) {
+            GatewayExceptionEnum code = switch (http.getStatusCode().value()) {
+                case 400, 415, 422 -> INVALID_REQUEST;
+                case 401, 403 -> NO_ACCESS;
+                case 404 -> NOT_FOUND;
+                case 405, 426 -> NOT_ALLOWED;
+                case 413 -> CONTENT_TOO_LARGE;
+                case 502 -> RESPONSE_MISSING;
+                case 503 -> UPSTREAM_UNAVAILABLE;
+                case 504 -> TIMEOUT;
+                default -> ES_GATEWAY_000;
+            };
+            return result(code);
         }
-        //抛出内部的错误
-        if(e instanceof GlobalException) {
-            GlobalException globalException = (GlobalException)e;
-            return result(globalException.getCode(), globalException.getMessage());
+        if (error instanceof DataBufferLimitException) {
+            return result(CONTENT_TOO_LARGE);
         }
-
-        if(StringUtils.isBlank(e.getMessage())){
-            return result(ES_GATEWAY_000.getCode(), ES_GATEWAY_000.getMessage());
+        if (error instanceof GlobalException known) {
+            return result(known.getCode(), known.getMessage());
         }
-        // 找到第一个冒号的位置
-        int index = e.getMessage().indexOf(EX_PRIEX);
-        if (index != -1) {
-            // 获取第一个冒号前面的字符串
-            String firstPart = e.getMessage().substring(0, index);
-            // 获取第一个冒号后面的字符串
-            String secondPart = e.getMessage().substring(index + EX_PRIEX.length());
-            return result(firstPart,secondPart);
-        } else {
-            // 如果没有找到冒号，则输出原始错误信息
-            return result(ES_GATEWAY_000.getCode(), StringUtils.isBlank(e.getMessage())?ES_GATEWAY_000.getMessage():e.getMessage());
-        }
+        return GlobalException.fromSerialized(error.getMessage())
+                .map(known -> result(known.getCode(), known.getMessage()))
+                .orElseGet(() -> {
+                    logger.error("Gateway request failed", error);
+                    return result(ES_GATEWAY_000);
+                });
     }
 
-    private static ResponseTemplete result(String code, String message){
-        ResponseTemplete responseTemplete = new ResponseTemplete();
-        responseTemplete.setServiceCode(code);
-        responseTemplete.setServiceMessage(message);
-        return responseTemplete;
+    private static ResponseTemplete result(ExceptionEnumFunction error) {
+        return result(error.getCode(), error.getMessage());
+    }
+
+    private static ResponseTemplete result(String code, String message) {
+        var response = new ResponseTemplete();
+        response.setServiceCode(code);
+        response.setServiceMessage(message);
+        return response;
     }
 
     private Mono<Void> writeResponse(ServerHttpResponse response, ResponseTemplete errorBody, boolean ndjson) {
         response.getHeaders().setContentType(ndjson ? MediaType.APPLICATION_NDJSON : MediaType.APPLICATION_JSON);
         try {
-            byte[] json = JsonUtil.getJsonFactory().writeValueAsBytes(errorBody);
+            byte[] json = JsonUtil.mapper().writeValueAsBytes(errorBody);
             byte[] bytes = ndjson ? Arrays.copyOf(json, json.length + 1) : json;
             if (ndjson) {
                 bytes[json.length] = '\n';

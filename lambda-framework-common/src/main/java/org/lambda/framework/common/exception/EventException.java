@@ -14,6 +14,9 @@ public class EventException extends GlobalException {
     }
 
     public EventException(ExceptionEnumFunction error, String message) {
-        super(error.getCode(),message);
+        this(error);
+        if (message != null && !message.isBlank()) {
+            initCause(new IllegalStateException(message));
+        }
     }
 }

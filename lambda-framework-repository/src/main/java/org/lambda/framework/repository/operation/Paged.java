@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
+import org.lambda.framework.common.util.OptionalUtil;
 
 import java.util.List;
 
@@ -23,5 +24,10 @@ public class Paged<Entity> {
 
     private Integer pages;
 
-    private List<Entity> records;
+    @Builder.Default
+    private List<Entity> records = List.of();
+
+    public List<Entity> getRecords() {
+        return OptionalUtil.listOrEmpty(records);
+    }
 }

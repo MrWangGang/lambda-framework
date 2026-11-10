@@ -1,26 +1,19 @@
 package org.lambda.framework.loadbalance.enums;
 
 import lombok.Getter;
-import lombok.Setter;
 import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
+@Getter
 public enum LoadBalanceExceptionEnum implements ExceptionEnumFunction {
+    EB_LOADBALANCE_001("S0400001", "所需服务不可用"),
+    EB_LOADBALANCE_005("S0400005", "所需服务不可用"),
+    EB_LOADBALANCE_006("S0400006", "所需服务不可用");
 
-    EB_LOADBALANCE_001("EB_LOADBALANCE_001", "调用服务名不能为空"),
-    EB_LOADBALANCE_005("EB_LOADBALANCE_005", "调用服务的地址不能为空"),
-    EB_LOADBALANCE_006("EB_LOADBALANCE_006", "调用服务的端口不能为空");
+    private final String code;
+    private final String message;
 
-    @Getter
-    @Setter
-    private String code;
-
-    @Getter
-    @Setter
-    private String message;
-    // 构造方法
-    private LoadBalanceExceptionEnum(String code, String message) {
+    LoadBalanceExceptionEnum(String code, String message) {
         this.code = code;
         this.message = message;
-
     }
 }

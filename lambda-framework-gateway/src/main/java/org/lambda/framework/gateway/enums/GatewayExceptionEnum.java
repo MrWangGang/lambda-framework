@@ -1,33 +1,25 @@
 package org.lambda.framework.gateway.enums;
 
 import lombok.Getter;
-import lombok.Setter;
 import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
+@Getter
 public enum GatewayExceptionEnum implements ExceptionEnumFunction {
+    ES_GATEWAY_000("S0100000", "系统繁忙，请稍后重试"),
+    UPSTREAM_UNAVAILABLE("S0100001", "服务暂不可用，请稍后重试"),
+    INVALID_REQUEST("S0100002", "请求参数不正确"),
+    NOT_FOUND("S0100003", "找不到请求的内容"),
+    NOT_ALLOWED("S0100004", "暂不支持此操作"),
+    RESPONSE_MISSING("S0100005", "未获取到所需结果"),
+    CONTENT_TOO_LARGE("S0100006", "内容过大，请缩小后重试"),
+    TIMEOUT("S0100007", "请求超时，请重试"),
+    NO_ACCESS("S0100008", "没有权限执行此操作");
 
-    //系统异常-普通异常 0-99
-    ES_GATEWAY_000("ES_GATEWAY_000","系统错误[未知]");
+    private final String code;
+    private final String message;
 
-
-
-
-
-
-
-    // 成员变量
-
-    @Getter
-    @Setter
-    private String code;
-
-    @Getter
-    @Setter
-    private String message;
-    // 构造方法
-    private GatewayExceptionEnum(String code, String message) {
+    GatewayExceptionEnum(String code, String message) {
         this.code = code;
         this.message = message;
-
     }
 }

@@ -1,4 +1,4 @@
-package org.lambda.framework.rsocket.adapter;
+package org.lambda.framework.rsocket.codec;
 
 import org.lambda.framework.common.annotation.rsocket.RSocketFacade;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpc;

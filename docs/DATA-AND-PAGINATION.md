@@ -14,7 +14,7 @@
 
 ## 2. 公共实体
 
-所有 MongoDB 集合实体继承 `UnifyPO<ObjectId>`，统一持久化 `_id`、`createdAt`、`updatedAt` 和 `version`。Spring Data 审计负责实体写入，原子更新使用 `MongoAuditUpdates`。业务需要的租户、软删除等字段由实体单独定义。 [统一字段规范](Java后端开发与架构规范.md#实体注解与主键)
+所有 MongoDB 集合实体继承 `UnifyPO<ObjectId>`，统一持久化 `_id`、`createdAt`、`updatedAt` 和 `version`。Spring Data 审计负责实体写入，原子更新使用 `MongoAuditUpdates`。业务需要的租户、软删除等字段由实体单独定义。 [统一字段规范](../skills/lambda-java-backend/SKILL.md#实体注解与主键)
 
 ### 旧集合迁移
 

@@ -1,6 +1,7 @@
-package org.lambda.framework.gateway.filter.support;
+package org.lambda.framework.gateway.forward;
 
 import org.lambda.framework.common.enums.GatewayInteraction;
+import org.lambda.framework.common.util.ReactiveValues;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
@@ -27,12 +28,12 @@ final class RsocketStreamRoutes {
     }
 
     private Mono<Map<String, GatewayInteraction>> cachedLookup(String service) {
-        return loadbalance.build(MediaType.APPLICATION_JSON, service)
+        var lookup = loadbalance.build(MediaType.APPLICATION_JSON, service)
                 .flatMap(requester -> requester.retrieveMono(Mono::empty, GatewayInteraction.DISCOVERY_ROUTE,
                         new byte[0], INTERACTIONS))
                 .map(Map::copyOf)
-                .timeout(Duration.ofMillis(500))
-                .switchIfEmpty(Mono.error(() -> new IllegalStateException("Empty route contract response")))
+                .timeout(Duration.ofMillis(500));
+        return ReactiveValues.require(lookup, () -> new IllegalStateException("Empty route contract response"))
                 .onErrorMap(error -> new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                         "RSocket route contract unavailable", error))
                 .cache(ignored -> Duration.ofSeconds(30), error -> Duration.ofSeconds(1), () -> Duration.ZERO);

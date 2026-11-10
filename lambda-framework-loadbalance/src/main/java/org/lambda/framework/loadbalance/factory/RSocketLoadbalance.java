@@ -11,6 +11,7 @@ import jakarta.annotation.PreDestroy;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.enums.RSocketContract;
 import org.lambda.framework.common.support.PrincipalStash;
+import org.lambda.framework.common.util.OptionalUtil;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -155,7 +156,7 @@ public class RSocketLoadbalance {
     }
 
     private Flux<List<LoadbalanceTarget>> loadBalanceTargets(RequesterKey key, Sinks.Many<Boolean> reconnect) {
-        return Mono.fromCallable(() -> discoveryClient.getInstances(key.target()).stream()
+        return Mono.fromCallable(() -> OptionalUtil.listOrEmpty(discoveryClient.getInstances(key.target())).stream()
                         .flatMap(instance -> {
                             String address = instance.getHost() + ":" + instance.getPort();
                             var transport = new RecoveringTransport(

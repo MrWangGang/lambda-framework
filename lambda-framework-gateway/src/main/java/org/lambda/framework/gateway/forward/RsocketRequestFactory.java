@@ -1,4 +1,4 @@
-package org.lambda.framework.gateway.filter.support;
+package org.lambda.framework.gateway.forward;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -8,8 +8,10 @@ import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.common.templete.ResponseTemplete;
-import org.lambda.framework.common.util.sample.JsonUtil;
-import org.lambda.framework.gateway.adapter.GatewayGlobalExceptionHandler;
+import org.lambda.framework.common.util.JsonUtil;
+import org.lambda.framework.common.util.OptionalUtil;
+import org.lambda.framework.common.util.ReactiveValues;
+import org.lambda.framework.gateway.error.GatewayGlobalExceptionHandler;
 import org.lambda.framework.gateway.filter.GatewayFilter;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.beans.factory.ObjectProvider;
@@ -40,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO;
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO_CHAR;
@@ -54,7 +57,7 @@ public class RsocketRequestFactory {
     private static final byte[] OBJECT_START = DATA_START.getBytes(StandardCharsets.UTF_8);
     private static final byte[] ARRAY_START = (DATA_START + "[").getBytes(StandardCharsets.UTF_8);
     private static final byte[] ARRAY_END = {']', '}'};
-    private static final JsonFactory UTF8_JSON = JsonUtil.getJsonFactory().getFactory().copy()
+    private static final JsonFactory UTF8_JSON = JsonUtil.mapper().getFactory().copy()
             .disable(JsonFactory.Feature.CHARSET_DETECTION);
 
     private final RSocketLoadbalance loadbalance;
@@ -89,7 +92,7 @@ public class RsocketRequestFactory {
         this.lineDecoder = StringDecoder.allMimeTypes(List.of("\n"), true);
         this.lineDecoder.setMaxInMemorySize(maxRequestBytes);
         this.lineDecoder.setDefaultCharset(StandardCharsets.UTF_8);
-        this.channelJsonDecoder = new Jackson2JsonDecoder(JsonUtil.getJsonFactory());
+        this.channelJsonDecoder = new Jackson2JsonDecoder(JsonUtil.mapper());
         this.channelJsonDecoder.setMaxInMemorySize(maxRequestBytes);
     }
 
@@ -106,10 +109,8 @@ public class RsocketRequestFactory {
             if (interaction != GatewayInteraction.REQUEST_CHANNEL) {
                 return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public channel for this path"));
             }
-            var webSocketService = webSocketServices.getIfAvailable();
-            if (webSocketService == null) {
-                return Mono.error(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "WebSocket service unavailable"));
-            }
+            var webSocketService = OptionalUtil.require(webSocketServices.getIfAvailable(),
+                    () -> new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "WebSocket service unavailable"));
             return Mono.defer(principalStash::setSecurityStash)
                     .switchIfEmpty(Mono.fromSupplier(SecurityStash::new))
                     .flatMap(stash -> webSocketService.handleRequest(exchange,
@@ -178,7 +179,7 @@ public class RsocketRequestFactory {
         return interaction(route).flatMap(interaction -> {
             exchange.getAttributes().put(GatewayGlobalExceptionHandler.INTERACTION_ATTRIBUTE, interaction);
             MediaType contentType = resolveContentType(metadata, headers);
-            return forward(exchange, route, interaction, contentType == null ? MediaType.APPLICATION_JSON : contentType);
+            return forward(exchange, route, interaction, contentType);
         });
     }
 
@@ -187,10 +188,8 @@ public class RsocketRequestFactory {
         if (!GatewayInteraction.isPublicPath(path)) {
             return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public MessageMapping for this path"));
         }
-        return streamRoutes.forService(route.host())
-                .flatMap(interactions -> Mono.justOrEmpty(interactions.get(path)))
-                .switchIfEmpty(Mono.error(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "No public MessageMapping for this path")));
+        return streamRoutes.forService(route.host()).map(interactions -> OptionalUtil.find(interactions, path)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No public MessageMapping for this path")));
     }
 
     private Mono<Void> forward(ServerWebExchange exchange, GatewayFilter.GlobalFilterRoute route,
@@ -229,9 +228,10 @@ public class RsocketRequestFactory {
         Mono<byte[]> body = DataBufferUtils.join(request.getBody(), maxRequestBytes)
                 .map(RsocketRequestFactory::readAndRelease)
                 .defaultIfEmpty(EMPTY_BODY);
-        boolean requestStream = interaction != GatewayInteraction.REQUEST_RESPONSE;
+        boolean requestStream = !interaction.isUnary();
         boolean json = MediaType.APPLICATION_JSON.equals(mimeType);
-        String binaryEcho = json ? null : option(route.metadata(), "rsocketEcho", request.getHeaders().getFirst(RSOCKET_ECHO));
+        String binaryEcho = json ? "" : option(route.metadata(), "rsocketEcho")
+                .or(() -> Optional.ofNullable(request.getHeaders().getFirst(RSOCKET_ECHO))).orElse("");
         Class<?> responseType = RSOCKET_ECHO_CHAR.equals(binaryEcho) ? String.class : Object.class;
         if (interaction.isNdjson()) {
             return stream(response, body.flatMapMany(bytes -> requester(mimeType, route, true)
@@ -246,17 +246,16 @@ public class RsocketRequestFactory {
                             .map(RsocketRequestFactory::encode);
                 return collectArray(encoded);
             }
+            if (interaction == GatewayInteraction.REQUEST_VOID || !json && RSOCKET_ECHO_VOID.equals(binaryEcho)) {
+                return rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, Void.class).thenReturn(EMPTY_RESPONSE);
+            }
             if (json) {
-                return rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, byte[].class)
-                        .map(value -> wrapJsonObject(validateJson(value))).defaultIfEmpty(EMPTY_RESPONSE);
+                var value = rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, byte[].class)
+                        .map(this::validateJson).filter(reply -> reply.length != 0);
+                return requireReply(value).map(this::wrapJsonObject);
             }
-            if (RSOCKET_ECHO_VOID.equals(binaryEcho)) {
-                return rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, Void.class)
-                        .thenReturn(EMPTY_RESPONSE);
-            }
-            return rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, responseType)
-                    .map(this::encodeResponse)
-                    .defaultIfEmpty(EMPTY_RESPONSE);
+            return requireReply(rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, responseType))
+                    .map(this::encodeResponse);
         }));
         return result.timeout(requestTimeout, Mono.error(() -> new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT,
                         "RSocket request timed out")))
@@ -289,34 +288,35 @@ public class RsocketRequestFactory {
         return loadbalance.buildForService(mimeType, route.host(), connections);
     }
 
+    private static <T> Mono<T> requireReply(Mono<T> response) {
+        return ReactiveValues.require(response,
+                () -> new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Required RSocket response is empty"));
+    }
+
     private static MediaType resolveContentType(Map<String, Object> metadata, HttpHeaders headers) {
-        String configuredContentType = option(metadata, "rsocketContentType", null);
-        MediaType contentType;
+        Optional<MediaType> contentType;
         try {
-            contentType = headers.getContentType();
+            contentType = Optional.ofNullable(headers.getContentType());
         } catch (InvalidMediaTypeException error) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid HTTP media type", error);
         }
-        if (configuredContentType == null) {
-            return contentType;
-        }
-        MediaType expected = MediaType.valueOf(configuredContentType);
-        if (contentType != null && !expected.includes(contentType)) {
-            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-                    "Content-Type does not match the RSocket route");
-        }
-        return expected;
+        return option(metadata, "rsocketContentType").map(value -> {
+            MediaType expected = MediaType.valueOf(value);
+            if (contentType.filter(actual -> !expected.includes(actual)).isPresent()) {
+                throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                        "Content-Type does not match the RSocket route");
+            }
+            return expected;
+        }).orElseGet(() -> contentType.orElse(MediaType.APPLICATION_JSON));
     }
 
-    private static String option(Map<String, Object> metadata, String key, String fallback) {
-        Object value = metadata.get(key);
-        if (value == null) {
-            return fallback;
-        }
-        if (value instanceof String text && !text.isBlank()) {
-            return text;
-        }
-        throw new IllegalArgumentException("Invalid route metadata: " + key);
+    private static Optional<String> option(Map<String, Object> metadata, String key) {
+        return OptionalUtil.find(metadata, key).map(value -> {
+            if (value instanceof String text && !text.isBlank()) {
+                return text;
+            }
+            throw new IllegalArgumentException("Invalid route metadata: " + key);
+        });
     }
 
     private Mono<byte[]> collectArray(Flux<byte[]> values) {
@@ -387,9 +387,6 @@ public class RsocketRequestFactory {
     }
 
     private byte[] wrapJsonObject(byte[] value) {
-        if (value.length == 0) {
-            return EMPTY_RESPONSE;
-        }
         long size = (long) OBJECT_START.length + value.length + 1;
         if (size > maxResponseBytes) {
             throw responseLimit();
@@ -434,7 +431,7 @@ public class RsocketRequestFactory {
 
     private static byte[] encode(Object value) {
         try {
-            return JsonUtil.getJsonFactory().writeValueAsBytes(value);
+            return JsonUtil.mapper().writeValueAsBytes(value);
         } catch (JsonProcessingException error) {
             throw new IllegalStateException("Could not encode the RSocket reply", error);
         }

@@ -5,6 +5,7 @@ import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.common.support.BiFlux;
 import org.lambda.framework.common.support.UiFlux;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.ResolvableType;
 import org.springframework.messaging.handler.DestinationPatternsMessageCondition;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.rsocket.annotation.support.RSocketFrameTypeMessageCondition;
@@ -33,7 +34,7 @@ class GatewayContractController {
             Map<String, EnumSet<GatewayInteraction>> byPath = new HashMap<>();
             handlers.getObject().getHandlerMethods().forEach((mapping, handler) -> {
                 var frames = mapping.getCondition(RSocketFrameTypeMessageCondition.class).getFrameTypes();
-                var interaction = classify(handler.getMethod().getReturnType(), frames);
+                var interaction = classify(ResolvableType.forMethodReturnType(handler.getMethod(), handler.getBeanType()), frames);
                 if (interaction != null) {
                     mapping.getCondition(DestinationPatternsMessageCondition.class).getPatterns().stream()
                             .filter(GatewayInteraction::isPublicPath)
@@ -47,7 +48,8 @@ class GatewayContractController {
         });
     }
 
-    private static GatewayInteraction classify(Class<?> type, Set<FrameType> frames) {
+    private static GatewayInteraction classify(ResolvableType result, Set<FrameType> frames) {
+        Class<?> type = result.toClass();
         if (frames.contains(FrameType.REQUEST_CHANNEL) && type == BiFlux.class) {
             return GatewayInteraction.REQUEST_CHANNEL;
         }
@@ -56,7 +58,8 @@ class GatewayContractController {
                     ? GatewayInteraction.REQUEST_STREAM : GatewayInteraction.REQUEST_ARRAY;
         }
         if (Mono.class.isAssignableFrom(type) && frames.contains(FrameType.REQUEST_RESPONSE)) {
-            return GatewayInteraction.REQUEST_RESPONSE;
+            return result.getGeneric(0).resolve() == Void.class
+                    ? GatewayInteraction.REQUEST_VOID : GatewayInteraction.REQUEST_RESPONSE;
         }
         return null;
     }

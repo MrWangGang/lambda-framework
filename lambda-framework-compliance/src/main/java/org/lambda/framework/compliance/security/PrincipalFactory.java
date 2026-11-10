@@ -4,8 +4,8 @@ import org.bson.types.ObjectId;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.po.SecurityLoginUser;
 import org.lambda.framework.common.support.SecurityStash;
-import org.lambda.framework.common.util.sample.JsonUtil;
-import org.lambda.framework.common.util.sample.UUIDUtil;
+import org.lambda.framework.common.util.JsonUtil;
+import org.lambda.framework.common.util.IdUtil;
 import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -66,8 +66,8 @@ public final class PrincipalFactory {
     /** Returns the current request's user, or completes empty for an anonymous request. */
     public <T extends SecurityLoginUser<?>> Mono<T> currentUser(Class<T> type) {
         return currentIdentity().flatMap(identity -> Mono.justOrEmpty(identity.getPrincipal()))
-                .map(principal -> JsonUtil.stringToObj(principal, type)
-                        .orElseThrow(() -> new EventException(ES_COMPLIANCE_000, "用户身份无法读取")));
+                .map(principal -> JsonUtil.readRequired(principal, type,
+                        () -> new EventException(ES_COMPLIANCE_000, "用户身份无法读取")));
     }
 
     public Mono<String> currentToken() {
@@ -88,8 +88,8 @@ public final class PrincipalFactory {
     public <T extends SecurityLoginUser<?>> Mono<String> setPrincipal(T user) {
         return Mono.defer(() -> {
             String key = sessionKey(user);
-            String suffix = UUIDUtil.get();
-            var session = new Session(JsonUtil.objToString(user), suffix);
+            String suffix = IdUtil.compactUuid();
+            var session = new Session(JsonUtil.write(user), suffix);
             return redis().set(key, session, LAMBDA_SECURITY_TOKEN_TIME_SECOND)
                     .filter(Boolean.TRUE::equals).switchIfEmpty(Mono.error(invalidToken()))
                     .thenReturn(key + "." + suffix);
@@ -102,12 +102,12 @@ public final class PrincipalFactory {
             if (!parts.key().equals(sessionKey(user))) {
                 return Mono.error(invalidToken());
             }
-            return changeSession(parts.key(), List.of(parts.suffix(), JsonUtil.objToString(user)));
+            return changeSession(parts.key(), List.of(parts.suffix(), JsonUtil.write(user)));
         });
     }
 
     public <T extends SecurityLoginUser<?>> Mono<Void> revisePrincipal(T user) {
-        return Mono.defer(() -> changeSession(sessionKey(user), List.of("", JsonUtil.objToString(user))));
+        return Mono.defer(() -> changeSession(sessionKey(user), List.of("", JsonUtil.write(user))));
     }
 
     public Mono<Void> deletePrincipal() {

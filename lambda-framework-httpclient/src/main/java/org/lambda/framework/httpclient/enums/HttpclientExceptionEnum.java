@@ -1,34 +1,17 @@
 package org.lambda.framework.httpclient.enums;
 
+import lombok.Getter;
 import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
+@Getter
 public enum HttpclientExceptionEnum implements ExceptionEnumFunction {
+    ES_HTTPCLIENT_000("S1000000", "外部服务暂不可用");
 
-    ES_HTTPCLIENT_000("ES_HTTPCLIENT_000","webclient异常");
-    // 成员变量
-    private String code;
+    private final String code;
+    private final String message;
 
-    private String message;
-    // 构造方法
-    private HttpclientExceptionEnum(String code, String message) {
+    HttpclientExceptionEnum(String code, String message) {
         this.code = code;
         this.message = message;
-
     }
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
 }

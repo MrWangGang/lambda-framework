@@ -1,9 +1,9 @@
 package org.lambda.framework.gateway.filter;
 
 import jakarta.annotation.Resource;
-import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
-import org.lambda.framework.gateway.filter.support.RsocketRequestFactory;
+import org.lambda.framework.common.util.OptionalUtil;
+import org.lambda.framework.gateway.forward.RsocketRequestFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.filter.RouteToRequestUrlFilter;
@@ -34,52 +34,42 @@ public class GatewayFilter implements GlobalFilter,Ordered{
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        URI currentUri = exchange.getRequest().getURI();
-        Assert.verify(currentUri.getScheme(),ES_GATEWAY_000,"未知的请求协议");
-        String _scheme = currentUri.getScheme();
-        if(_scheme.equals(HTTP_SCHEME) || _scheme.equals(HTTPS_SCHEME)){
-            Route route = (Route)exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
-            if(route == null){
-                throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由配置信息");
-            }
-            URI targetRoute = route.getUri();
-            if(targetRoute == null){
-                throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由配置信息");
-            }
-
-            boolean webSocket = WS_SCHEME.equals(targetRoute.getScheme());
-            if (!RB_SCHEME.equals(targetRoute.getScheme()) && !webSocket) {
-                return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "No public MessageMapping for this route"));
-            }
-            if (webSocket && (targetRoute.getHost() == null || targetRoute.getPort() != -1
-                    || targetRoute.getUserInfo() != null)) {
-                return Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Use ws://service-name for this route"));
-            }
-            URI targetUri = (URI)exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR);
-            if(targetUri == null){
-                throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由信息");
-            }
-            GlobalFilterRoute mapping = new GlobalFilterRoute() {
-                @Override
-                public String host() {
-                    return targetRoute.getHost();
-                }
-
-                @Override
-                public String path() {
-                    return targetUri.getPath();
-                }
-
-                @Override
-                public Map<String, Object> metadata() {
-                    return route.getMetadata();
-                }
-            };
-            return webSocket ? rsocketRequestFactory.executeWebSocket(exchange, mapping)
-                    : rsocketRequestFactory.execute(exchange, chain, mapping);
+        String scheme = OptionalUtil.require(exchange.getRequest().getURI().getScheme(),
+                () -> new EventException(ES_GATEWAY_000, "请求协议缺失"));
+        if (!HTTP_SCHEME.equals(scheme) && !HTTPS_SCHEME.equals(scheme)) {
+            return Mono.error(new EventException(ES_GATEWAY_000, "请求协议仅支持 HTTP 与 HTTPS"));
         }
-        throw new EventException(ES_GATEWAY_000,"请求协议仅支持http与https");
+        Route route = OptionalUtil.require(exchange.<Route>getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR),
+                () -> new EventException(ES_GATEWAY_000, "该资源没有对应的路由配置"));
+        URI targetRoute = OptionalUtil.require(route.getUri());
+        boolean webSocket = WS_SCHEME.equals(targetRoute.getScheme());
+        if (!RB_SCHEME.equals(targetRoute.getScheme()) && !webSocket) {
+            return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public MessageMapping for this route"));
+        }
+        String service = OptionalUtil.require(targetRoute.getHost(),
+                () -> new ResponseStatusException(HttpStatus.BAD_GATEWAY, "RSocket route has no service name"));
+        if (webSocket && (targetRoute.getPort() != -1 || targetRoute.getUserInfo() != null)) {
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Use ws://service-name for this route"));
+        }
+        URI targetUri = OptionalUtil.require(exchange.<URI>getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR));
+        GlobalFilterRoute mapping = new GlobalFilterRoute() {
+            @Override
+            public String host() {
+                return service;
+            }
+
+            @Override
+            public String path() {
+                return targetUri.getPath();
+            }
+
+            @Override
+            public Map<String, Object> metadata() {
+                return route.getMetadata();
+            }
+        };
+        return webSocket ? rsocketRequestFactory.executeWebSocket(exchange, mapping)
+                : rsocketRequestFactory.execute(exchange, chain, mapping);
     }
     @Override
     public int getOrder() {

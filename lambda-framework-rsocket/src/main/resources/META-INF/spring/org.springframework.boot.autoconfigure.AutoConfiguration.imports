@@ -1,2 +1,2 @@
-org.lambda.framework.rsocket.adapter.RSocketStrategiesConfig
+org.lambda.framework.rsocket.codec.RSocketStrategiesConfig
 org.lambda.framework.rsocket.adapter.RsocketInterceptorConfig

@@ -1,51 +1,30 @@
 package org.lambda.framework.mq.enums;
 
+import lombok.Getter;
 import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
+@Getter
 public enum MqExceptionEnum implements ExceptionEnumFunction {
+    ES_MQ_RABBITMQ_000("S0810000", "消息暂未处理，请稍后重试"),
+    ES_MQ_RABBITMQ_001("S0810001", "消息暂未处理，请稍后重试"),
+    ES_MQ_RABBITMQ_002("S0810002", "消息暂未处理，请稍后重试"),
+    ES_MQ_RABBITMQ_003("S0810003", "消息暂未处理，请稍后重试"),
+    ES_MQ_RABBITMQ_004("S0810004", "消息暂未处理，请稍后重试"),
+    ES_MQ_RABBITMQ_005("S0810005", "消息暂未处理，请稍后重试"),
+    ES_MQ_RABBITMQ_006("S0810006", "消息暂未处理，请稍后重试"),
+    ES_MQ_RABBITMQ_007("S0810007", "消息暂未处理，请稍后重试"),
+    ES_MQ_RABBITMQ_008("S0810008", "消息暂未处理，请稍后重试"),
+    ES_MQ_KAFKA_000("S0820000", "消息暂未处理，请稍后重试"),
+    ES_MQ_KAFKA_001("S0820001", "消息暂未处理，请稍后重试"),
+    ES_MQ_KAFKA_002("S0820002", "消息暂未处理，请稍后重试"),
+    ES_MQ_KAFKA_003("S0820003", "消息暂未处理，请稍后重试"),
+    ES_MQ_000("S0800000", "消息暂未处理，请稍后重试");
 
-    ES_MQ_RABBITMQ_000("ES_MQ_RABBITMQ_000","rabbitmq缺少host配置"),
-    ES_MQ_RABBITMQ_001("ES_MQ_RABBITMQ_001","rabbitmq缺少user配置"),
-    ES_MQ_RABBITMQ_002("ES_MQ_RABBITMQ_002","rabbitmq缺少password配置"),
-    ES_MQ_RABBITMQ_003("ES_MQ_RABBITMQ_003","rabbitmq缺少clientProvidedName配置"),
-    ES_MQ_RABBITMQ_004("ES_MQ_RABBITMQ_004","rabbitmq缺少声明配置"),
-    ES_MQ_RABBITMQ_005("ES_MQ_RABBITMQ_005","延迟队列缺少时间"),
-    ES_MQ_RABBITMQ_006("ES_MQ_RABBITMQ_006","延迟队列缺少消息ID"),
-    ES_MQ_RABBITMQ_007("ES_MQ_RABBITMQ_007","延迟队列缺少消息主体"),
-    ES_MQ_RABBITMQ_008("ES_MQ_RABBITMQ_008","延迟队列缺少消息头"),
+    private final String code;
+    private final String message;
 
-    ES_MQ_KAFKA_000("ES_MQ_KAFKA_000","kafkamq缺少host配置"),
-    ES_MQ_KAFKA_001("ES_MQ_KAFKA_001","kafkamq缺少声明配置"),
-    ES_MQ_KAFKA_002("ES_MQ_KAFKA_002","kafkamq缺少消息主体"),
-    ES_MQ_KAFKA_003("ES_MQ_KAFKA_003","kafkamq缺少消息key"),
-
-
-
-    ES_MQ_000("ES_MQ_000","mq消息发送失败");
-
-
-    private String code;
-
-    private String message;
-    // 构造方法
-    private MqExceptionEnum(String code, String message) {
+    MqExceptionEnum(String code, String message) {
         this.code = code;
-        this.message = message;
-
-    }
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
         this.message = message;
     }
 }

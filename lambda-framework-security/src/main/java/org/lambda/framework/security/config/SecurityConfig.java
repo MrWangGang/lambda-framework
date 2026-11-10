@@ -2,6 +2,12 @@ package org.lambda.framework.security.config;
 
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.SecurityStash;
+import org.lambda.framework.common.templete.ResponseTemplete;
+import org.lambda.framework.common.util.JsonUtil;
+import org.lambda.framework.security.enums.SecurityExceptionEnum;
+import org.springframework.http.MediaType;
+
+import java.nio.charset.StandardCharsets;
 import org.lambda.framework.compliance.security.PrincipalFactory;
 import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -90,6 +96,13 @@ public class SecurityConfig {
     private static Mono<Void> unauthorized(ServerWebExchange exchange) {
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
-        return exchange.getResponse().setComplete();
+        var response = exchange.getResponse();
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        var body = new ResponseTemplete();
+        var error = SecurityExceptionEnum.ES_SECURITY_000;
+        body.setServiceCode(error.getCode());
+        body.setServiceMessage(error.getMessage());
+        return response.writeWith(Mono.fromSupplier(() ->
+                response.bufferFactory().wrap(JsonUtil.write(body).getBytes(StandardCharsets.UTF_8))));
     }
 }

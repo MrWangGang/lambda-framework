@@ -29,8 +29,8 @@
 @Controller
 class UserController {
     @MessageMapping("/api/user/find")
-    Mono<Detail> find(@Valid @Payload FindRequest request) {
-        return users.find(request.id());
+    Mono<Detail> find(@Payload FindRequest request) {
+        return users.find(request);
     }
 
     record FindRequest(@NotNull ObjectId id) {}
@@ -53,6 +53,8 @@ public interface UserFacade {
 
 所有 MongoDB 集合实体放在 `po` 包并以 `PO` 结尾，继承 `UnifyPO<ObjectId>`。Spring Data 审计自动维护 `createdAt`、`updatedAt` 和 `@Version`。手写更新和已有数据迁移见 [数据访问手册](docs/DATA-AND-PAGINATION.md)。
 
+Controller 负责绑定和转发。业务逻辑与校验放在 `*ServiceImpl`，Repository 负责数据读写。
+
 ## 获取当前用户
 
 注入 `PrincipalFactory`，在当前响应式链路里调用 `currentUserId()` 或 `currentUser(LoginUser.class)`。网关校验 Redis 会话后自动透传身份。Java RPC 的身份元数据和业务请求都使用 Fory。 [用户体系用法](docs/USER-AND-SECURITY.md)
@@ -63,7 +65,6 @@ public interface UserFacade {
 <summary>展开智能体开发技能与使用入口</summary>
 
 - [Lambda Java 后端技能](skills/lambda-java-backend/SKILL.md) 定义信息收集、代码实现、检查和交付顺序。
-- [Java 后端开发与架构规范](docs/Java后端开发与架构规范.md) 定义命名、Facade、ObjectId、事务、身份、索引和分页。
 - [组件配置手册](docs/MODULES-AND-CONFIGURATION.md) 列出需要用户提供的属性、凭据引用与部署模式。
 
 </details>

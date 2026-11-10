@@ -1,5 +1,6 @@
-package org.lambda.framework.rsocket.adapter;
+package org.lambda.framework.rsocket.codec;
 
+import org.lambda.framework.rsocket.adapter.ForyRpcTypes;
 import org.apache.fory.Fory;
 import org.apache.fory.ThreadSafeFory;
 import org.apache.fory.config.Config;

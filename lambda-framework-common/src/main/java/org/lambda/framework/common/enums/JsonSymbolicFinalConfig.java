@@ -7,7 +7,7 @@ package org.lambda.framework.common.enums;
 public class JsonSymbolicFinalConfig {
 
 
-    public  static final String   DEFAULT_SUCCESS_SERVICE_CODE = "E00000000";
+    public  static final String   DEFAULT_SUCCESS_SERVICE_CODE = ServiceCodes.SUCCESS;
 
     public  static final String   DEFAULT_SUCCESS_SERVICE_MESSAGE = "操作成功";
 

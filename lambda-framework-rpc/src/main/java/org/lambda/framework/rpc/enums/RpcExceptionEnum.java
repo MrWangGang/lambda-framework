@@ -1,25 +1,21 @@
 package org.lambda.framework.rpc.enums;
 
 import lombok.Getter;
-import lombok.Setter;
 import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
+@Getter
 public enum RpcExceptionEnum implements ExceptionEnumFunction {
-    ES_RPC_000("ES_RPC_000", "@RSocketRpc 只能标注接口类型的字段"),
-    ES_RPC_003("ES_RPC_003", "Facade 方法未注册 RPC 路由"),
-    ES_RPC_004("ES_RPC_004", "Facade 方法的服务名须一致"),
-    ES_RPC_013("ES_RPC_013", "无效的 RSocket RPC 客户端"),
-    ES_RPC_014("ES_RPC_014", "Facade 方法最多接收一个非空参数"),
-    ES_RPC_015("ES_RPC_015", "返回类型必须是带具体泛型的 Mono、Flux、UiFlux 或 BiFlux"),
-    ES_RPC_016("ES_RPC_016", "注入 @RSocketRpc Facade 失败");
+    ES_RPC_000("S0300000", "暂时无法调用服务"),
+    ES_RPC_003("S0300003", "所需功能暂不可用"),
+    ES_RPC_004("S0300004", "暂时无法调用服务"),
+    ES_RPC_013("S0300013", "服务暂不可用"),
+    ES_RPC_014("S0300014", "请求参数不正确"),
+    ES_RPC_015("S0300015", "暂时无法获取结果"),
+    ES_RPC_016("S0300016", "服务暂不可用"),
+    ES_RPC_017("S0300017", "未获取到所需结果");
 
-    @Getter
-    @Setter
-    private String code;
-
-    @Getter
-    @Setter
-    private String message;
+    private final String code;
+    private final String message;
 
     RpcExceptionEnum(String code, String message) {
         this.code = code;

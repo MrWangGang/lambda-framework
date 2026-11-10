@@ -4,7 +4,7 @@ import io.lettuce.core.cluster.ClusterClientOptions;
 import io.lettuce.core.cluster.ClusterTopologyRefreshOptions;
 import org.lambda.framework.common.startup.ComponentCheck;
 import org.lambda.framework.common.startup.DeploymentMode;
-import org.lambda.framework.common.util.sample.JsonUtil;
+import org.lambda.framework.common.util.JsonUtil;
 import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -79,7 +79,7 @@ public class RedisDataAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     ReactiveRedisOperation reactiveRedisOperation(LettuceConnectionFactory factory) {
-        var json = new Jackson2JsonRedisSerializer<>(JsonUtil.getJsonFactory(), Object.class);
+        var json = new Jackson2JsonRedisSerializer<>(JsonUtil.mapper(), Object.class);
         var serialization = RedisSerializationContext.<String, Object>newSerializationContext(StringRedisSerializer.UTF_8)
                 .value(json).hashValue(json).build();
         return new ReactiveRedisOperation(factory, serialization);

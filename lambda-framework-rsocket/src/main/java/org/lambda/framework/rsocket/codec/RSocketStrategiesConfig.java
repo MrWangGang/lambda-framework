@@ -1,9 +1,10 @@
-package org.lambda.framework.rsocket.adapter;
+package org.lambda.framework.rsocket.codec;
 
+import org.lambda.framework.rsocket.adapter.ForyRpcTypes;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectReader;
-import org.lambda.framework.common.util.sample.JsonUtil;
+import org.lambda.framework.common.util.JsonUtil;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
@@ -53,7 +54,7 @@ public class RSocketStrategiesConfig implements BeanFactoryAware {
     @Bean
     @ConditionalOnMissingBean
     public RSocketStrategies rSocketStrategies() {
-        var mapper = JsonUtil.getJsonFactory();
+        var mapper = JsonUtil.mapper();
         var builder = RSocketStrategies.builder()
                 .decoder(new Jackson2JsonDecoder(mapper))
                 .encoder(new Jackson2JsonEncoder(mapper))

@@ -1,5 +1,6 @@
 package org.lambda.framework.rsocket.adapter;
 
+import org.lambda.framework.rsocket.error.RsocketGlobalExceptionHandler;
 import io.rsocket.frame.FrameType;
 import org.lambda.framework.common.annotation.rsocket.RSocketFacade;
 import org.lambda.framework.common.enums.GatewayInteraction;

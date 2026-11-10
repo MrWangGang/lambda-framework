@@ -11,6 +11,7 @@ import io.qdrant.client.grpc.Points.QueryPoints;
 import io.qdrant.client.grpc.Points.ScoredPoint;
 import io.qdrant.client.grpc.Points.UpdateResult;
 import io.qdrant.client.grpc.Points.UpsertPoints;
+import org.lambda.framework.common.util.ReactiveValues;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
@@ -38,31 +39,31 @@ public final class ReactiveQdrantOperations implements AutoCloseable {
     }
 
     public Mono<UpdateResult> upsert(UpsertPoints points) {
-        return execute(client -> client.upsertAsync(points));
+        return ReactiveValues.require(execute(client -> client.upsertAsync(points)));
     }
 
     public Mono<Boolean> collectionExists(String name) {
-        return execute(client -> client.collectionExistsAsync(name));
+        return ReactiveValues.require(execute(client -> client.collectionExistsAsync(name)));
     }
 
     public Mono<CollectionOperationResponse> createCollection(CreateCollection collection) {
-        return execute(client -> client.createCollectionAsync(collection))
+        return ReactiveValues.require(execute(client -> client.createCollectionAsync(collection)))
                 .flatMap(result -> awaitCollection(collection.getCollectionName()).thenReturn(result));
     }
 
     public Mono<Void> awaitCollection(String name) {
-        return Flux.fromIterable(clients).flatMap(client -> fromFuture(() -> client.collectionExistsAsync(name))
+        return Flux.fromIterable(clients).flatMap(client -> ReactiveValues.require(fromFuture(() -> client.collectionExistsAsync(name)))
                 .flatMap(exists -> exists ? Mono.<Void>empty()
                         : Mono.error(new IllegalStateException("Qdrant collection is not visible on every node")))
                 .retryWhen(Retry.fixedDelay(12, Duration.ofMillis(250)))).then();
     }
 
     public Mono<CollectionOperationResponse> deleteCollection(String name) {
-        return execute(client -> client.deleteCollectionAsync(name));
+        return ReactiveValues.require(execute(client -> client.deleteCollectionAsync(name)));
     }
 
     public Mono<Void> check() {
-        return Flux.fromIterable(clients).flatMap(client -> fromFuture(client::healthCheckAsync)).then();
+        return Flux.fromIterable(clients).flatMap(client -> ReactiveValues.require(fromFuture(client::healthCheckAsync))).then();
     }
 
     private <T> Mono<T> execute(Function<QdrantClient, ListenableFuture<T>> call) {
