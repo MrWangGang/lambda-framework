@@ -1,25 +1,35 @@
 package org.lambda.framework.rsocket.adapter;
 
 import io.rsocket.frame.FrameType;
+import org.lambda.framework.common.annotation.rsocket.RSocketFacade;
+import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.common.support.BiFlux;
 import org.lambda.framework.common.support.UiFlux;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.AnyNestedCondition;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.rsocket.autoconfigure.RSocketServerAutoConfiguration;
 import org.springframework.boot.rsocket.server.RSocketServerCustomizer;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.messaging.handler.DestinationPatternsMessageCondition;
 import org.springframework.messaging.rsocket.annotation.support.RSocketFrameTypeMessageCondition;
 import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
 
 import java.lang.reflect.ParameterizedType;
 import java.util.Arrays;
 
-@Configuration
-@Import({GatewayContractController.class, RsocketInterceptorConfig.RejectHttpListener.class})
-public class RsocketInterceptorConfig  {
+@AutoConfiguration(before = RSocketServerAutoConfiguration.class)
+@Conditional(RsocketInterceptorConfig.ServerConfigured.class)
+@Import({GatewayContractController.class, RsocketInterceptorConfig.RejectHttpListener.class,
+        RSocketAcceptorInterceptor.class, RsocketGlobalExceptionHandler.class})
+public class RsocketInterceptorConfig {
     @Bean
     public RSocketServerCustomizer rSocketServerCustomizer(RSocketAcceptorInterceptor interceptor,
             @Value("${lambda.rsocket.server.max-inbound-payload-bytes:16777216}") int maxInboundPayloadBytes,
@@ -33,8 +43,14 @@ public class RsocketInterceptorConfig  {
     }
 
     @Bean
-    SmartInitializingSingleton validateChannelMappings(ObjectProvider<RSocketMessageHandler> handlers) {
+    SmartInitializingSingleton validateMappings(ObjectProvider<RSocketMessageHandler> handlers) {
         return () -> handlers.ifAvailable(handler -> handler.getHandlerMethods().forEach((mapping, method) -> {
+            var destinations = mapping.getCondition(DestinationPatternsMessageCondition.class);
+            boolean nativeRoute = destinations != null && destinations.getPatterns().stream()
+                    .anyMatch(path -> !path.startsWith("/") && !GatewayInteraction.DISCOVERY_ROUTE.equals(path));
+            if (nativeRoute && !AnnotatedElementUtils.hasAnnotation(method.getBeanType(), RSocketFacade.class)) {
+                throw new IllegalStateException("Java RSocket RPC routes require @RSocketFacade on the implementation: " + method);
+            }
             var frames = mapping.getCondition(RSocketFrameTypeMessageCondition.class);
             boolean channel = frames != null && frames.getFrameTypes().contains(FrameType.REQUEST_CHANNEL);
             var adapters = handler.getRSocketStrategies().reactiveAdapterRegistry();
@@ -53,7 +69,18 @@ public class RsocketInterceptorConfig  {
         }));
     }
 
-    @Configuration(proxyBeanMethods = false)
+    static final class ServerConfigured extends AnyNestedCondition {
+        ServerConfigured() {
+            super(ConfigurationPhase.PARSE_CONFIGURATION);
+        }
+
+        @ConditionalOnProperty("spring.rsocket.server.port")
+        static class HasPort {}
+
+        @ConditionalOnProperty("spring.rsocket.server.mapping-path")
+        static class HasMappingPath {}
+    }
+
     @ConditionalOnWebApplication
     static class RejectHttpListener {
         RejectHttpListener() {

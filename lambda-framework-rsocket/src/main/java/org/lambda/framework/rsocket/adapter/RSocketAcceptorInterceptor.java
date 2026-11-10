@@ -12,7 +12,6 @@ import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.reactivestreams.Publisher;
-import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
@@ -25,7 +24,6 @@ import java.util.Optional;
 
 import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_003;
 
-@Component
 public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
 
     @Override

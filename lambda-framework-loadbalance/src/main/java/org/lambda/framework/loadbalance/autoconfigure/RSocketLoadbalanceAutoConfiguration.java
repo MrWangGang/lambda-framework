@@ -1,0 +1,31 @@
+package org.lambda.framework.loadbalance.autoconfigure;
+
+import org.lambda.framework.common.support.PrincipalStash;
+import org.lambda.framework.common.support.SecurityStash;
+import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
+import org.springframework.context.annotation.Bean;
+import org.springframework.messaging.rsocket.RSocketRequester;
+import org.springframework.messaging.rsocket.RSocketStrategies;
+import reactor.core.publisher.Mono;
+
+@AutoConfiguration
+public class RSocketLoadbalanceAutoConfiguration {
+    @Bean
+    @ConditionalOnMissingBean
+    RSocketLoadbalance rSocketLoadbalance(DiscoveryClient discoveryClient,
+            ObjectProvider<RSocketRequester.Builder> builders, RSocketStrategies strategies,
+            @Value("${lambda.rsocket.client.max-inbound-payload-bytes:16777216}") int maxInboundPayloadBytes) {
+        return new RSocketLoadbalance(discoveryClient, builders, strategies, maxInboundPayloadBytes);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    PrincipalStash rsocketPrincipalStash() {
+        return () -> Mono.deferContextual(context -> Mono.justOrEmpty(context.<SecurityStash>getOrEmpty(SecurityStash.class)));
+    }
+}

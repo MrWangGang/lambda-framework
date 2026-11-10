@@ -1,5 +1,6 @@
 package org.lambda.framework.rsocket.adapter;
 
+import org.lambda.framework.common.annotation.rsocket.RSocketFacade;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.core.BridgeMethodResolver;
@@ -7,6 +8,7 @@ import org.springframework.core.ResolvableType;
 import org.springframework.messaging.handler.DestinationPatternsMessageCondition;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.rsocket.annotation.support.RSocketMessageHandler;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.ReflectionUtils;
 
@@ -42,8 +44,9 @@ final class ForyRpcContracts {
         beans.getBeanProvider(RSocketMessageHandler.class).ifAvailable(handler ->
                 handler.getHandlerMethods().forEach((mapping, method) -> {
                     var destinations = mapping.getCondition(DestinationPatternsMessageCondition.class);
-                    if (destinations != null && destinations.getPatterns().stream()
-                            .anyMatch(path -> !path.startsWith("/") && !path.startsWith("_lambda."))) {
+                    if (AnnotatedElementUtils.hasAnnotation(method.getBeanType(), RSocketFacade.class)
+                            && destinations != null && destinations.getPatterns().stream()
+                                    .anyMatch(path -> !path.startsWith("/"))) {
                         contracts.addMethod(BridgeMethodResolver.findBridgedMethod(method.getMethod()), method.getBeanType());
                     }
                 }));

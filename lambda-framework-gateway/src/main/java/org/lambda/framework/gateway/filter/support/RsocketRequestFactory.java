@@ -23,7 +23,6 @@ import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.http.*;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.http.server.reactive.ServerHttpResponse;
-import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.reactive.socket.server.WebSocketService;
@@ -46,7 +45,6 @@ import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO;
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO_CHAR;
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO_VOID;
 
-@Component
 public class RsocketRequestFactory {
     private static final byte[] EMPTY_BODY = new byte[0];
     private static final byte[] EMPTY_RESPONSE = encode(new ResponseTemplete());

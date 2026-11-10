@@ -10,7 +10,6 @@ import org.lambda.framework.common.util.sample.JsonUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.http.HttpStatus;
@@ -36,7 +35,6 @@ import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY
  * E-mail userbean@outlook.com
  * The final interpretation of this procedure is owned by the author
  */
-@Configuration
 @Order(-2)
 public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
 

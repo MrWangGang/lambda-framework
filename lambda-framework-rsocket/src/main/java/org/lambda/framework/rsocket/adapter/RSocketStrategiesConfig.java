@@ -10,7 +10,9 @@ import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.rsocket.autoconfigure.RSocketStrategiesAutoConfiguration;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.AbstractDecoder;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -27,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-@Configuration
+@AutoConfiguration(before = RSocketStrategiesAutoConfiguration.class)
 public class RSocketStrategiesConfig implements BeanFactoryAware {
     private final List<ForyRpcTypes> foryTypes;
     private ListableBeanFactory beans;
@@ -49,6 +51,7 @@ public class RSocketStrategiesConfig implements BeanFactoryAware {
     }
 
     @Bean
+    @ConditionalOnMissingBean
     public RSocketStrategies rSocketStrategies() {
         var mapper = JsonUtil.getJsonFactory();
         var builder = RSocketStrategies.builder()

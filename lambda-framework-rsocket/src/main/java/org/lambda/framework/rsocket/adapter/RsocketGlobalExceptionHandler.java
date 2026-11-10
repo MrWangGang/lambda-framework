@@ -5,12 +5,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.exception.basic.GlobalException;
 import org.springframework.messaging.handler.invocation.MethodArgumentResolutionException;
-import org.springframework.stereotype.Component;
 
 import static org.lambda.framework.common.exception.basic.GlobalException.EX_PRIEX;
 import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.*;
 
-@Component
 public class RsocketGlobalExceptionHandler  {
     public  Throwable handleException(Throwable e) {
         GlobalException globalException;

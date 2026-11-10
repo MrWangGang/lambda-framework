@@ -11,7 +11,6 @@ import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -22,7 +21,6 @@ import java.util.Map;
 import static org.lambda.framework.gateway.enums.GatewayContract.*;
 import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_000;
 
-@Component
 public class GatewayFilter implements GlobalFilter,Ordered{
 
     public static interface GlobalFilterRoute {

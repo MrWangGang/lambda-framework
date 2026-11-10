@@ -25,7 +25,7 @@ public interface CatalogApi {
 
 这是 API 结构示意，当前示例没有 CatalogApi RPC 服务。实际使用还需要：
 
-1. 服务端以 `@Controller` 实现 Facade，继承 Facade 方法的映射。
+1. 服务端用 `@RSocketFacade` 标记实现类，继承 Facade 方法的映射。共享接口留在 Facade JAR。
 2. 客户端字段使用 `@RSocketRpc`。
 3. 配置 TCP 服务监听端口和 Nacos 服务信息。
 4. 两端使用兼容的 Facade record 与路由约定。业务服务统一使用 `@MessageMapping`。
@@ -35,13 +35,13 @@ public interface CatalogApi {
 
 ### 内部 Java RPC 使用 Fory
 
-原生 Java RPC 固定使用 `application/x-lambda-fory`。网关使用独立 JSON 连接访问以 `/` 开头的业务映射，身份元数据使用 JSON。Requester 按数据 MIME 分开缓存连接。Java 调用方和服务端均引入 `lambda-framework-rsocket` 并使用 `RSocketStrategiesConfig`。
+原生 Java RPC 固定使用 `application/x-lambda-fory`。网关使用独立 JSON 连接访问以 `/` 开头的业务映射，身份元数据使用 JSON。Requester 按数据 MIME 分开缓存连接。Java 调用方引入 `lambda-framework-rpc`，提供方引入 `lambda-framework-rsocket`，Spring Boot 自动配置 Fory 编解码。
 
 框架从调用方已注入的 Facade 和服务端原生路由收集类型。已声明的 record、嵌套泛型、枚举和 `Paged<T>` 自动注册。框架为 `ObjectId` 提供 12 字节编解码，Fory 保持类型注册校验。旧项目使用非 record DTO 或未出现在签名中的实际子类型时，可以继续用 `ForyRpcTypes` 显式注册。
 
 发布时两端使用兼容的 Facade 契约。业务网关使用 `rb://` 转发。服务端发布固定 `@MessageMapping` 路径的签名后，网关按 Mono、Flux、UiFlux、BiFlux 自动选择响应。未发布路径返回 404，契约不可用返回 503。
 
-业务服务导入 `RsocketInterceptorConfig`，设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.transport=tcp`。由 reactive 网关提供 HTTPS/WSS 对外入口。服务端 TCP 端口限网关与授权服务访问。
+业务服务设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.transport=tcp`。由 reactive 网关提供 HTTPS/WSS 对外入口。服务端 TCP 端口限网关与授权服务访问。
 
 客户端 WSS 请求使用网关的 `ws://<服务名>` 路由，映射到接受 `Flux<I>` 并返回 `BiFlux<O>` 的业务方法。网关仍通过 RSocket TCP Channel 发送 JSON。业务服务可继续向其他 Java 服务发起 Fory Channel。
 

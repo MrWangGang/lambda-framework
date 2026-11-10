@@ -24,7 +24,6 @@ import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.messaging.rsocket.RSocketStrategies;
-import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
@@ -43,7 +42,6 @@ import java.util.stream.IntStream;
 
 import static org.lambda.framework.loadbalance.enums.LoadBalanceExceptionEnum.*;
 
-@Component
 public class RSocketLoadbalance {
     private static final Logger log = LoggerFactory.getLogger(RSocketLoadbalance.class);
     private static final Retry TCP_CONNECT_RETRY = Retry.backoff(2, Duration.ofMillis(250))

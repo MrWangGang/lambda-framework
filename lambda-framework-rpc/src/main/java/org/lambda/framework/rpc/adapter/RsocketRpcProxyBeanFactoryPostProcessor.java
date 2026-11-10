@@ -1,6 +1,5 @@
 package org.lambda.framework.rpc.adapter;
 
-import jakarta.annotation.Resource;
 import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
 import org.lambda.framework.common.enums.RSocketContract;
 import org.lambda.framework.common.exception.Assert;
@@ -11,12 +10,12 @@ import org.lambda.framework.common.support.UiFlux;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.stereotype.Component;
 import org.springframework.util.MimeType;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -31,17 +30,19 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static org.lambda.framework.rpc.enums.RpcExceptionEnum.*;
 
-@Component
 public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcessor {
     private static final MimeType FORY_MIME_TYPE = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
 
     private final Map<Class<?>, Object> proxies = new ConcurrentHashMap<>();
 
-    @Resource
-    private RSocketLoadbalance rSocketLoadbalance;
+    private final ObjectProvider<RSocketLoadbalance> loadbalance;
+    private final PrincipalStash principalStash;
 
-    @Resource
-    private PrincipalStash principalStash;
+    public RsocketRpcProxyBeanFactoryPostProcessor(ObjectProvider<RSocketLoadbalance> loadbalance,
+                                                   ObjectProvider<PrincipalStash> principalStash) {
+        this.loadbalance = loadbalance;
+        this.principalStash = () -> Mono.defer(() -> principalStash.getObject().setSecurityStash());
+    }
 
     @Override
     public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
@@ -94,7 +95,8 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
             routes.put(method, route);
         }
         Assert.verify(service, ES_RPC_004);
-        var connection = rSocketLoadbalance.build(FORY_MIME_TYPE, service);
+        String targetService = service;
+        var connection = Mono.defer(() -> loadbalance.getObject().build(FORY_MIME_TYPE, targetService));
         return Proxy.newProxyInstance(facade.getClassLoader(), new Class<?>[]{facade}, (proxy, method, args) -> {
             if (method.getDeclaringClass() == Object.class) {
                 return switch (method.getName()) {
