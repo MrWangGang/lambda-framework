@@ -8,6 +8,7 @@ import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.sample.JsonUtil;
+import org.lambda.framework.gateway.adapter.GatewayGlobalExceptionHandler;
 import org.lambda.framework.gateway.filter.GatewayFilter;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,12 +36,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import static org.lambda.framework.gateway.enums.GatewayContract.*;
+import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO;
+import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO_CHAR;
+import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO_VOID;
 
 @Component
 public class RsocketRequestFactory {
     private static final byte[] EMPTY_BODY = new byte[0];
     private static final byte[] EMPTY_RESPONSE = encode(new ResponseTemplete());
+    private static final byte[] EMPTY_STREAM_LINE = line(encode(new ResponseTemplete(List.of())));
     private static final String DATA_START = new String(EMPTY_RESPONSE, StandardCharsets.UTF_8)
             .replaceFirst("}$", "") + ",\"data\":";
     private static final byte[] OBJECT_START = DATA_START.getBytes(StandardCharsets.UTF_8);
@@ -107,33 +111,21 @@ public class RsocketRequestFactory {
                 return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "No public MessageMapping for this path"));
             }
+            exchange.getAttributes().put(GatewayGlobalExceptionHandler.INTERACTION_ATTRIBUTE, interaction);
             MediaType contentType = resolveContentType(metadata, headers);
-            var format = MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(contentType)
-                    ? resolveFormat(metadata, headers, contentType)
-                    : RequestFormat.fromInteraction(interaction, contentType);
-            return forward(exchange, route, format);
+            return forward(exchange, route, interaction, contentType == null ? MediaType.APPLICATION_JSON : contentType);
         });
     }
 
-    private Mono<Void> forward(ServerWebExchange exchange, GatewayFilter.GlobalFilterRoute route, RequestFormat format) {
+    private Mono<Void> forward(ServerWebExchange exchange, GatewayFilter.GlobalFilterRoute route,
+                               GatewayInteraction interaction, MediaType contentType) {
         var request = exchange.getRequest();
-        String model = format.model();
-        String echo = format.echo();
-        if (!RSOCKET_MODEL_REQUEST_RESPONSE.equals(model) && !RSOCKET_MODEL_REQUEST_STREAM.equals(model)
-                && !RSOCKET_MODEL_REQUEST_CHANNEL.equals(model)) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid RSocket-Model"));
-        }
-        if (!RSOCKET_ECHO_OBJECT.equals(echo) && !RSOCKET_ECHO_CHAR.equals(echo) && !RSOCKET_ECHO_VOID.equals(echo)) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid RSocket-Echo"));
-        }
-        MediaType contentType = format.contentType();
-        ServerHttpResponse response = exchange.getResponse();
-        Class<?> responseType = RSOCKET_ECHO_OBJECT.equals(echo) ? Object.class : String.class;
-        if (RSOCKET_MODEL_REQUEST_CHANNEL.equals(model)) {
+        var response = exchange.getResponse();
+        if (interaction == GatewayInteraction.REQUEST_CHANNEL) {
             boolean ndjson = MediaType.APPLICATION_NDJSON.isCompatibleWith(contentType);
-            if ((!ndjson && !MediaType.APPLICATION_JSON.isCompatibleWith(contentType)) || RSOCKET_ECHO_VOID.equals(echo)) {
+            if (!ndjson && !MediaType.APPLICATION_JSON.isCompatibleWith(contentType)) {
                 return Mono.error(new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-                        "request/channel requires JSON or NDJSON input and an object or char reply"));
+                        "request/channel requires JSON or NDJSON input"));
             }
             Flux<byte[]> decodedFrames = ndjson
                     ? lineDecoder.decode(request.getBody(), ResolvableType.forClass(String.class),
@@ -150,7 +142,7 @@ public class RsocketRequestFactory {
                     .switchIfEmpty(Flux.error(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "A channel requires a first record")));
             return stream(response, requester(MediaType.APPLICATION_JSON, route, false)
-                    .flatMapMany(rpc -> rpc.retrieveChannel(principalStash, route.path(), frames, responseType)));
+                    .flatMapMany(rpc -> rpc.retrieveChannel(principalStash, route.path(), frames, Object.class)));
         }
         if (!MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
                 && !MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(contentType)) {
@@ -162,28 +154,30 @@ public class RsocketRequestFactory {
         Mono<byte[]> body = DataBufferUtils.join(request.getBody(), maxRequestBytes)
                 .map(RsocketRequestFactory::readAndRelease)
                 .defaultIfEmpty(EMPTY_BODY);
-        boolean requestStream = RSOCKET_MODEL_REQUEST_STREAM.equals(model);
-        if (requestStream && format.ndjson()) {
+        boolean requestStream = interaction != GatewayInteraction.REQUEST_RESPONSE;
+        boolean json = MediaType.APPLICATION_JSON.equals(mimeType);
+        String binaryEcho = json ? null : option(route.metadata(), "rsocketEcho", request.getHeaders().getFirst(RSOCKET_ECHO));
+        Class<?> responseType = RSOCKET_ECHO_CHAR.equals(binaryEcho) ? String.class : Object.class;
+        if (interaction.isNdjson()) {
             return stream(response, body.flatMapMany(bytes -> requester(mimeType, route, true)
                     .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, responseType))));
         }
         Mono<byte[]> result = body.flatMap(bytes -> requester(mimeType, route, requestStream).flatMap(rpc -> {
-            boolean jsonObjects = MediaType.APPLICATION_JSON.equals(mimeType) && RSOCKET_ECHO_OBJECT.equals(echo);
             if (requestStream) {
-                Flux<byte[]> encoded = jsonObjects
+                Flux<byte[]> encoded = json
                         ? rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, byte[].class)
                             .map(this::validateJson).filter(item -> item.length != 0)
                         : rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, responseType)
                             .map(RsocketRequestFactory::encode);
                 return collectArray(encoded);
             }
-            if (RSOCKET_ECHO_VOID.equals(echo)) {
-                return rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, Void.class)
-                        .thenReturn(EMPTY_RESPONSE);
-            }
-            if (jsonObjects) {
+            if (json) {
                 return rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, byte[].class)
                         .map(value -> wrapJsonObject(validateJson(value))).defaultIfEmpty(EMPTY_RESPONSE);
+            }
+            if (RSOCKET_ECHO_VOID.equals(binaryEcho)) {
+                return rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, Void.class)
+                        .thenReturn(EMPTY_RESPONSE);
             }
             return rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, responseType)
                     .map(this::encodeResponse)
@@ -234,38 +228,6 @@ public class RsocketRequestFactory {
         return expected;
     }
 
-    private static RequestFormat resolveFormat(Map<String, Object> metadata, HttpHeaders headers, MediaType contentType) {
-        String model = option(metadata, "rsocketModel", headers.getFirst(RSOCKET_MODEL));
-        String echo = option(metadata, "rsocketEcho", headers.getFirst(RSOCKET_ECHO));
-        String streamFormat = option(metadata, "rsocketStreamFormat", null);
-        boolean ndjson;
-        try {
-            ndjson = (model == null || RSOCKET_MODEL_REQUEST_STREAM.equals(model))
-                    && headers.getAccept().stream().anyMatch(type ->
-                            MediaType.APPLICATION_NDJSON.includes(type) && type.getQualityValue() > 0);
-        } catch (InvalidMediaTypeException error) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid HTTP media type", error);
-        }
-        if (model == null) {
-            if (MediaType.APPLICATION_NDJSON.includes(contentType)) {
-                model = RSOCKET_MODEL_REQUEST_CHANNEL;
-            } else {
-                model = ndjson ? RSOCKET_MODEL_REQUEST_STREAM : RSOCKET_MODEL_REQUEST_RESPONSE;
-            }
-        }
-        if (contentType == null) {
-            contentType = RSOCKET_MODEL_REQUEST_CHANNEL.equals(model)
-                    ? MediaType.APPLICATION_NDJSON : MediaType.APPLICATION_JSON;
-        }
-        if (streamFormat != null) {
-            if (!"ndjson".equals(streamFormat) && !"json".equals(streamFormat)) {
-                throw new IllegalArgumentException("rsocketStreamFormat must be json or ndjson");
-            }
-            ndjson = "ndjson".equals(streamFormat);
-        }
-        return new RequestFormat(model, echo == null ? RSOCKET_ECHO_OBJECT : echo, contentType, ndjson);
-    }
-
     private static String option(Map<String, Object> metadata, String key, String fallback) {
         Object value = metadata.get(key);
         if (value == null) {
@@ -275,17 +237,6 @@ public class RsocketRequestFactory {
             return text;
         }
         throw new IllegalArgumentException("Invalid route metadata: " + key);
-    }
-
-    private record RequestFormat(String model, String echo, MediaType contentType, boolean ndjson) {
-        static RequestFormat fromInteraction(GatewayInteraction interaction, MediaType contentType) {
-            var requestType = contentType == null ? MediaType.APPLICATION_JSON : contentType;
-            return switch (interaction) {
-                case REQUEST_RESPONSE -> new RequestFormat(RSOCKET_MODEL_REQUEST_RESPONSE, RSOCKET_ECHO_OBJECT, requestType, false);
-                case REQUEST_STREAM -> new RequestFormat(RSOCKET_MODEL_REQUEST_STREAM, RSOCKET_ECHO_OBJECT, requestType, true);
-                case REQUEST_CHANNEL -> new RequestFormat(RSOCKET_MODEL_REQUEST_CHANNEL, RSOCKET_ECHO_OBJECT, requestType, true);
-            };
-        }
     }
 
     private Mono<byte[]> collectArray(Flux<byte[]> values) {
@@ -367,12 +318,17 @@ public class RsocketRequestFactory {
         response.getHeaders().setContentType(MediaType.APPLICATION_NDJSON);
         Flux<?> timed = values.timeout(Mono.delay(requestTimeout), value -> Mono.never(),
                 Flux.error(() -> new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, "RSocket first reply timed out")));
-        return response.writeAndFlushWith(timed.map(value -> {
-            byte[] encoded = encodeResponse(value);
-            byte[] line = Arrays.copyOf(encoded, encoded.length + 1);
-            line[encoded.length] = '\n';
-            return Mono.fromSupplier(() -> response.bufferFactory().wrap(line));
-        }));
+        var lines = timed.map(value -> line(encodeResponse(List.of(value))))
+                .defaultIfEmpty(EMPTY_STREAM_LINE)
+                .onErrorResume(error -> Mono.fromSupplier(() ->
+                        line(encode(GatewayGlobalExceptionHandler.errorResponse(response, error, true)))));
+        return response.writeAndFlushWith(lines.map(bytes -> Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes))));
+    }
+
+    private static byte[] line(byte[] json) {
+        byte[] line = Arrays.copyOf(json, json.length + 1);
+        line[json.length] = '\n';
+        return line;
     }
 
     private byte[] encodeResponse(Object value) {

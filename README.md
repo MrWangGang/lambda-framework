@@ -90,10 +90,11 @@ Java 服务间 RPC 固定使用 Fory。两端导入 `RSocketStrategiesConfig`，
 | 已发现的服务端签名 | 网关选择 |
 |---|---|
 | 单条请求，返回 `Mono<T>` | request/response，返回 JSON |
-| 单条请求，返回 `Flux<T>` | request/stream，逐条返回 NDJSON |
-| `TFlux<I>` 入参，返回 `TFlux<O>` | request/channel，发送 JSON 数组元素或 NDJSON 行，逐条返回 NDJSON |
+| 单条请求，返回 `Flux<T>` | 收齐后返回单个 JSON 对象，data 为数组 |
+| 单条请求，返回 `UiFlux<T>` | 单向 NDJSON，每行 data 为数组 |
+| `Flux<I>` 入参，返回 `BiFlux<O>` | 双向 NDJSON，可发 JSON 数组元素或 NDJSON 行 |
 
-网关缓存服务端契约。已发现的 JSON 路由以签名决定模式与响应格式，客户端发送请求体即可。普通请求缺少 Content-Type 时按 JSON。单次响应的 `data` 保留实际类型，record 是对象，`Mono<String>` 是字符串，`Mono<Integer>` 是数字，`Mono<Void>` 是空数据。
+网关缓存服务端契约。已发现的 JSON 路由以签名决定模式与响应格式，客户端发送请求体即可。普通请求缺少 Content-Type 时按 JSON。Mono 响应的 `data` 保留实际类型，record 是对象，`Mono<String>` 是字符串，`Mono<Integer>` 是数字，`Mono<Void>` 是空数据。普通 Flux 聚合，UiFlux 和 BiFlux 逐行发送。数组接口失败时 `data` 为 `[]`，流式失败作为最后一行返回业务错误码。
 
 | 路由键 | 用途 |
 |---|---|
@@ -151,7 +152,7 @@ Channel 直接检查 13 项、TCP 检查 8 项、分页回归 12 项、双服务
 
 24 并发的本机 HTTP 到 TCP RSocket 测试中，128 项数组流原版约 3,857 请求/秒，改用 4 条流式连接后约 5,101 请求/秒，P99 从 7.9 ms 升到 14.3 ms。保持 1 条连接时，新数组实现每请求 CPU 下降约 12%，吞吐接近。每次请求订阅切换到虚拟线程使普通请求吞吐下降约 10.5%，网关保留响应式执行路径。[Reactor 线程与调度器](https://projectreactor.io/docs/core/release/reference/coreFeatures/schedulers.html)
 
-真实 MongoDB 混合读负载下，新网关对流式路由配置 2 条连接。8 并发时旧版和新版约为 195 和 190 请求/秒，32 并发时约为 163 和 178，两版均出现超时。普通查询适合 JSON POST。需要逐条下发时用 NDJSON 单向流，连续聊天收发用双向 Channel。HTTP NDJSON 双向联调已验证首条回复返回后客户端可继续发送，吞吐对照表测量的是普通查询和单向流。
+真实 MongoDB 混合读负载下，新网关对流式路由配置 2 条连接。8 并发时旧版和新版约为 195 和 190 请求/秒，32 并发时约为 163 和 178，两版均出现超时。普通查询适合 JSON POST。需要逐条下发时返回 UiFlux，连续聊天收发用 BiFlux 和普通 Flux 入参。HTTP NDJSON 双向联调已验证首条回复返回后客户端可继续发送，吞吐对照表测量的是普通查询和单向流。
 
 ## Java 后端开发与架构规范
 
@@ -400,32 +401,41 @@ Java RPC 的 Facade 方法写完整的 `@MessageMapping`，例如 `order.orderFa
 
 ### 按返回类型选择交互方式
 
-| 后端签名 | RSocket 交互 | 经 `rb://` 网关的 HTTP 用法 |
+| 后端签名 | RSocket 交互 | 网关响应 |
 |---|---|---|
-| 单条入参，返回 `Mono<T>` | `request/response`，一次请求、一次响应 | 发普通 POST JSON，响应为 JSON，`data` 保留实际值类型。 |
-| 单条入参，返回 `Flux<T>` | `request/stream`，一次请求、逐条响应 | 发普通 POST JSON，网关返回逐行 NDJSON。 |
-| `TFlux<I>` 入参，返回 `TFlux<O>` | `request/channel`，双向流 | 客户端可持续发送 JSON 数组元素或 NDJSON 行，同时接收 NDJSON 响应。 |
+| 普通入参，返回 `Mono<T>` | `request/response` | 一个 JSON 对象，`data` 保留原类型。 |
+| 普通入参，返回 `Flux<T>` | `request/stream` | 网关等结果收齐后返回一个 JSON 对象，`data` 是数组。 |
+| 普通入参，返回 `UiFlux<T>` | `request/stream` | 单向 NDJSON，每条响应一行，`data` 是数组。 |
+| `Flux<I>` 等普通响应式入参，返回 `BiFlux<O>` | `request/channel` | 双向 NDJSON，客户端可发 JSON 数组或 NDJSON 行，响应逐行返回。 |
+| 普通单条入参，返回 `BiFlux<O>` | `request/stream` | 处理一条输入，响应逐行返回 NDJSON。 |
 
-前端只向网关发送 HTTP POST。业务网关只转发 `rb://` 路由，并在转发前检查服务端通过 `@MessageMapping` 发布的固定斜杠路径。网关重写路径时核对重写后的路径。未公开的路径返回 HTTP 404，服务端契约暂不可用时返回 HTTP 503。服务端发布的 JSON 接口由方法签名决定交互模式与响应格式。网关项目配置目标服务和路径范围，业务接口只声明 `@MessageMapping` 和签名。
+前端只向网关发送 HTTP POST。业务网关只转发 `rb://` 路由，并核对服务端通过 `@MessageMapping` 发布的固定斜杠路径。网关使用重写后的路径查契约。未公开路径返回 404，契约暂不可用返回 503。业务方法声明映射和签名即可。
 
 ~~~java
-@MessageMapping("/order/find")
-public Mono<Detail> find(FindRequest request) {
-    return service.find(request);
+@MessageMapping("/api/order/summary")
+public Mono<Summary> summary(Form request) {
+    return service.summary(request);
 }
 
-@MessageMapping("/order/status/stream")
-public Flux<Status> stream(StatusRequest request) {
-    return service.streamStatuses(request);
+@MessageMapping("/api/order/check")
+public Flux<Check> check(Form request) {
+    return service.check(request);
 }
 
-@MessageMapping("/order/chat")
-public TFlux<Reply> chat(TFlux<Message> messages) {
-    return TFlux.of(service.chat(messages));
+@MessageMapping("/api/order/watch")
+public UiFlux<Check> watch(Form request) {
+    return UiFlux.of(service.check(request));
+}
+
+@MessageMapping("/api/order/exchange")
+public BiFlux<Check> exchange(Flux<Item> items) {
+    return BiFlux.of(service.checkItems(items));
 }
 ~~~
 
-`TFlux` 位于 `org.lambda.framework.common.support`，由 `TFlux.of(Flux)` 封装业务流，Java RPC 的 Facade 和网关后端都声明 `TFlux<Reply> chat(TFlux<Message> messages)`。Java 调用时用 `chat(TFlux.of(messages))` 传入 Reactor 流。框架在启动时校验双向流签名。普通 `Flux`、单条对象或缺少泛型的 `TFlux` 不能作为双向流入参，返回值也须是带泛型的 `TFlux`。HTTP 双向流要求客户端和代理支持在请求体尚未发完时读取响应。用 `application/json` 时按 JSON 数组逐段发送，用 `application/x-ndjson` 时每行发送一条请求。客户端收到一条回复后可以继续写下一条。
+`UiFlux` 与 `BiFlux` 位于 `org.lambda.framework.common.support`，用于表达接口返回方式。表单内嵌数组按普通 `List` 字段接收。双向调用的 Java 入参可直接声明 `Flux<I>`，调用方直接传业务流。HTTP 客户端要边发边收，客户端和代理都需支持同一请求同时读写。Java 原生 RPC 直接消费业务类型，HTTP 响应外壳由网关生成。
+
+普通 `Flux` 聚合完成后返回 `{"serviceCode":"E00000000","serviceMessage":"操作成功","data":[...]}`。NDJSON 每条业务元素输出一行，放在该行的 `data` 数组中。零条结果的 `data` 为 `[]`。聚合接口与流式接口共用异常转换，失败外壳的 `data` 为 `[]`。流中途失败时追加一行错误，保留已发出的成功行，并结束响应。
 
 Java 服务间原生 RPC 固定使用 Apache Fory。两端导入 `RSocketStrategiesConfig` 后，框架从已声明的请求、响应类型中自动收集 record、嵌套泛型、枚举和框架分页类型。保持 Facade 契约同版。旧项目中的多态实际类型或非 record DTO 可用 `ForyRpcTypes` 扩展白名单。服务端拒绝用 JSON 或二进制连接调用点分隔的原生 RPC 路由。网关 JSON 业务路由使用 `/` 前缀。身份元数据沿用 JSON。
 
@@ -466,7 +476,7 @@ description: 按统一风格开发、修改或审查 Lambda Framework Java 后�
 - 按业务读写比例、访问路径和增长设计关系。多对多必须有中间表或关系集合，一对多和多对一直接内嵌或持有引用。内嵌需有业务上限，独立分页和高频更新用引用。聚合用未加引号的占位符绑定 ObjectId，实测复杂关联与执行计划。
 - @Version 按需使用。SKU 以库存足额条件加原子扣减防超卖。字符串金额用旧金额和版本做条件更新，跨文档一致性用事务与幂等键。
 - 复用框架分页、异常、Reactor Context 和数据库连接。区分 SecurityLoginUser、UnifyPO、PrincipalFactory。
-- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。 `rb://` 按后端签名自动选择 Mono 单次响应、Flux 单向流和 入参和返回值均为带泛型 TFlux 的双向流。错误签名在启动时拒绝。聊天 record 描述文字、表情与媒体引用。
+- RSocket Channel 保持首消息、单次订阅、背压、取消和 Payload 所有权。网关 JSON 聚合有上限，NDJSON 逐条输出。 `rb://` 根据返回类型决定响应。Mono 返回单次 JSON，Flux 聚合为 JSON 数组，UiFlux 单向 NDJSON，BiFlux 配合普通 Flux 入参走双向 NDJSON。流式成功行的 data 是数组，失败行的 data 是空数组。聊天 record 描述文字、表情与媒体引用。
 - 使用现有 JDK 和 IDEA Maven。先复现再修复，在相同条件复测。使用隔离测试资源，验收后按名称清理，核对数据并关闭本次启动的 JVM。
 - README 记录项目运行与契约。报告区分实测、设计方案和未测范围。
 ~~~

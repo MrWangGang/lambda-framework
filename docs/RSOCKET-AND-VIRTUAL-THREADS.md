@@ -31,7 +31,7 @@ public interface CatalogApi {
 4. 两端使用兼容的 Facade record 与路由约定。业务服务统一使用 `@MessageMapping`。
 5. 校验身份传递和异常转换。
 
-使用方法级 `@MessageMapping` 时，点分隔的路由首段对应服务发现名。同一个 Facade 使用同一服务名。旧项目可继续使用 `@RSocketRpcDiscorvery` 与约定路由。返回 `Mono` 是单次响应，普通请求返回 `Flux` 是单向流。双向流要求入参 `TFlux<I>` 和返回值 `TFlux<O>` 配对，错误签名在启动阶段拒绝。
+使用方法级 `@MessageMapping` 时，点分隔的路由首段对应服务发现名。同一个 Facade 使用同一服务名。旧项目可继续使用 `@RSocketRpcDiscorvery` 与约定路由。返回 `Mono` 是单次响应。普通 `Flux` 在网关聚合为数组，`UiFlux` 逐行发送 NDJSON，`BiFlux` 可接收普通 `Flux<I>` 入参走双向交互。旧 `TFlux` 签名保留兼容，迁移时将输入改为普通 Flux、返回改为 BiFlux。
 
 ### 内部 Java RPC 使用 Fory
 
@@ -39,7 +39,7 @@ public interface CatalogApi {
 
 框架从调用方已注入的 Facade 和服务端原生路由收集类型。已声明的 record、嵌套泛型、枚举和 `Paged<T>` 自动注册。框架为 `ObjectId` 提供 12 字节编解码，Fory 保持类型注册校验。旧项目使用非 record DTO 或未出现在签名中的实际子类型时，可以继续用 `ForyRpcTypes` 显式注册。
 
-发布时两端使用兼容的 Facade 契约。业务网关使用 `rb://` 转发。服务端发布固定 `@MessageMapping` 路径的签名后，网关按 Mono、Flux、TFlux 自动选择交互。未发布路径返回 404，契约不可用返回 503。
+发布时两端使用兼容的 Facade 契约。业务网关使用 `rb://` 转发。服务端发布固定 `@MessageMapping` 路径的签名后，网关按 Mono、Flux、UiFlux、BiFlux 自动选择响应。未发布路径返回 404，契约不可用返回 503。
 
 业务服务导入 `RsocketInterceptorConfig`，设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.transport=tcp`。只把 reactive 网关的 HTTP 端口对外开放。服务端 TCP 端口限网关与授权服务访问。
 

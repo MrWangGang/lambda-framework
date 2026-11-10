@@ -3,6 +3,7 @@ package org.lambda.framework.gateway.adapter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.rsocket.exceptions.ConnectionErrorException;
 import org.apache.commons.lang3.StringUtils;
+import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.sample.JsonUtil;
@@ -22,6 +23,8 @@ import reactor.core.publisher.Mono;
 import java.net.ConnectException;
 import java.net.UnknownHostException;
 import java.nio.channels.ClosedChannelException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CancellationException;
 
 import static org.lambda.framework.common.exception.basic.GlobalException.EX_PRIEX;
@@ -39,32 +42,45 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GatewayGlobalExceptionHandler.class);
 
+    public static final String INTERACTION_ATTRIBUTE = GatewayGlobalExceptionHandler.class.getName() + ".interaction";
+
     @Override
-    public Mono<Void> handle(ServerWebExchange serverWebExchange, Throwable throwable) {
-        var response = serverWebExchange.getResponse();
+    public Mono<Void> handle(ServerWebExchange exchange, Throwable throwable) {
+        var response = exchange.getResponse();
         if (response.isCommitted()) {
             return Mono.error(throwable);
         }
-        if (throwable instanceof ConnectionErrorException || throwable instanceof ConnectException
-                || throwable instanceof UnknownHostException || throwable instanceof ClosedChannelException
-                || throwable instanceof CancellationException && "Pool is exhausted".equals(throwable.getMessage())) {
-            response.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
-            return writeResponse(response, result(ES_GATEWAY_000.getCode(), "RSocket upstream unavailable"));
-        }
-        if (throwable instanceof ErrorResponse error) {
-            response.setStatusCode(error.getStatusCode());
-            response.getHeaders().putAll(error.getHeaders());
-        } else if (throwable instanceof DataBufferLimitException) {
-            response.setStatusCode(HttpStatus.PAYLOAD_TOO_LARGE);
-        } else {
-            response.setStatusCode(HttpStatus.OK);
-        }
-        return writeResponse(response, handleTransferException(throwable));
+        GatewayInteraction interaction = exchange.getAttribute(INTERACTION_ATTRIBUTE);
+        boolean ndjson = interaction != null && interaction.isNdjson();
+        return writeResponse(response, errorResponse(response, throwable,
+                interaction != null && interaction != GatewayInteraction.REQUEST_RESPONSE), ndjson);
     }
 
+    public static ResponseTemplete errorResponse(ServerHttpResponse response, Throwable throwable, boolean arrayData) {
+        boolean upstreamUnavailable = throwable instanceof ConnectionErrorException || throwable instanceof ConnectException
+                || throwable instanceof UnknownHostException || throwable instanceof ClosedChannelException
+                || throwable instanceof CancellationException && "Pool is exhausted".equals(throwable.getMessage());
+        if (!response.isCommitted()) {
+            if (upstreamUnavailable) {
+                response.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+            } else if (throwable instanceof ErrorResponse error) {
+                response.setStatusCode(error.getStatusCode());
+                response.getHeaders().putAll(error.getHeaders());
+            } else if (throwable instanceof DataBufferLimitException) {
+                response.setStatusCode(HttpStatus.PAYLOAD_TOO_LARGE);
+            } else {
+                response.setStatusCode(HttpStatus.OK);
+            }
+        }
+        var result = upstreamUnavailable ? result(ES_GATEWAY_000.getCode(), "RSocket upstream unavailable")
+                : handleTransferException(throwable);
+        if (arrayData) {
+            result.setData(List.of());
+        }
+        return result;
+    }
 
-
-    private ResponseTemplete handleTransferException(Throwable e) {
+    private static ResponseTemplete handleTransferException(Throwable e) {
         if (!(e instanceof ErrorResponse) && !(e instanceof DataBufferLimitException)) {
             logger.error("Gateway request failed", e);
         }
@@ -91,17 +107,21 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
         }
     }
 
-    private ResponseTemplete result(String code, String message){
+    private static ResponseTemplete result(String code, String message){
         ResponseTemplete responseTemplete = new ResponseTemplete();
         responseTemplete.setServiceCode(code);
         responseTemplete.setServiceMessage(message);
         return responseTemplete;
     }
 
-    private Mono<Void> writeResponse(ServerHttpResponse response, ResponseTemplete errorBody) {
-        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+    private Mono<Void> writeResponse(ServerHttpResponse response, ResponseTemplete errorBody, boolean ndjson) {
+        response.getHeaders().setContentType(ndjson ? MediaType.APPLICATION_NDJSON : MediaType.APPLICATION_JSON);
         try {
-            byte[] bytes = JsonUtil.getJsonFactory().writeValueAsBytes(errorBody);
+            byte[] json = JsonUtil.getJsonFactory().writeValueAsBytes(errorBody);
+            byte[] bytes = ndjson ? Arrays.copyOf(json, json.length + 1) : json;
+            if (ndjson) {
+                bytes[json.length] = '\n';
+            }
             return response.writeWith(Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes)));
         } catch (JsonProcessingException error) {
             return Mono.error(error);

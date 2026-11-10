@@ -7,7 +7,9 @@ import org.lambda.framework.common.annotation.rsocket.RSocketRpcType;
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.PrincipalStash;
+import org.lambda.framework.common.support.BiFlux;
 import org.lambda.framework.common.support.TFlux;
+import org.lambda.framework.common.support.UiFlux;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.BeansException;
@@ -147,21 +149,29 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                 || returnType.getActualTypeArguments().length != 1) {
             return Mono.error(new EventException(ES_RPC_015));
         }
-        boolean channel = returnType.getRawType() == TFlux.class;
-        if ((channel && !(data instanceof TFlux<?>))
-                || (!channel && data instanceof Publisher<?> && !(data instanceof Mono<?>))) {
-            throw new IllegalArgumentException("RSocket channel requires TFlux<I> input and TFlux<O> return: " + method);
+        var resultType = returnType.getRawType();
+        if ((resultType == TFlux.class && !(data instanceof TFlux<?>))
+                || (resultType != BiFlux.class && resultType != TFlux.class
+                    && data instanceof Publisher<?> && !(data instanceof Mono<?>))) {
+            throw new IllegalArgumentException("A streaming request requires BiFlux<O> return: " + method);
         }
         var bodyType = ParameterizedTypeReference.forType(returnType.getActualTypeArguments()[0]);
         var connection = requester.switchIfEmpty(Mono.error(new EventException(ES_RPC_013)));
-        if (returnType.getRawType() == Mono.class) {
+        if (resultType == Mono.class) {
             return connection.flatMap(rpc -> rpc.retrieveMono(principalStash, route, data, bodyType));
         }
-        if (returnType.getRawType() == Flux.class) {
-            return connection.flatMapMany(rpc -> rpc.retrieveFlux(principalStash, route, data, bodyType));
+        var values = connection.flatMapMany(rpc -> rpc.retrieveFlux(principalStash, route, data, bodyType));
+        if (resultType == Flux.class) {
+            return values;
         }
-        if (channel) {
-            return TFlux.of(connection.flatMapMany(rpc -> rpc.retrieveFlux(principalStash, route, data, bodyType)));
+        if (resultType == UiFlux.class) {
+            return UiFlux.of(values);
+        }
+        if (resultType == BiFlux.class) {
+            return BiFlux.of(values);
+        }
+        if (resultType == TFlux.class) {
+            return TFlux.of(values);
         }
         return Mono.error(new EventException(ES_RPC_015));
     }
@@ -204,12 +214,19 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
             var adapter = adapters.getAdapter(type);
             return adapter != null && adapter.isMultiValue();
         });
-        if ((streamingInput || method.getReturnType() == TFlux.class)
-                && (parameters.length != 1 || parameters[0] != TFlux.class
+        var result = method.getReturnType();
+        if (result == TFlux.class) {
+            if (parameters.length != 1 || parameters[0] != TFlux.class
                     || !(method.getGenericParameterTypes()[0] instanceof ParameterizedType)
-                    || method.getReturnType() != TFlux.class
-                    || !(method.getGenericReturnType() instanceof ParameterizedType))) {
-            throw new IllegalArgumentException("RSocket channel requires TFlux<I> input and TFlux<O> return: " + method);
+                    || !(method.getGenericReturnType() instanceof ParameterizedType)) {
+                throw new IllegalArgumentException("Legacy TFlux requires TFlux<I> input and TFlux<O> return: " + method);
+            }
+        } else if (result == BiFlux.class || result == UiFlux.class || streamingInput) {
+            if (!(method.getGenericReturnType() instanceof ParameterizedType)
+                    || (streamingInput && (result != BiFlux.class || parameters.length != 1
+                        || !(method.getGenericParameterTypes()[0] instanceof ParameterizedType)))) {
+                throw new IllegalArgumentException("A streaming request requires a typed publisher and BiFlux<O> return: " + method);
+            }
         }
     }
 

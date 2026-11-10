@@ -3,7 +3,9 @@ package org.lambda.framework.rsocket.adapter;
 import io.rsocket.frame.FrameType;
 import org.lambda.framework.common.annotation.rsocket.GatewayStream;
 import org.lambda.framework.common.enums.GatewayInteraction;
+import org.lambda.framework.common.support.BiFlux;
 import org.lambda.framework.common.support.TFlux;
+import org.lambda.framework.common.support.UiFlux;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.messaging.handler.DestinationPatternsMessageCondition;
 import org.springframework.messaging.handler.annotation.MessageMapping;
@@ -63,11 +65,12 @@ class GatewayStreamContractController {
     }
 
     private static GatewayInteraction classify(Class<?> type, Set<FrameType> frames) {
-        if (type == TFlux.class) {
-            return frames.contains(FrameType.REQUEST_CHANNEL) ? GatewayInteraction.REQUEST_CHANNEL : null;
+        if (frames.contains(FrameType.REQUEST_CHANNEL) && (type == BiFlux.class || type == TFlux.class)) {
+            return GatewayInteraction.REQUEST_CHANNEL;
         }
         if (Flux.class.isAssignableFrom(type) && frames.contains(FrameType.REQUEST_STREAM)) {
-            return GatewayInteraction.REQUEST_STREAM;
+            return type == UiFlux.class || type == BiFlux.class
+                    ? GatewayInteraction.REQUEST_STREAM : GatewayInteraction.REQUEST_ARRAY;
         }
         if (Mono.class.isAssignableFrom(type) && frames.contains(FrameType.REQUEST_RESPONSE)) {
             return GatewayInteraction.REQUEST_RESPONSE;
