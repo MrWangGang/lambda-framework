@@ -1,157 +1,148 @@
 package org.lambda.framework.rsocket.adapter;
 
-import io.netty.buffer.ByteBuf;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import io.netty.util.ReferenceCountUtil;
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
 import io.rsocket.SocketAcceptor;
 import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.plugins.SocketAcceptorInterceptor;
-import jakarta.annotation.Resource;
-import org.lambda.framework.common.exception.Assert;
+import io.rsocket.util.RSocketProxy;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.common.enums.RSocketContract;
 import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.reactivestreams.Publisher;
+import org.springframework.core.ResolvableType;
+import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.messaging.rsocket.RSocketStrategies;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.context.Context;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Optional;
+import java.io.IOException;
+import java.util.Map;
+import java.util.function.Function;
 
 import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_003;
 
 public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
+    private static final MimeType FORY = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
+    private static final ResolvableType IDENTITY_TYPE = ResolvableType.forClass(SecurityStash.class);
+    private static final int MAX_IDENTITY_BYTES = 48 * 1024;
+    private static final com.fasterxml.jackson.databind.ObjectReader JSON_IDENTITY = JsonUtil.getJsonFactory()
+            .readerFor(SecurityStash.class).with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+                    DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final SecurityStash ANONYMOUS = new SecurityStash();
+
+    private final RsocketGlobalExceptionHandler errors;
+    private final RSocketStrategies strategies;
+
+    public RSocketAcceptorInterceptor(RsocketGlobalExceptionHandler errors, RSocketStrategies strategies) {
+        this.errors = errors;
+        this.strategies = strategies;
+    }
 
     @Override
-    public SocketAcceptor apply(SocketAcceptor socketAcceptor) {
-        return (setup, sendingSocket) -> {
-            return socketAcceptor.accept(setup,sendingSocket).map(rsocket->{
-                return createRSocket(rsocket);
-            });
-        };
+    public SocketAcceptor apply(SocketAcceptor acceptor) {
+        return (setup, sender) -> acceptor.accept(setup, sender)
+                .map(socket -> wrap(socket, RSocketContract.FORY_MIME_TYPE.equals(setup.dataMimeType())));
     }
 
-
-
-    private SecurityStash getValueFromMetadata(ByteBuffer metadata)  {
-        // 空判断：ByteBuffer 没数据时返回默认对象
-        if (metadata == null || !metadata.hasRemaining()) {
-            return SecurityStash.builder().build();
+    private SecurityStash readIdentity(Payload payload, boolean rpc) {
+        if (!payload.hasMetadata()) {
+            return ANONYMOUS;
         }
-
-        // 将 ByteBuffer 转成 Netty 的 ByteBuf 以供 CompositeMetadata 使用
-        ByteBuf byteBuf = io.netty.buffer.Unpooled.wrappedBuffer(metadata);
-
-        CompositeMetadata compositeMetadata = new CompositeMetadata(byteBuf, false);
-        for (CompositeMetadata.Entry entry : compositeMetadata) {
-            String mimeType = entry.getMimeType();
-            if(Assert.verify(mimeType)){
-                // 你这边可能就是用的 application/json 存的 security
-                if (MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(MimeType.valueOf(mimeType))) {
-                    String json = entry.getContent().toString(StandardCharsets.UTF_8);
-                    Optional<SecurityStash> obj = JsonUtil.stringToObj(json, SecurityStash.class);
-                    return obj.orElseThrow(() -> new EventException(ES_RSOCKET_003));
+        SecurityStash stash = null;
+        try {
+            for (var entry : new CompositeMetadata(payload.metadata(), false)) {
+                boolean binary = RSocketContract.FORY_MIME_TYPE.equals(entry.getMimeType());
+                if (!binary && !MimeTypeUtils.APPLICATION_JSON_VALUE.equals(entry.getMimeType())) {
+                    continue;
+                }
+                var content = entry.getContent();
+                if (stash != null || binary != rpc || content.readableBytes() > MAX_IDENTITY_BYTES) {
+                    throw new EventException(ES_RSOCKET_003);
+                }
+                if (binary) {
+                    var buffer = DefaultDataBufferFactory.sharedInstance.wrap(content.nioBuffer());
+                    stash = strategies.<SecurityStash>decoder(IDENTITY_TYPE, FORY)
+                            .decode(buffer, IDENTITY_TYPE, FORY, Map.of());
+                } else {
+                    byte[] bytes = new byte[content.readableBytes()];
+                    content.getBytes(content.readerIndex(), bytes);
+                    stash = JSON_IDENTITY.readValue(bytes);
+                }
+                if (stash == null) {
+                    throw new EventException(ES_RSOCKET_003);
                 }
             }
+            return stash == null ? ANONYMOUS : stash;
+        } catch (RuntimeException | IOException error) {
+            throw new EventException(ES_RSOCKET_003);
         }
-        throw new EventException(ES_RSOCKET_003);
     }
 
-    @Resource
-    private RsocketGlobalExceptionHandler rsocketGlobalExceptionHandler;
-    /*创建每个新的 RSocket 实例本身并不会特别耗费性能，因为 RSocket 本身是一个轻量级的协议实现，
-    不会在创建实例时引入显著的性能开销。但是，频繁地创建和销毁连接可能会对性能产生一定的影响，
-    这主要取决于底层传输层的实现和连接的复用情况。和httpclient不同的是，rsocket底层复用了链接，httpclient是链接池
-    所以这只是简单的new一个对象的操作，而没有去创建和销毁链接，链接是rsocket底层去维护和复用的 rsocket接口只是告诉
-    你们如何去发消息
-    */
-    private RSocket createRSocket(RSocket sendingSocket) {
-        return new RSocket() {
+    private <T> Mono<T> unary(Payload payload, boolean rpc, Function<Payload, Mono<T>> delegate) {
+        SecurityStash stash;
+        try {
+            stash = readIdentity(payload, rpc);
+        } catch (RuntimeException error) {
+            ReferenceCountUtil.safeRelease(payload);
+            return Mono.error(errors.handleException(error));
+        }
+        return delegate.apply(payload).contextWrite(context -> stash == ANONYMOUS ? context.delete(SecurityStash.class) : context.put(SecurityStash.class, stash))
+                .onErrorMap(errors::handleException);
+    }
+
+    private RSocket wrap(RSocket socket, boolean rpc) {
+        return new RSocketProxy(socket) {
             @Override
             public Mono<Void> fireAndForget(Payload payload) {
-                SecurityStash securityStash;
-                securityStash = getValueFromMetadata(payload.getMetadata());
-                return sendingSocket.fireAndForget(payload)
-                        .onErrorResume(throwable -> {
-                            // 自定义异常处理逻辑
-                            throwable = rsocketGlobalExceptionHandler.handleException(throwable);
-                            return Mono.error(throwable); // 可以选择返回错误或者其他逻辑
-                        })
-                        .contextWrite(Context.of(SecurityStash.class,securityStash));
+                return unary(payload, rpc, socket::fireAndForget);
             }
+
             @Override
             public Mono<Payload> requestResponse(Payload payload) {
-                SecurityStash securityStash;
-                securityStash = getValueFromMetadata(payload.getMetadata());
-                return sendingSocket.requestResponse(payload)
-                        .onErrorResume(throwable -> {
-                            // 自定义异常处理逻辑
-                            throwable = rsocketGlobalExceptionHandler.handleException(throwable);
-                            return Mono.error(throwable); // 可以选择返回错误或者其他逻辑
-                        })
-                        .contextWrite(Context.of(SecurityStash.class,securityStash));
+                return unary(payload, rpc, socket::requestResponse);
             }
+
             @Override
             public Flux<Payload> requestStream(Payload payload) {
-                SecurityStash securityStash;
-                securityStash = getValueFromMetadata(payload.getMetadata());
-                return sendingSocket.requestStream(payload)
-                        .onErrorResume(throwable -> {
-                            // 自定义异常处理逻辑
-                            throwable = rsocketGlobalExceptionHandler.handleException(throwable);
-                            return Mono.error(throwable); // 可以选择返回错误或者其他逻辑
-                        })
-                        .contextWrite(Context.of(SecurityStash.class,securityStash));
+                SecurityStash stash;
+                try {
+                    stash = readIdentity(payload, rpc);
+                } catch (RuntimeException error) {
+                    ReferenceCountUtil.safeRelease(payload);
+                    return Flux.error(errors.handleException(error));
+                }
+                return socket.requestStream(payload).contextWrite(context -> stash == ANONYMOUS ? context.delete(SecurityStash.class) : context.put(SecurityStash.class, stash))
+                        .onErrorMap(errors::handleException);
             }
+
             @Override
             public Flux<Payload> requestChannel(Publisher<Payload> payloads) {
-                return Flux.from(payloads)
-                        .<Payload>switchOnFirst((signal, input) -> {
-                            if (!signal.hasValue()) {
-                                return input;
-                            }
-                            SecurityStash stash = getValueFromMetadata(signal.get().getMetadata());
-                            return sendingSocket.requestChannel(input)
-                                    .contextWrite(context -> context.put(SecurityStash.class, stash));
-                        })
-                        .onErrorMap(rsocketGlobalExceptionHandler::handleException);
+                return Flux.from(payloads).<Payload>switchOnFirst((signal, input) -> {
+                    if (!signal.hasValue()) {
+                        return input;
+                    }
+                    SecurityStash stash;
+                    try {
+                        stash = readIdentity(signal.get(), rpc);
+                    } catch (RuntimeException error) {
+                        return input.take(1, true).flatMap(payload -> {
+                            ReferenceCountUtil.safeRelease(payload);
+                            return Mono.<Payload>error(error);
+                        }).doOnDiscard(Payload.class, ReferenceCountUtil::safeRelease);
+                    }
+                    return socket.requestChannel(input).contextWrite(context -> stash == ANONYMOUS ? context.delete(SecurityStash.class) : context.put(SecurityStash.class, stash));
+                }).onErrorMap(errors::handleException);
             }
 
             @Override
             public Mono<Void> metadataPush(Payload payload) {
-                SecurityStash securityStash;
-                securityStash = getValueFromMetadata(payload.getMetadata());
-                return sendingSocket.metadataPush(payload)
-                        .onErrorResume(throwable -> {
-                            // 自定义异常处理逻辑
-                            throwable = rsocketGlobalExceptionHandler.handleException(throwable);
-                            return Mono.error(throwable); // 可以选择返回错误或者其他逻辑
-                        })
-                        .contextWrite(Context.of(SecurityStash.class,securityStash));
-
-            }
-            @Override
-            public double availability() {
-                return sendingSocket.availability();
-            }
-
-            @Override
-            public void dispose() {
-                sendingSocket.dispose();
-            }
-
-            @Override
-            public boolean isDisposed() {
-                return sendingSocket.isDisposed();
-            }
-
-            @Override
-            public Mono<Void> onClose() {
-                return sendingSocket.onClose();
+                return unary(payload, rpc, socket::metadataPush);
             }
         };
     }

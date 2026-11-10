@@ -1,0 +1,2 @@
+org.lambda.framework.repository.autoconfigure.MongoDataAutoConfiguration
+org.lambda.framework.repository.autoconfigure.RedisDataAutoConfiguration

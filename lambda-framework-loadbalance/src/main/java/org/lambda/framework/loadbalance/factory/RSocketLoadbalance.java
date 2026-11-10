@@ -8,13 +8,9 @@ import io.rsocket.transport.ClientTransport;
 import io.rsocket.transport.netty.client.TcpClientTransport;
 import io.rsocket.util.RSocketProxy;
 import jakarta.annotation.PreDestroy;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import org.lambda.framework.common.exception.Assert;
+import org.lambda.framework.common.enums.RSocketContract;
 import org.lambda.framework.common.support.PrincipalStash;
-import org.lambda.framework.common.support.SecurityStash;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,12 +59,15 @@ public class RSocketLoadbalance {
         this.maxInboundPayloadBytes = maxInboundPayloadBytes;
     }
 
-    @Setter
-    @Builder
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class ProcessResponse {
-        private RSocketRequester requester;
+    public static final class ProcessResponse {
+        private static final MimeType FORY = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
+        private final RSocketRequester requester;
+        private final MimeType identityMime;
+
+        private ProcessResponse(RSocketRequester requester) {
+            this.requester = requester;
+            this.identityMime = FORY.equalsTypeAndSubtype(requester.dataMimeType()) ? FORY : MimeTypeUtils.APPLICATION_JSON;
+        }
 
         public <T> Mono<T> retrieveMono(PrincipalStash principalStash, MimeType mimeType, String route,
                                          Object data, Class<T> dataType) {
@@ -98,8 +97,9 @@ public class RSocketLoadbalance {
 
         private Mono<RSocketRequester.RequestSpec> request(PrincipalStash principalStash, String route) {
             return Mono.defer(principalStash::setSecurityStash)
-                    .switchIfEmpty(Mono.fromSupplier(SecurityStash::new))
-                    .map(stash -> requester.route(route).metadata(stash, MimeTypeUtils.APPLICATION_JSON));
+                    .filter(stash -> stash.getAuthToken() != null || stash.getPrincipal() != null)
+                    .map(stash -> requester.route(route).metadata(stash, identityMime))
+                    .switchIfEmpty(Mono.fromSupplier(() -> requester.route(route)));
         }
     }
 

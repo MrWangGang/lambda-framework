@@ -1,170 +1,168 @@
 package org.lambda.framework.compliance.security;
 
-import jakarta.annotation.Resource;
-import org.apache.commons.lang3.StringUtils;
-import org.lambda.framework.common.exception.Assert;
+import org.bson.types.ObjectId;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.po.SecurityLoginUser;
+import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.common.util.sample.JsonUtil;
 import org.lambda.framework.common.util.sample.UUIDUtil;
-import org.lambda.framework.compliance.security.container.LambdaSecurityAuthToken;
 import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.redis.core.script.RedisScript;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import static org.lambda.framework.common.enums.ConmonContract.*;
-import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.*;
+import static org.lambda.framework.common.enums.ConmonContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY;
+import static org.lambda.framework.common.enums.ConmonContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX;
+import static org.lambda.framework.common.enums.ConmonContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND;
+import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
+import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_001;
 
-/**
- * @description: 获取spring secutiy中的principal
- * @author: Mr.WangGang
- * @create: 2018-11-30 下午 3:28
- **/
-public abstract class PrincipalFactory {
+public final class PrincipalFactory {
+    private static final Pattern TOKEN_FORMAT = Pattern.compile(LAMBDA_SECURITY_AUTH_TOKEN_REGEX);
+    private static final Pattern USER_ID_FORMAT = Pattern.compile("[a-zA-Z0-9]+");
+    private static final RedisScript<Long> CHANGE_SESSION = RedisScript.of("""
+            local stored = redis.call('GET', KEYS[1])
+            if not stored then return 0 end
+            local session = cjson.decode(stored)
+            local expected = cjson.decode(ARGV[1])
+            if expected ~= '' and session.token ~= expected then return 0 end
+            if #ARGV == 1 then return redis.call('DEL', KEYS[1]) end
+            session.principal = cjson.decode(ARGV[2])
+            redis.call('SET', KEYS[1], cjson.encode(session), 'KEEPTTL')
+            return 1
+            """, Long.class);
+    private final ObjectProvider<ReactiveRedisOperation> redis;
 
-    @Resource(name = "securityAuthRedisOperation")
-    private ReactiveRedisOperation securityAuthRedisOperation;
-    public abstract Mono<String> getAuthToken();
-    protected abstract Mono<String> fetchSubject();
-    /*protected 用于隐藏这个bean里的方法，在应用层面重写*/
-    public   <T extends SecurityLoginUser<?>> Mono<String> setPrincipal(T t) {
-        if (t == null) {
-            throw new EventException(ES_COMPLIANCE_000,"用户信息不能为空");
-        }
-        if (t.getId() == null) {
-            throw new EventException(ES_COMPLIANCE_000,"用户ID不能为空");
-        }
-        String principal = JsonUtil.objToString(t);
-        //为了保证一个用户只会生成一个token,token唯一性
-        String keyHead = LAMBDA_SECURITY_AUTH_TOKEN_KEY + t.getId().toString();
-        String keySuffix = UUIDUtil.get();
-        LambdaSecurityAuthToken lambdaSecurityAuthToken = new LambdaSecurityAuthToken();
-        lambdaSecurityAuthToken.setPrincipal(principal);
-        lambdaSecurityAuthToken.setToken(keySuffix);
-        return securityAuthRedisOperation.set(keyHead, lambdaSecurityAuthToken, LAMBDA_SECURITY_TOKEN_TIME_SECOND.longValue()).then(Mono.just(keyHead +"."+keySuffix));
+    PrincipalFactory(ObjectProvider<ReactiveRedisOperation> redis) {
+        this.redis = redis;
     }
 
-    public  <T extends SecurityLoginUser<?>> Mono<Void> updatePrincipal(T t) {
-        return this.getAuthToken().flatMap(reqKey->{
-            return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
-                return this.getSecurityAuthToken(reqKey,key).flatMap(token->{
-                    String principal = JsonUtil.objToString(t);
-                    token.setPrincipal(principal);
-                    return securityAuthRedisOperation.update(key,token).then();
-                });
-            });
+    /** User identifier from the current request, without a Redis read or JSON decoding. */
+    public Mono<String> currentUserId() {
+        return currentToken().mapNotNull(token -> {
+            int start = LAMBDA_SECURITY_AUTH_TOKEN_KEY.length();
+            int end = token.lastIndexOf('.');
+            return token.startsWith(LAMBDA_SECURITY_AUTH_TOKEN_KEY) && end > start
+                    ? token.substring(start, end) : null;
         });
     }
 
-    public  <T extends SecurityLoginUser<?>> Mono<Void> revisePrincipal(T t) {
-        String redisKey = LAMBDA_SECURITY_AUTH_TOKEN_KEY+t.getId();
-        return securityAuthRedisOperation.get(redisKey).flatMap(token->{
-            LambdaSecurityAuthToken lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) token, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_COMPLIANCE_000,"令牌在提取关键部分时为空，可能是格式错误或缺少必要组件，不符合规范要求"));
-            String principal = JsonUtil.objToString(t);
-            lambdaSecurityAuthToken.setPrincipal(principal);
-            return securityAuthRedisOperation.update(redisKey,lambdaSecurityAuthToken).then();
+    /** Current user identifier for repositories with BSON ObjectId keys. */
+    public Mono<ObjectId> currentUserObjectId() {
+        return currentUserId().map(id -> {
+            if (!ObjectId.isValid(id)) {
+                throw new EventException(ES_COMPLIANCE_000, "用户ID不是有效的 ObjectId");
+            }
+            return new ObjectId(id);
         });
+    }
+
+    /** Returns the current request's user, or completes empty for an anonymous request. */
+    public <T extends SecurityLoginUser<?>> Mono<T> currentUser(Class<T> type) {
+        return currentIdentity().flatMap(identity -> Mono.justOrEmpty(identity.getPrincipal()))
+                .map(principal -> JsonUtil.stringToObj(principal, type)
+                        .orElseThrow(() -> new EventException(ES_COMPLIANCE_000, "用户身份无法读取")));
+    }
+
+    public Mono<String> currentToken() {
+        return currentIdentity().flatMap(identity -> Mono.justOrEmpty(identity.getAuthToken()));
+    }
+
+    private Mono<SecurityStash> currentIdentity() {
+        return Mono.deferContextual(context -> Mono.justOrEmpty(context.<SecurityStash>getOrEmpty(SecurityStash.class)));
+    }
+
+    public Mono<String> resolvePrincipal(String token) {
+        return Mono.defer(() -> {
+            var parts = parseToken(token);
+            return readSession(parts);
+        });
+    }
+
+    public <T extends SecurityLoginUser<?>> Mono<String> setPrincipal(T user) {
+        return Mono.defer(() -> {
+            String key = sessionKey(user);
+            String suffix = UUIDUtil.get();
+            var session = new Session(JsonUtil.objToString(user), suffix);
+            return redis().set(key, session, LAMBDA_SECURITY_TOKEN_TIME_SECOND)
+                    .filter(Boolean.TRUE::equals).switchIfEmpty(Mono.error(invalidToken()))
+                    .thenReturn(key + "." + suffix);
+        });
+    }
+
+    public <T extends SecurityLoginUser<?>> Mono<Void> updatePrincipal(T user) {
+        return currentToken().flatMap(token -> {
+            var parts = parseToken(token);
+            if (!parts.key().equals(sessionKey(user))) {
+                return Mono.error(invalidToken());
+            }
+            return changeSession(parts.key(), List.of(parts.suffix(), JsonUtil.objToString(user)));
+        });
+    }
+
+    public <T extends SecurityLoginUser<?>> Mono<Void> revisePrincipal(T user) {
+        return Mono.defer(() -> changeSession(sessionKey(user), List.of("", JsonUtil.objToString(user))));
     }
 
     public Mono<Void> deletePrincipal() {
-        return this.getAuthToken().flatMap(reqKey->{
-            return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
-                return securityAuthRedisOperation.delete(key);
-            }).then();
+        return currentToken().flatMap(token -> {
+            var parts = parseToken(token);
+            return changeSession(parts.key(), List.of(parts.suffix()));
         });
     }
 
-    //不要使用这个方法去获取，请使用子类中的 getAuth和fetch方法去获取，这个方法获取的数据，会再次查询redis
-    //这个方法只给security 用来校验使用的
-    @Deprecated
-    protected Mono<String> getPrincipal() {
-        return this.getAuthToken().flatMap(reqKey->{
-            return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
-                return this.getSecurityAuthToken(reqKey,key).flatMap(securityAuthToken->{
-                    return Mono.just(securityAuthToken.getPrincipal());
-                });
-            });
-        });
-    }
-    //不要使用这个方法去获取，请使用子类中的 getAuth和fetch方法去获取，这个方法获取的数据，会再次查询redis
-    //这个方法只给security 用来校验使用的
-    @Deprecated
-    protected <T extends SecurityLoginUser<?>>Mono<T> getPrincipal(Class<T> clazz) {
-        return this.getAuthToken().flatMap(reqKey->{
-            return this.getSecurityAuthTokenKey(reqKey).flatMap(key->{
-                return this.getSecurityAuthToken(reqKey,key).flatMap(securityAuthToken->{
-                    return Mono.just(securityAuthToken.getPrincipal());
-                });
-            });
-        }).flatMap(e -> {
-            return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_000,"用户信息不存在")));
-        });
+    private Mono<String> readSession(TokenParts token) {
+        return redis().<String, Object>get(token.key()).<String>handle((value, sink) -> {
+            if (value instanceof Map<?, ?> fields
+                    && fields.get("token") instanceof String expected
+                    && fields.get("principal") instanceof String principal
+                    && MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8),
+                            token.suffix().getBytes(StandardCharsets.UTF_8))) {
+                sink.next(principal);
+            } else {
+                sink.error(invalidToken());
+            }
+        }).switchIfEmpty(Mono.error(invalidToken()));
     }
 
-    //不要使用这个方法去获取，请使用子类中的 getAuth和fetch方法去获取，这个方法获取的数据，会再次查询redis
-    //这个方法只给只使用token 来校验使用的
-    @Deprecated
-    public   <T extends SecurityLoginUser<?>>Mono<T> getPrincipal(String rqtoken,Class<T> clazz) {
-        return this.getSecurityAuthTokenKey(rqtoken).flatMap(key->{
-            return this.getSecurityAuthToken(rqtoken,key).flatMap(securityAuthToken->{
-                return Mono.just(securityAuthToken.getPrincipal());
-            }).flatMap(e -> {
-                return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_000,"用户信息不存在")));
-            });
-        });
+    @SuppressWarnings("unchecked")
+    private Mono<Void> changeSession(String key, List<String> arguments) {
+        return redis().execute(CHANGE_SESSION, List.of(key), arguments).then();
     }
 
-    public  Mono<String> fetchPrincipal() {
-        return this.fetchSubject().switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_000,"用户信息不存在")));
-    }
-    public  <T extends SecurityLoginUser<?>>Mono<T> fetchPrincipal2Object(Class<T> clazz) {
-        return this.fetchSubject().switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_000,"用户信息不存在")))
-                .flatMap(e -> {
-                    return Mono.just(JsonUtil.stringToObj(e,clazz).orElseThrow(()->new EventException(ES_COMPLIANCE_000,"用户信息不存在")));
-                });
-    }
-
-    private Mono<String> getSecurityAuthTokenKey(String requestToken) {
-        Assert.verify(requestToken,ES_COMPLIANCE_000,"令牌不能为空");
-        if (!(Pattern.compile(LAMBDA_SECURITY_AUTH_TOKEN_REGEX).matcher(requestToken).matches()))
-            throw new EventException(ES_COMPLIANCE_000,"令牌格式不符合规范");
-        //对token进行解析
-        // 在字符串中查找最后一个点的位置
-        int lastDotIndex = requestToken.lastIndexOf('.');
-        // 如果找到了点，则返回点之前的子字符串，否则返回原始字符串
-        String token = lastDotIndex != -1 ? requestToken.substring(0, lastDotIndex) : null;
-        if (StringUtils.isBlank(token)) {
-            return Mono.error(new EventException(ES_COMPLIANCE_000,"令牌在提取关键部分时为空，可能是格式错误或缺少必要组件"));
+    private ReactiveRedisOperation redis() {
+        var operation = redis.getIfAvailable();
+        if (operation == null) {
+            throw new IllegalStateException("Configure Redis to store or verify user sessions");
         }
-        return Mono.just(token);
+        return operation;
     }
 
-
-    public Mono<String> getTokenKey(String requestToken) {
-        return this.getSecurityAuthTokenKey(requestToken);
+    private static String sessionKey(SecurityLoginUser<?> user) {
+        if (user == null || user.getId() == null || !USER_ID_FORMAT.matcher(user.getId().toString()).matches()) {
+            throw new EventException(ES_COMPLIANCE_000, "用户ID必须由英文字母或数字组成");
+        }
+        return LAMBDA_SECURITY_AUTH_TOKEN_KEY + user.getId();
     }
 
-
-
-
-    private <T extends SecurityLoginUser<?>>Mono<LambdaSecurityAuthToken> getSecurityAuthToken(String rqtoken,String key) {
-        Assert.verify(key,ES_COMPLIANCE_000,"令牌不能为空");
-            return securityAuthRedisOperation.get(key).switchIfEmpty(Mono.error(new EventException(ES_COMPLIANCE_001,"无效令牌"))).flatMap(tokenBean -> {
-                LambdaSecurityAuthToken lambdaSecurityAuthToken = JsonUtil.mapToObj((Map) tokenBean, LambdaSecurityAuthToken.class).orElseThrow(() -> new EventException(ES_COMPLIANCE_000,"令牌在提取关键部分时为空，可能是格式错误或缺少必要组件，不符合规范要求"));
-                if (StringUtils.isBlank(lambdaSecurityAuthToken.getToken())) {
-                    return Mono.error(new EventException(ES_COMPLIANCE_000,"令牌在提取关键部分时为空，可能是格式错误或缺少必要组件"));
-                }
-                // 查找最后一个点的位置
-                int lastIndex = rqtoken.lastIndexOf('.');
-                // 如果找到了点，则返回点之后的子字符串，否则返回空字符串或其他适当的默认值
-                String realToken = lastIndex != -1 ? rqtoken.substring(lastIndex+1) : null;
-                if (StringUtils.isBlank(realToken)) return Mono.error(new EventException(ES_COMPLIANCE_000,"令牌在提取关键部分时为空，可能是格式错误或缺少必要组件"));
-                //比较token
-                if (!lambdaSecurityAuthToken.getToken().equals(realToken))
-                    return Mono.error(new EventException(ES_COMPLIANCE_001,"无效令牌"));
-                return Mono.just(lambdaSecurityAuthToken);
-            });
+    private static TokenParts parseToken(String token) {
+        if (token == null || token.length() > 1024 || !TOKEN_FORMAT.matcher(token).matches()) {
+            throw invalidToken();
+        }
+        int split = token.lastIndexOf('.');
+        return new TokenParts(token.substring(0, split), token.substring(split + 1));
     }
+
+    private static EventException invalidToken() {
+        return new EventException(ES_COMPLIANCE_001, "无效令牌");
+    }
+
+    private record Session(String principal, String token) {}
+    private record TokenParts(String key, String suffix) {}
 }

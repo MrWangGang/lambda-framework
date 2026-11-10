@@ -7,7 +7,7 @@
 | 层 | 入口 | 适用范围 |
 |---|---|---|
 | 公共模型 | `UnifyPO<ID>`、`Paging`、`Paged<T>` | 实体字段、分页请求和结果约定 |
-| Repository | Mongo / MySQL / ES CRUD 接口、`ReactiveRedisOperation` | 数据库读写 |
+| Repository | MongoDB Repository、`ReactiveRedisOperation`、`ReactiveQdrantRepository<T>` | 数据库读写 |
 | Service | `DefaultBasicServiceImpl`、`DefaultTreeServiceImpl` | 通用业务操作组合 |
 
 需要复杂原子条件更新、多集合事务或精确控制查询计划时，可直接使用 `ReactiveMongoTemplate`；示例的商品和订单采用这一路径。不要为了套公共 CRUD 把库存更新拆成“先读、在 Java 计算、再无条件保存”。
@@ -34,7 +34,7 @@
 
 服务需要返回匹配的 Repository，其约束包括 ReactiveCrudRepository、ReactiveSortingRepository、ReactiveQueryByExampleExecutor 和框架分页接口。
 
-名称中的 `jpqlPaging` 是历史抽象命名，具体查询由回调实现；不要仅凭方法名判断一定使用阻塞 JPA。MySQL 配置走 R2DBC；Mongo 示例走 ReactiveMongoTemplate。
+分页查询由回调实现。Mongo 示例使用 ReactiveMongoTemplate。
 
 批量 Publisher 也需要限制输入规模和并发；`collectList()` 会把结果收集到内存，不能对无限流直接调用。
 
@@ -67,13 +67,13 @@ Builder 默认 page=1、size=10。内部 PageRequest 使用从 0 开始的页码
 
 | 入口 | 回调 | 主要结果 |
 |---|---|---|
-| `jpqlPaging` | `UnifyPagingJpqlOperation` | 回调返回 Spring Data Page |
-| 条件 `sqlPaging` | `UnifyPagingSqlOperation` | count(condition) + query(condition, pageable) |
-| 无条件 `sqlPaging` | `UnifyPagingSqlDefaultOperation` | count() + query(pageable) |
+| `pageFrom` | `MappedPageQuery` | 回调返回 Spring Data Page |
+| 条件 `queryPage` | `CountedPageQuery` | count(condition) + query(condition, pageable) |
+| 无条件 `queryPage` | `CountedPageSource` | count() + query(pageable) |
 | 条件 `dslPaging` | `UnifyPagingDslOperation` | SearchPage、结果转换、排序回调 |
 | 无条件 `dslPaging` | `UnifyPagingDslDefaultOperation` | 同上，省略 condition |
 
-SQL 风格适配接口不限定只能接 MySQL。业务可以实现 Mongo 查询和 count，但需要保证：
+业务实现 Mongo 查询和 count 时，遵守以下规则。
 
 1. 两个查询使用完全相同的过滤条件。
 2. count 不携带 skip/limit。
@@ -81,22 +81,20 @@ SQL 风格适配接口不限定只能接 MySQL。业务可以实现 Mongo 查询
 4. 返回空结果时 total、pages、records 的约定一致。
 5. 多次查询之间并发写入可能使 count 与 records 不处于同一快照。
 
-`Mono.zip` 组合 count 和 records，不代表建立了快照事务，也不代表一定创建两条线程。是否并行等待由数据源和调度决定。
+框架在事务内顺序执行 count 和 records。在事务外可并行等待两个查询。
 
-## 6. 分页回归
-
-已修复五条适配路径的排序传递、JPQL 页码和 Builder 默认值。外部分页回归从 4/12 通过恢复到 12/12。本次还通过实际 MongoDB 请求校验了框架页码分页和复合游标。ES 与 MySQL 的真实服务查询需要各自验收。
+## 6. 页码查询示例
 
 ~~~bash
 curl -fsS -X POST http://127.0.0.1:8081/api/product/page \
-  -H 'Content-Type: application/json' -d '{"category":"book","page":"1","size":"20"}'
+  -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"category":"book","page":"1","size":"20"}'
 ~~~
 
 ## 7. 示例已经实现的游标分页
 
 ~~~bash
 curl -fsS -X POST http://127.0.0.1:8081/api/product/cursor \
-  -H 'Content-Type: application/json' -d '{"category":"book","limit":"20"}'
+  -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"category":"book","limit":"20"}'
 ~~~
 
 空结果结构：
@@ -108,11 +106,9 @@ curl -fsS -X POST http://127.0.0.1:8081/api/product/cursor \
 非末页会返回两个 next 字段。下一页必须同时传入：
 
 ~~~bash
-curl -G 'http://127.0.0.1:8081/api/products' \
-  --data-urlencode 'category=book' \
-  --data-urlencode 'limit=20' \
-  --data-urlencode 'beforeTime=上次返回的nextBeforeTime' \
-  --data-urlencode 'beforeId=上次返回的nextBeforeId'
+curl -fsS http://127.0.0.1:8081/api/product/cursor \
+  -H "Authorization: Bearer ${TOKEN}" \
+  --json '{"category":"book","limit":"20","beforeTime":"上次的 nextBeforeTime","beforeId":"上次的 nextBeforeId"}'
 ~~~
 
 实际排序为 `createdAt DESC, _id DESC`，索引为 `category ASC, createdAt DESC, _id DESC`。查询取 limit+1 条判断是否有下一页；只返回前 limit 条。

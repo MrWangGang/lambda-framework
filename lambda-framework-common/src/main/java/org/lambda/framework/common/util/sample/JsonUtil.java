@@ -12,6 +12,7 @@ import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalTimeSerializer;
 import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.common.jackson.ObjectIdJsonModules;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -35,6 +36,7 @@ public class JsonUtil {
 
     private static ObjectMapper createObjectMapper() {
         ObjectMapper objectMapper = JsonMapper.builder()
+                .addModule(ObjectIdJsonModules.jackson2())
                 .build();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         JavaTimeModule javaTimeModule = new JavaTimeModule();

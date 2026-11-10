@@ -1,169 +1,70 @@
 package org.lambda.framework.repository.operation;
 
-import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.transaction.NoTransactionException;
+import org.springframework.transaction.reactive.TransactionSynchronizationManager;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
-import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.*;
+import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.ES_REPOSITORY_100;
+import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.ES_REPOSITORY_103;
 
 public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
-
-
-    //利用jpa规范生成的jpql，面向对象查询方式
-    default <Condition>Mono<Paged<Entity>> jpqlPaging(Paging paging, Condition condition, Sort sort, UnifyPagingJpqlOperation<Condition,Entity> operation){
-        Assert.verify(paging,ES_REPOSITORY_103);
-        Assert.verify(paging.getPage(),ES_REPOSITORY_104);
-        Assert.verify(paging.getSize(),ES_REPOSITORY_105);
-        if(paging.getPage()<= 0 || paging.getSize() <=0)throw new EventException(ES_REPOSITORY_100);
-        //使用mono.zip执行并行处理，瓶颈来到了 i/o上。对于分页查询来说，这非常快。最后获得结果的时间由时间最长的线程处理决定
-        PageRequest pageRequest = PageRequest.of(paging.getPage() - 1, paging.getSize(), sort == null ? Sort.unsorted() : sort);
-        return operation.query(condition,pageRequest,sort).flatMap(page->{
-            Paged<Entity> paged = Paged.<Entity>builder()
-                    .page(page.getNumber() + 1)
-                    .size(page.getSize())
-                    .pages(page.getTotalPages())
-                    .total(page.getTotalElements())
-                    .records(page.getContent())
-                    .build();
-            return Mono.just(paged);
-        });
+    default <C> Mono<Paged<Entity>> pageFrom(Paging paging, C condition, Sort sort,
+            MappedPageQuery<C, Entity> source) {
+        var request = request(paging, sort);
+        return Mono.defer(() -> source.query(condition, request, request.getSort()))
+                .map(page -> Paged.<Entity>builder().page(page.getNumber() + 1)
+                        .size(page.getSize()).total(page.getTotalElements()).pages(page.getTotalPages())
+                        .records(page.getContent()).build());
     }
 
-    default <Condition,VO>Mono<Paged<VO>> sqlPaging(Paging paging, Condition condition, UnifyPagingSqlOperation<Condition,VO> operation) {
-        return this.sqlPaging(paging,condition,null,operation);
+    default <C,T> Mono<Paged<T>> queryPage(Paging paging, C condition, CountedPageQuery<C,T> source) {
+        return queryPage(paging, condition, null, source);
     }
 
-    default <Condition,VO>Mono<Paged<VO>> sqlPaging(Paging paging, Condition condition, Sort sort, UnifyPagingSqlOperation<Condition,VO> operation){
-        Assert.verify(paging,ES_REPOSITORY_103);
-        Assert.verify(paging.getPage(),ES_REPOSITORY_104);
-        Assert.verify(paging.getSize(),ES_REPOSITORY_105);
-        if(paging.getPage()<= 0 || paging.getSize() <=0)throw new EventException(ES_REPOSITORY_100);
-        //使用mono.zip执行并行处理，瓶颈来到了 i/o上。对于分页查询来说，这非常快。最后获得结果的时间由时间最长的线程处理决定
-        PageRequest pageRequest = PageRequest.of(paging.getPage() - 1, paging.getSize(), sort == null ? Sort.unsorted() : sort);
-
-        return Mono.zip(
-                        operation.count(condition).defaultIfEmpty(0L), // 计算 count
-                        operation.query(condition,pageRequest).collectList() // 查询数据
-                )
-                .flatMap(tuple -> {
-                    Long count = tuple.getT1(); // 获取 count 结果
-                    List<VO> records = tuple.getT2(); // 获取查询结果
-                    Paged<VO> paged = Paged.<VO>builder()
-                            .page(paging.getPage())
-                            .size(paging.getSize())
-                            .total(count)
-                            .pages((int) Math.ceil((double) count / (double) paging.getSize()))
-                            .records(records)
-                            .build();
-                    return Mono.just(paged);
-                });
-    }
-    default <VO>Mono<Paged<VO>> sqlPaging(Paging paging, UnifyPagingSqlDefaultOperation<VO> operation) {
-        return this.sqlPaging(paging,null,operation);
+    default <C,T> Mono<Paged<T>> queryPage(Paging paging, C condition, Sort sort, CountedPageQuery<C,T> source) {
+        return collect(paging, sort, () -> source.count(condition), request -> source.query(condition, request));
     }
 
-    default <VO>Mono<Paged<VO>> sqlPaging(Paging paging, Sort sort, UnifyPagingSqlDefaultOperation<VO> operation){
-        Assert.verify(paging,ES_REPOSITORY_103);
-        Assert.verify(paging.getPage(),ES_REPOSITORY_104);
-        Assert.verify(paging.getSize(),ES_REPOSITORY_105);
-        if(paging.getPage()<= 0 || paging.getSize() <=0)throw new EventException(ES_REPOSITORY_100);
-        //使用mono.zip执行并行处理，瓶颈来到了 i/o上。对于分页查询来说，这非常快。最后获得结果的时间由时间最长的线程处理决定
-        PageRequest pageRequest = PageRequest.of(paging.getPage() - 1, paging.getSize(), sort == null ? Sort.unsorted() : sort);
-
-        return Mono.zip(
-                        operation.count().defaultIfEmpty(0L), // 计算 count
-                        operation.query(pageRequest).collectList() // 查询数据
-                )
-                .flatMap(tuple -> {
-                    Long count = tuple.getT1(); // 获取 count 结果
-                    List<VO> records = tuple.getT2(); // 获取查询结果
-                    Paged<VO> paged = Paged.<VO>builder()
-                            .page(paging.getPage())
-                            .size(paging.getSize())
-                            .total(count)
-                            .pages((int) Math.ceil((double) count / (double) paging.getSize()))
-                            .records(records)
-                            .build();
-                    return Mono.just(paged);
-                });
+    default <T> Mono<Paged<T>> queryPage(Paging paging, CountedPageSource<T> source) {
+        return queryPage(paging, null, source);
     }
 
-
-    default <Condition,VO>Mono<Paged<VO>> dslPaging(Paging paging, Condition condition,UnifyPagingDslOperation<Condition,VO> operation) {
-        return this.dslPaging(paging,condition,null,operation);
+    default <T> Mono<Paged<T>> queryPage(Paging paging, Sort sort, CountedPageSource<T> source) {
+        return collect(paging, sort, source::count, source::query);
     }
 
-    default <Condition,VO>Mono<Paged<VO>> dslPaging(Paging paging,Condition condition,Sort sort, UnifyPagingDslOperation<Condition,VO> operation){
-        Assert.verify(paging,ES_REPOSITORY_103);
-        Assert.verify(paging.getPage(),ES_REPOSITORY_104);
-        Assert.verify(paging.getSize(),ES_REPOSITORY_105);
-        if(paging.getPage()<= 0 || paging.getSize() <=0)throw new EventException(ES_REPOSITORY_100);
-        //使用mono.zip执行并行处理，瓶颈来到了 i/o上。对于分页查询来说，这非常快。最后获得结果的时间由时间最长的线程处理决定
-        PageRequest pageRequest = PageRequest.of(paging.getPage() - 1, paging.getSize(), sort == null ? Sort.unsorted() : sort);
-
-        return operation.query(condition,pageRequest) // 查询数据
-                .flatMap(tuple -> {
-                    List<VO> records = tuple.getContent().stream().map(e->{
-                        operation.convert(e,e.getContent());
-                        return e.getContent();
-                    }).collect(Collectors.toList());
-                    return Flux.fromIterable(records).collectList().flatMap(rs->{
-                        return operation.convert(records).switchIfEmpty(Flux.fromIterable(rs))
-                                .collectList().map(_rs->{
-                                    operation.sort(condition,_rs);
-                                    Paged<VO> paged = Paged.<VO>builder()
-                                            .page(paging.getPage())
-                                            .size(paging.getSize())
-                                            .total(tuple.getTotalElements())
-                                            .pages(tuple.getTotalPages())
-                                            .records(_rs)
-                                            .build();
-                                    return paged;
-                                });
-                    });
-                });
+    private static <T> Mono<Paged<T>> collect(Paging paging, Sort sort, Supplier<Mono<Long>> count,
+            Function<Pageable, Flux<T>> query) {
+        var request = request(paging, sort);
+        var total = Mono.defer(count).defaultIfEmpty(0L);
+        var records = Flux.defer(() -> query.apply(request)).collectList();
+        // A Mongo session cannot run parallel commands in the same transaction.
+        return TransactionSynchronizationManager.forCurrentTransaction()
+                .map(TransactionSynchronizationManager::isActualTransactionActive)
+                .onErrorReturn(NoTransactionException.class, false)
+                .flatMap(transaction -> transaction
+                        ? total.flatMap(value -> records.map(items -> reactor.util.function.Tuples.of(value, items)))
+                        : Mono.zip(total, records))
+                .map(page -> Paged.<T>builder().page(paging.getPage()).size(paging.getSize())
+                        .total(page.getT1()).pages((int) Math.ceil((double) page.getT1() / paging.getSize()))
+                        .records(page.getT2()).build());
     }
 
-
-
-    default <VO>Mono<Paged<VO>> dslPaging(Paging paging, UnifyPagingDslDefaultOperation<VO> operation) {
-        return this.dslPaging(paging,null,operation);
-    }
-
-    default <VO>Mono<Paged<VO>> dslPaging(Paging paging, Sort sort, UnifyPagingDslDefaultOperation<VO> operation){
-        Assert.verify(paging,ES_REPOSITORY_103);
-        Assert.verify(paging.getPage(),ES_REPOSITORY_104);
-        Assert.verify(paging.getSize(),ES_REPOSITORY_105);
-        if(paging.getPage()<= 0 || paging.getSize() <=0)throw new EventException(ES_REPOSITORY_100);
-        //使用mono.zip执行并行处理，瓶颈来到了 i/o上。对于分页查询来说，这非常快。最后获得结果的时间由时间最长的线程处理决定
-        PageRequest pageRequest = PageRequest.of(paging.getPage() - 1, paging.getSize(), sort == null ? Sort.unsorted() : sort);
-
-        return operation.query(pageRequest) // 查询数据
-                .flatMap(tuple -> {
-                    List<VO> records = tuple.getContent().stream().map(e->{
-                        operation.convert(e,e.getContent());
-                        return e.getContent();
-                    }).collect(Collectors.toList());
-                    return Flux.fromIterable(records).collectList().flatMap(rs->{
-                        return operation.convert(records).switchIfEmpty(Flux.fromIterable(rs))
-                                .collectList().map(_rs->{
-                                    operation.sort(_rs);
-                                    Paged<VO> paged = Paged.<VO>builder()
-                                            .page(paging.getPage())
-                                            .size(paging.getSize())
-                                            .total(tuple.getTotalElements())
-                                            .pages(tuple.getTotalPages())
-                                            .records(_rs)
-                                            .build();
-                                    return paged;
-                                });
-                    });
-                });
+    private static PageRequest request(Paging paging, Sort sort) {
+        if (paging == null) {
+            throw new EventException(ES_REPOSITORY_103);
+        }
+        if (paging.getPage() == null || paging.getSize() == null || paging.getPage() < 1 || paging.getSize() < 1) {
+            throw new EventException(ES_REPOSITORY_100);
+        }
+        return PageRequest.of(paging.getPage() - 1, paging.getSize(), sort == null ? Sort.unsorted() : sort);
     }
 }

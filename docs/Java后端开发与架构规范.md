@@ -16,7 +16,7 @@
 ~~~text
 user/
 ├── pom.xml
-├── user-service/
+├── app/
 │   ├── pom.xml
 │   └── src/main/
 │       ├── java/com/user/
@@ -27,14 +27,14 @@ user/
 │       │   ├── entity/UserEntity.java
 │       │   └── repository/UserRepository.java
 │       └── resources/application.properties
-└── user-facade/
+└── facade/
     ├── pom.xml
     └── src/main/java/com/user/
         └── facade/UserFacade.java
 ~~~
 
-- 父工程使用 `pom` 打包，管理模块与版本。`<项目名>-service` 是可运行模块，依赖 `<项目名>-facade`。其他微服务通过 `<项目名>-facade` 引入 RPC 契约。
-- `<项目名>-facade` 是契约 JAR，`facade` 包内放对外接口和接口内的入参、出参 `record`。该模块只引入编译和使用契约所需的依赖。
+- 父工程使用 `pom` 打包，管理模块与版本。`app/` 是可运行模块，依赖同一服务目录中的 `facade/`。其他微服务通过 `<项目名>-facade` 引入 RPC 契约。
+- `facade/` 打包成 `<项目名>-facade` 契约 JAR，`facade` 包内放对外接口和接口内的入参、出参 `record`。该模块只引入编译和使用契约所需的依赖。
 - 服务端的 `UserFacadeImpl` 放在 service 模块的 `facade` 包。业务实现直接命名为 `UserServiceImpl`，放在 `service` 包根，省略 `UserService` 接口和 `service.impl` 子包。
 - 每个数据库表或集合对应一个持久化实体。`UserEntity` 映射到 `user`，由 `UserRepository` 访问。枚举按业务归属放在实体或 `enums` 包，连接配置放在 `config` 包。
 
@@ -52,15 +52,14 @@ package com.user.facade;
 import jakarta.validation.constraints.NotNull;
 import org.bson.types.ObjectId;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.lambda.framework.common.jackson.JsonObjectId;
 import reactor.core.publisher.Mono;
 
 public interface UserFacade {
     @MessageMapping({"user.userFacade.find", "/api/user/find"})
     Mono<Detail> find(FindRequest request);
 
-    record FindRequest(@JsonObjectId @NotNull ObjectId id) {}
-    record Detail(@JsonObjectId ObjectId id, String name) {}
+    record FindRequest(@NotNull ObjectId id) {}
+    record Detail(ObjectId id, String name) {}
 }
 ~~~
 
@@ -73,7 +72,6 @@ public interface UserFacade {
 | 注解 | 放置位置 | 使用约定 |
 |---|---|---|
 | `@Document` | MongoDB 实体 | 显式写集合名，让部署、查询和迁移引用同一名称 |
-| `@Table` | Spring Data R2DBC 实体 | 显式写表名，表结构和索引用迁移脚本维护 |
 | `@Id` | 主键字段或 record 组件 | 明确主键映射。MongoDB 对应 BSON `_id` |
 | `@Field` / `@Column` | 字段或 record 组件 | 数据库名与 Java 属性不同时声明映射。变更已有映射时提供数据迁移 |
 | `@Version` | 乐观锁字段 | 按业务选用。依赖旧版本的手写更新必须显式匹配版本，并在同一操作中推进 |
@@ -111,16 +109,15 @@ public record ChatMessageEntity(@Id ObjectId id, ObjectId conversationId,
 
 ## MongoDB 类型、枚举与查询
 
-MongoDB 主键和关联字段用 BSON `ObjectId`，Repository 泛型和查询参数也使用 `ObjectId`。网关 HTTP JSON 中的 ID 使用 24 位十六进制字符串。原生 Java RPC 用 Fory 直接传输 ObjectId。公开 record 的 Mongo ID 组件声明为 `@JsonObjectId ObjectId`，Jackson 2 和 3 在读入时校验并转换，写出时输出小写十六进制字符串。Service 直接把原生 ID 交给 Repository。
+MongoDB 主键和关联字段用 BSON `ObjectId`，Repository 泛型和查询参数也使用 `ObjectId`。网关 HTTP JSON 和消息 JSON 中的 ID 使用 24 位十六进制字符串。原生 Java RPC 用 Fory 直接传输 ObjectId。公开 record 的 Mongo ID 组件声明为 `ObjectId`，Jackson 2 和 3 在读入时校验并转换，写出时输出小写十六进制字符串。Service 直接把原生 ID 交给 Repository。
 
 ~~~java
-import org.lambda.framework.common.jackson.JsonObjectId;
 
 // 定义在所属 Facade 接口内
-record FindRequest(@JsonObjectId @NotNull ObjectId id) {}
+record FindRequest(@NotNull ObjectId id) {}
 ~~~
 
-`@JsonObjectId` 只作用于标注的单值字段。必填 ID 配合 `@NotNull` 和入口 Bean Validation，游标等可选 ID 允许为空。字符串业务键继续用 `String`。既有字符串入参若暂不迁移，在调用 Repository 前校验并转换一次。
+框架的 Jackson 2 与 Spring Boot Jackson 3 自动处理 `ObjectId` 和 `List<ObjectId>`。必填 ID 配合 `@NotNull` 与入口校验，可选游标允许为空。字符串业务键使用 `String`。
 
 ~~~java
 public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessageEntity, ObjectId> {
@@ -135,7 +132,7 @@ public interface ChatMessageRepository extends ReactiveMongoRepository<ChatMessa
 
 ## `@Aggregation` 中的 ObjectId
 
-供网关 JSON 使用的请求 record 用 `@JsonObjectId ObjectId` 自动接收十六进制字符串。Java RPC 的 Fory 编解码直接处理 ObjectId。业务层把原生 ID 直接交给 Repository。Repository 的 `@Aggregation` 用未加引号的 `?0`、`?1` 绑定原生参数，批量条件用 `List<ObjectId>`。已是 ObjectId 的值直接传入。各集合关联字段的 BSON 类型必须一致。顶层字段会按 Repository 实体映射，例如 `userId` 映射为 `user_id`。跨集合阶段按目标集合的实际 BSON 字段名编写。
+供网关 JSON 使用的请求 record 用 `ObjectId` 自动接收十六进制字符串。Java RPC 的 Fory 编解码直接处理 ObjectId。业务层把原生 ID 直接交给 Repository。Repository 的 `@Aggregation` 用未加引号的 `?0`、`?1` 绑定原生参数，批量条件用 `List<ObjectId>`。已是 ObjectId 的值直接传入。各集合关联字段的 BSON 类型必须一致。顶层字段会按 Repository 实体映射，例如 `userId` 映射为 `user_id`。跨集合阶段按目标集合的实际 BSON 字段名编写。
 
 下面从收藏中间集合按用户过滤，关联商品和商家，再按 ObjectId 类型的评论者 ID 统计评论，最后按商家汇总。聚合结果在 `FavoriteRepository` 内定义查询投影 `record MerchantStats(@Id ObjectId merchantId, int favoriteCount, int reviewCount) {}`。Service 将投影映射到对外 Facade 中的响应 record。
 
@@ -194,28 +191,32 @@ return mongo.updateFirst(filter, deduction, SkuEntity.class)
 
 ## 用户与会话
 
-业务用户实体可继承 `UnifyPO<ObjectId>` 并实现 `SecurityLoginUser<ObjectId>`，复用 id、createTime、updateTime。登录快照可用 record 实现 `SecurityLoginUser<String>`，ID 使用十六进制字符串。登录接口对外返回的 record 定义在相应 Facade 接口中。快照保留昵称、状态和必要的权限版本，避免包含密码哈希、验证码和敏感业务字段。
+业务用户实体可继承 `UnifyPO<ObjectId>` 并实现 `SecurityLoginUser<ObjectId>`，复用 id、createTime、updateTime。登录快照使用独立类型实现 `SecurityLoginUser<String>`，ID 使用十六进制字符串。登录接口对外返回的 record 定义在相应 Facade 接口中。快照保留昵称、状态和必要的权限版本，避免包含密码哈希、验证码和敏感业务字段。
 
-`PrincipalFactory` 是会话抽象，`SecurityPrincipalHolder` 从 Reactor Context 读取当前用户。登录后创建会话，从可信入口验证令牌，并在 Service 按实际身份判断资源权限。认证与授权 Redis 使用独立配置前缀，核对所用 ACL 模式及框架模块能力。应用负责覆盖实际身份与权限规则。
+在 Controller、Service、Facade 注入 `PrincipalFactory`。只需用户 ID 时用 `currentUserId()`，MongoDB 主键用 `currentUserObjectId()`，读取完整快照用 `currentUser(LoginUser.class)`。框架从当前请求的 Reactor Context 读取身份。应用在业务层校验资源归属和权限。
 
 ## 分页和索引
 
 `Paging` 对业务使用从 1 开始的页码，默认 1/10。框架转换为从 0 开始的 `PageRequest`。`Paged<T>` 复用 page、size、pages、total、records。页码和大小在入口校验，业务列表限制每页最多 100。RPC 保留 `Mono<Paged<UserFacade.PageItem>>` 的完整泛型。
 
-`ReactiveUnifyPagingRepositoryOperation.sqlPaging` 提供 count 与 query 的协调，也可给 Mongo Repository 使用。两者传相同过滤条件，查询应用 Pageable。排序使用可索引的稳定键，例如 `createdAt DESC, _id DESC`。聊天历史等长期增长列表使用复合游标，游标中的 ID 转为 ObjectId。业务需考虑 count 与查询分开执行时的并发更新。
+`ReactiveUnifyPagingRepositoryOperation.queryPage` 提供 count 与 query 的协调，也可给 Mongo Repository 使用。两者传相同过滤条件，查询应用 Pageable。排序使用可索引的稳定键，例如 `createdAt DESC, _id DESC`。聊天历史等长期增长列表使用复合游标，游标中的 ID 转为 ObjectId。业务需考虑 count 与查询分开执行时的并发更新。
 
-## 数据库、缓存和运行配置
+## 数据和运行配置
 
-使用现有 JDK 27 与 IDEA 自带 Maven。框架先执行 `./scripts/mvn.sh install`，应用随后构建。网关运行模式固定 `spring.main.web-application-type=reactive`。业务服务设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.transport=tcp`。引入 `lambda-framework-rsocket` 后，配置监听端口即启用 RSocket 服务端及框架拦截器。框架在启动时拒绝业务服务的 HTTP 模式和 WebSocket 传输。只向外部开放网关的 HTTPS/WSS 入口，业务 RSocket TCP 端口限网关与获准调用的 Java 服务访问。
+应用选择 Maven 模块，启动类使用 `@SpringBootApplication`。连接配置出现时自动创建客户端和检查，生命周期由 Spring 管理。完整属性与示例见 [组件配置手册](MODULES-AND-CONFIGURATION.md)。
 
-| 功能 | 用法 |
+| 场景 | 模块和使用方式 |
 |---|---|
-| MongoDB | repository 模块继承 DefaultReactiveMongoRepositoryConfig，使用 lambda.repository.mongo.host/user/password/auth-database/database/deploy/replica。副本集事务配置 cluster 与真实 replica 名。 |
-| Redis | repository 模块继承 DefaultReactiveRedisRepositoryConfig，使用 lambda.repository.redis.host/username/password/database/deploy。复用连接，以业务前缀与 TTL 管理键。 |
-| RabbitMQ | mq 模块继承 DefaultReactiveRabbitMQConfig。延迟交换机需要插件，处理结果落库后再确认消费。 |
-| Nacos | 配置 namespace、group、服务名与注册端口。区分 HTTP 端口与 RSocket 端口。 |
-| Qdrant | 示例通过 WebClient 访问，按集合定义维度、距离函数、ID 与 payload。 |
-| 对象存储与短信 | 通过部署环境注入凭据，接口按云服务文档配置。 |
+| 文档数据 | `lambda-framework-repository` 提供 reactive MongoDB、分页、枚举转换、索引和 `TransactionalOperator` |
+| 缓存 | `lambda-framework-repository` 提供 `ReactiveRedisOperation`，用 TTL 和业务键前缀 |
+| 向量 | `lambda-framework-qdrant` 提供 `ReactiveQdrantRepository<T>`，按 collection 封装异步写入和向量查询 |
+| 消息 | `lambda-framework-mq` 提供 RabbitMQ 和 Kafka 的响应式客户端 |
+| 分布式锁 | `lambda-framework-lock` 提供 ZooKeeper 和 Redisson，优先用作用域锁 |
+| 雪花 ID | `lambda-framework-guid` 自动提供 `GuidFactory` |
+
+MongoDB 单机使用单节点副本集，集群使用多节点副本集。两种模式的 URI 都声明数据库与 `replicaSet`。Redis 集群使用数据库 0。Redis 的业务键与认证键分开命名。Qdrant 集群先等待 collection 在全部配置端点可见，再开放写入。业务 Repository 继承 `ReactiveQdrantRepository<T>`，负责绑定集合、定义索引和转换查询结果。Service 调用 Repository 并处理业务校验。
+
+认证网关引入 `lambda-framework-security`，配置 Redis 并声明公开路径。业务登录核验用户后用 `PrincipalFactory.setPrincipal` 签发会话令牌。网关校验 Bearer 令牌，框架沿 Reactor Context 和 RSocket 元数据传递身份。内部 RSocket 端口绑定回环或可信内网，网络规则只允许网关和可信服务接入。
 
 ## Nacos 配置与 Data ID 命名
 
@@ -298,7 +299,7 @@ spring.cloud.gateway.server.webflux.routes[1].filters[0]=StripPrefix=1
 
 服务 A 可以将入站 `Flux<I>` 传给服务 B 的 Facade，由服务 B 的 `BiFlux<O>` 直接返回给 A。B 的 Facade 使用点分隔的 `@MessageMapping`，A 用 `@RSocketRpc` 注入。前端到网关是 WebSocket JSON，网关到 A 是 RSocket JSON，A 到 B 是 RSocket Fory。业务逻辑保留响应式链路，取消随订阅传递。
 
-Java 服务间原生 RPC 固定使用 Apache Fory。提供方依赖 `lambda-framework-rsocket`，调用方依赖 `lambda-framework-rpc`。Spring Boot 自动配置编解码器，框架从已声明的请求、响应类型中自动收集 record、嵌套泛型、枚举和框架分页类型。保持 Facade 契约同版。签名之外的多态子类型用 `ForyRpcTypes` 显式注册。服务端拒绝用 JSON 或二进制连接调用点分隔的原生 RPC 路由。网关 JSON 业务路由使用 `/` 前缀。身份元数据沿用 JSON。
+Java 服务间原生 RPC 固定使用 Apache Fory。提供方依赖 `lambda-framework-rsocket`，调用方依赖 `lambda-framework-rpc`。Spring Boot 自动配置编解码器，框架从已声明的请求、响应类型中自动收集 record、嵌套泛型、枚举和框架分页类型。保持 Facade 契约同版。签名之外的多态子类型用 `ForyRpcTypes` 显式注册。服务端拒绝用 JSON 或二进制连接调用点分隔的原生 RPC 路由。网关 JSON 业务路由使用 `/` 前缀。Java RPC 身份元数据使用 Fory，网关到服务的身份元数据使用 JSON。
 
 网关默认每个后端实例复用一条 RSocket TCP 连接。需要承受单条连接断开的关键路由可在 Nacos 配置 `rsocketConnectionsPerInstance=2`。连接关闭后按最近一次成功发现的目标列表补建连接。请求已发出时由调用方根据业务幂等规则决定如何处理，网关不自动重放。
 

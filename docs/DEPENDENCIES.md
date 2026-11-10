@@ -1,6 +1,6 @@
 # 依赖版本清单
 
-版本核验日期：2026-11-07；操作说明补充：2026-11-09。本轮未升级 POM。以下版本取自 Maven Central 的 `maven-metadata.xml`，过滤预览版本。Spring 生态传递依赖由 Boot / Cloud BOM 管理，不能任意混搭最高版本。
+版本核验日期：2026-11-07；操作说明补充：2026-11-09。本次重构移除了关系库与 Elasticsearch 依赖，增加 Qdrant SDK。以下版本取自 Maven Central 的 `maven-metadata.xml`，过滤预览版本。Spring 生态传递依赖由 Boot / Cloud BOM 管理，不能任意混搭最高版本。
 
 | 坐标 | 稳定版本 |
 |---|---|
@@ -14,10 +14,9 @@
 | `commons-beanutils:commons-beanutils` | `1.11.0` |
 | `org.apache.commons:commons-lang3` | `3.21.0` |
 | `com.google.guava:guava` | `33.8.0-jre` |
-| `io.asyncer:r2dbc-mysql` | `1.4.3` |
-| `io.r2dbc:r2dbc-pool` | `1.0.2.RELEASE` |
 | `com.fasterxml.jackson.datatype:jackson-datatype-jsr310` | `2.22.4` |
 | `cn.hutool:hutool-core` | `5.8.48` |
+| `io.qdrant:client` | `1.20.0` |
 | `org.redisson:redisson` | `4.8.0` |
 | `org.apache.curator:curator-recipes` | `5.9.0` |
 | `io.projectreactor.rabbitmq:reactor-rabbitmq` | `1.5.6` |

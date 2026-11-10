@@ -6,7 +6,7 @@ public class ConmonContract {
     public static final String AUTHTOKEN_STASH_NAMING = "lambda/auth-token";
     public static final String AUTH_TOKEN_NAMING = "Auth-Token";
     public static final String LAMBDA_SECURITY_AUTH_TOKEN_KEY = "lambda.security.auth-token.";
-    public static final String LAMBDA_SECURITY_AUTH_TOKEN_REGEX = LAMBDA_SECURITY_AUTH_TOKEN_KEY+"[a-zA-Z\\d]+\\.[a-zA-Z\\d]+";
+    public static final String LAMBDA_SECURITY_AUTH_TOKEN_REGEX = java.util.regex.Pattern.quote(LAMBDA_SECURITY_AUTH_TOKEN_KEY)+"[a-zA-Z\\d]+\\.[a-zA-Z\\d]+";
     public static final Long LAMBDA_SECURITY_TOKEN_TIME_SECOND = 2592000L;
 
 }

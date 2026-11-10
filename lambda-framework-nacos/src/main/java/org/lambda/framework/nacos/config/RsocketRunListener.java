@@ -1,19 +1,28 @@
 package org.lambda.framework.nacos.config;
 
 import com.alibaba.cloud.nacos.registry.NacosAutoServiceRegistration;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.boot.rsocket.context.RSocketServerInitializedEvent;
-import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.EventListener;
 
-public class RsocketRunListener implements ApplicationListener<RSocketServerInitializedEvent> {
+public class RsocketRunListener {
     private final NacosAutoServiceRegistration registration;
+    private int boundPort;
 
     public RsocketRunListener(NacosAutoServiceRegistration registration) {
         this.registration = registration;
     }
 
-    @Override
-    public void onApplicationEvent(RSocketServerInitializedEvent event) {
-        registration.setPort(event.getServer().address().getPort());
-        registration.start();
+    @EventListener
+    public void serverBound(RSocketServerInitializedEvent event) {
+        boundPort = event.getServer().address().getPort();
+    }
+
+    @EventListener
+    public void applicationReady(ApplicationReadyEvent event) {
+        if (boundPort > 0) {
+            registration.setPort(boundPort);
+            registration.start();
+        }
     }
 }

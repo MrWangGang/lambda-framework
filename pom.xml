@@ -55,8 +55,6 @@
         <jtokkit.version>1.1.0</jtokkit.version>
         <commons-lang3.version>3.21.0</commons-lang3.version>
         <commons-beanutils.version>1.11.0</commons-beanutils.version>
-        <r2dbc-mysql.version>1.4.3</r2dbc-mysql.version>
-        <r2dbc-pool.version>1.0.2.RELEASE</r2dbc-pool.version>
         <jackson-datatype-jsr310.version>2.22.4</jackson-datatype-jsr310.version>
         <lombok.version>1.18.48</lombok.version>
         <redisson.version>4.8.0</redisson.version>
@@ -150,6 +148,11 @@
             </dependency>
             <dependency>
                 <groupId>org.lambda.framework</groupId>
+                <artifactId>lambda-framework-qdrant</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.lambda.framework</groupId>
                 <artifactId>lambda-framework-httpclient</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -188,17 +191,7 @@
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
             </dependency>
-            <dependency>
-                <groupId>io.asyncer</groupId>
-                <artifactId>r2dbc-mysql</artifactId>
-                <version>${r2dbc-mysql.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>io.r2dbc</groupId>
-                <artifactId>r2dbc-pool</artifactId>
-                <version>${r2dbc-pool.version}</version>
-            </dependency>
-            <dependency>
+                                    <dependency>
                 <groupId>com.fasterxml.jackson.datatype</groupId>
                 <artifactId>jackson-datatype-jsr310</artifactId>
                 <version>${jackson-datatype-jsr310.version}</version>
@@ -252,6 +245,7 @@
         <module>lambda-framework-security</module>
         <module>lambda-framework-guid</module>
         <module>lambda-framework-repository</module>
+        <module>lambda-framework-qdrant</module>
         <module>lambda-framework-compliance</module>
         <module>lambda-framework-lock</module>
         <module>lambda-framework-mq</module>

@@ -1,0 +1,2 @@
+org.lambda.framework.common.autoconfigure.ObjectIdJsonAutoConfiguration
+org.lambda.framework.common.startup.ComponentChecksAutoConfiguration

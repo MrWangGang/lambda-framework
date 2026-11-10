@@ -3,129 +3,73 @@ package org.lambda.framework.mq.config.rabbitmq;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Delivery;
 import jakarta.annotation.Resource;
-import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.mq.RabbitMQDeclare;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.rabbitmq.*;
+import reactor.rabbitmq.AcknowledgableDelivery;
+import reactor.rabbitmq.BindingSpecification;
+import reactor.rabbitmq.ExchangeSpecification;
+import reactor.rabbitmq.OutboundMessage;
+import reactor.rabbitmq.QueueSpecification;
+import reactor.rabbitmq.Receiver;
+import reactor.rabbitmq.Sender;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
-import static org.lambda.framework.mq.enums.MqExceptionEnum.*;
+import static org.lambda.framework.mq.enums.MqExceptionEnum.ES_MQ_000;
 
 public class RabbitMQReactiveOperate {
     @Resource
     private Sender sender;
+
     @Resource
     private Receiver receiver;
 
-    public Mono<Void> sendDelay(RabbitMQDeclare declare, Long delayMillis, String message) {
-        return this.sendDelay(declare,delayMillis,message,new HashMap<>());
+    public Mono<Void> sendDelay(RabbitMQDeclare declaration, Long delayMillis, String message) {
+        return sendDelay(declaration, delayMillis, message, Map.of());
     }
 
-
-    public Mono<Void> sendDelay(RabbitMQDeclare declare, Long delayMillis,String message,Map<String, Object> headers){
-        Assert.check(declare,ES_MQ_RABBITMQ_004);
-        Assert.verify(delayMillis,ES_MQ_RABBITMQ_005);
-        Assert.verify(message,ES_MQ_RABBITMQ_007);
-        Assert.verify(headers,ES_MQ_RABBITMQ_008);
-        //声明主队列交换机
-        // 依次声明交换机、队列，并绑定
-
-        Flux<OutboundMessage> messages = Flux.defer(()->{
-            // 设置消息的延迟时间
-            Map<String, Object> mutableHeaders = new HashMap<>(headers);
-
-            mutableHeaders.put("x-delay", delayMillis);
-            AMQP.BasicProperties props = new AMQP.BasicProperties.Builder()
-                    .headers(mutableHeaders)
-                    .build();
-
-            // 创建 OutboundMessage 对象
-            OutboundMessage outboundMessage = new OutboundMessage(
-                    declare.getExchangeName(),
-                    declare.getRoutingKey(),
-                    props,
-                    message.getBytes()
-            );
-            // 返回包含单个 OutboundMessage 的 Flux
-            return Flux.just(outboundMessage);
-        });
-
-        Flux<OutboundMessageResult> resultFlux = sender.sendWithPublishConfirms(messages);
-        return resultFlux.flatMap(ack->{
-            if(ack.isAck()){
-                return Mono.empty();
+    public Mono<Void> sendDelay(RabbitMQDeclare declaration, Long delayMillis, String message,
+            Map<String, Object> headers) {
+        return Mono.defer(() -> {
+            Objects.requireNonNull(declaration, "RabbitMQ declaration");
+            Objects.requireNonNull(message, "RabbitMQ message");
+            if (delayMillis == null || delayMillis < 0 || delayMillis > 4_294_967_295L) {
+                return Mono.error(new IllegalArgumentException("RabbitMQ delay must be 0..4294967295 milliseconds"));
             }
-            throw new EventException(ES_MQ_000);
-        }).then();
+            var messageHeaders = new HashMap<>(headers);
+            messageHeaders.put("x-delay", delayMillis);
+            var properties = new AMQP.BasicProperties.Builder().deliveryMode(2).contentType("application/json")
+                    .headers(messageHeaders).build();
+            var outbound = new OutboundMessage(declaration.getExchangeName(), declaration.getRoutingKey(),
+                    properties, message.getBytes(StandardCharsets.UTF_8));
+            return sender.sendWithPublishConfirms(Mono.just(outbound)).single().flatMap(result ->
+                    result.isAck() ? Mono.empty() : Mono.error(new EventException(ES_MQ_000)));
+        });
     }
 
-
-
-    public Flux<AcknowledgableDelivery> receiverManual(String queue){
-        Flux<AcknowledgableDelivery> deliveryFlux = receiver.consumeManualAck(queue);
-        return deliveryFlux;
+    public Flux<AcknowledgableDelivery> receiverManual(String queue) {
+        return receiver.consumeManualAck(queue);
     }
 
-    public Flux<Delivery> receiverAuto(String queue){
-        Flux<Delivery> deliveryFlux = receiver.consumeAutoAck(queue);
-        return deliveryFlux;
+    public Flux<Delivery> receiverAuto(String queue) {
+        return receiver.consumeAutoAck(queue);
     }
 
+    public Mono<AMQP.Queue.BindOk> declareDelay(RabbitMQDeclare declaration) {
+        return declareDelay(declaration, Map.of());
+    }
 
-    public Mono<AMQP.Queue.BindOk> declareDelay(RabbitMQDeclare declare){
-        // 声明主交换机
-        ExchangeSpecification primaryExchangeSpec = new ExchangeSpecification()
-                .type("x-delayed-message") // 主交换机的类型可以根据需求设置
-                .name(declare.getExchangeName())
-                .durable(true)
-                .autoDelete(false)
-                .arguments(Map.of("x-delayed-type", "direct"));
-
-        /*        // 声明死信交换机
-        ExchangeSpecification dlxExchangeSpec = new ExchangeSpecification()
-                .type("direct") // 死信交换机的类型可以根据需求设置
-                .name(declare.getDlxExchangeName())
-                .durable(true)
-                .autoDelete(false);*/
-
-        // 声明主队列
-        QueueSpecification primaryQueueSpec = new QueueSpecification()
-                .name(declare.getQueueName())
-                .durable(true)
-                .autoDelete(false);
-                /*.arguments(Map.of(
-                        "x-dead-letter-exchange", declare.getDlxExchangeName(),
-                        "x-dead-letter-routing-key", declare.getDlxRoutingKey()
-                ));*/
-
-        /*// 声明死信队列
-        QueueSpecification dlxQueueSpec = new QueueSpecification()
-                .name(declare.getDlxQueueName())
-                .durable(true)
-                .autoDelete(false);*/
-
-        // 绑定主队列到主交换机
-        BindingSpecification primaryBindingSpec = BindingSpecification.binding()
-                .exchange(declare.getExchangeName())
-                .queue(declare.getQueueName())
-                .routingKey(declare.getRoutingKey());
-
-        /*// 绑定死信队列到死信交换机
-        BindingSpecification dlxBindingSpec = BindingSpecification.binding()
-                .exchange(declare.getDlxExchangeName())
-                .queue(declare.getDlxQueueName())
-                .routingKey(declare.getDlxRoutingKey());*/
-
-        // 依次声明交换机、队列，并绑定
-        return sender.declare(primaryExchangeSpec)
-                //.then(sender.declare(dlxExchangeSpec))
-                .then(sender.declare(primaryQueueSpec))
-                //.then(sender.declare(dlxQueueSpec))
-                .then(sender.bind(primaryBindingSpec));
-                //.then(sender.bind(dlxBindingSpec));
+    public Mono<AMQP.Queue.BindOk> declareDelay(RabbitMQDeclare declaration, Map<String, Object> queueArguments) {
+        var exchange = ExchangeSpecification.exchange(declaration.getExchangeName()).type("x-delayed-message")
+                .durable(true).arguments(Map.of("x-delayed-type", "direct"));
+        var queue = QueueSpecification.queue(declaration.getQueueName()).durable(true).arguments(queueArguments);
+        var binding = BindingSpecification.binding(declaration.getExchangeName(), declaration.getRoutingKey(),
+                declaration.getQueueName());
+        return sender.declareExchange(exchange).then(sender.declareQueue(queue)).then(sender.bind(binding));
     }
 }

@@ -4,10 +4,6 @@ import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
 public enum RepositoryExceptionEnum implements ExceptionEnumFunction {
 
-    ES_REPOSITORY_MYSQL_000("ES_REPOSITORY_MYSQL_000","mysql缺少host配置"),
-    ES_REPOSITORY_MYSQL_001("ES_REPOSITORY_MYSQL_001","mysql缺少user配置"),
-    ES_REPOSITORY_MYSQL_002("ES_REPOSITORY_MYSQL_002","mysql缺少password配置"),
-    ES_REPOSITORY_MYSQL_003("ES_REPOSITORY_MYSQL_003","mysql缺少database配置"),
 
     ES_REPOSITORY_MONGO_004("ES_REPOSITORY_MONGO_004","mongo缺少host配置"),
     ES_REPOSITORY_MONGO_005("ES_REPOSITORY_MONGO_005","mongo缺少user配置"),
@@ -27,11 +23,6 @@ public enum RepositoryExceptionEnum implements ExceptionEnumFunction {
     ES_REPOSITORY_MONGO_019("ES_REPOSITORY_MONGO_019","PO缺少文档名称"),
 
 
-    ES_REPOSITORY_ELASTICSEARCH_020("ES_REPOSITORY_ELASTICSEARCH_020","elasticsearch缺少host"),
-    ES_REPOSITORY_ELASTICSEARCH_021("ES_REPOSITORY_ELASTICSEARCH_021","elasticsearch缺少user"),
-    ES_REPOSITORY_ELASTICSEARCH_022("ES_REPOSITORY_ELASTICSEARCH_022","elasticsearch缺少password"),
-    ES_REPOSITORY_ELASTICSEARCH_023("ES_REPOSITORY_ELASTICSEARCH_023","elasticsearch缺少connectTimeoutSeconds"),
-    ES_REPOSITORY_ELASTICSEARCH_024("ES_REPOSITORY_ELASTICSEARCH_024","elasticsearch缺少socketTimeoutSeconds"),
 
     ES_REPOSITORY_REDIS_030("ES_REPOSITORY_REDIS_030","redis host缺失"),
     ES_REPOSITORY_REDIS_031("ES_REPOSITORY_REDIS_031","redis port缺失"),

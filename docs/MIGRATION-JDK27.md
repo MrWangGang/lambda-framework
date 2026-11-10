@@ -20,7 +20,7 @@ Spring Boot 升至 4.1.2，Spring Cloud 升至 2025.1.4，Spring Cloud Alibaba �
 
 ## 验证范围
 
-构建覆盖全部框架模块。可运行示例及外部验收覆盖 Redis、MongoDB 副本集事务、RabbitMQ 延迟消息、Nacos 配置与发现，以及 Qdrant。验收结果见示例仓库 `docs/TESTING.md`。临时测试代码按交付要求移出仓库；MySQL、Kafka、Elasticsearch、ZooKeeper 等未部署服务不计入实机验证。
+构建覆盖全部框架模块。当前示例使用 MongoDB 副本集、Redis、Qdrant、RabbitMQ、Nacos；Kafka 与 ZooKeeper 可独立配置。
 
 
 ## 迁移前检查

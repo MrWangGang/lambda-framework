@@ -8,6 +8,7 @@ import org.apache.fory.context.WriteContext;
 import org.apache.fory.serializer.Serializer;
 import org.bson.types.ObjectId;
 import org.lambda.framework.common.enums.RSocketContract;
+import org.lambda.framework.common.support.SecurityStash;
 import org.reactivestreams.Publisher;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.AbstractDecoder;
@@ -40,7 +41,8 @@ final class ForyRpcCodec {
         var fory = Fory.builder().withXlang(false).withCompatible(true).requireClassRegistration(true)
                 .withDeserializeUnknownClass(false).serializeEnumByName(true).buildThreadSafeFory();
         fory.registerSerializer(ObjectId.class, resolver -> new ObjectIdSerializer(resolver.getConfig()));
-        Stream.concat(contractTypes.stream(), groups.stream().flatMap(group -> group.types().stream())).distinct()
+        Stream.concat(Stream.of(SecurityStash.class), Stream.concat(contractTypes.stream(),
+                        groups.stream().flatMap(group -> group.types().stream()))).distinct()
                 .filter(type -> type != ObjectId.class).forEach(type -> fory.register(type, type.getName()));
         return fory;
     }

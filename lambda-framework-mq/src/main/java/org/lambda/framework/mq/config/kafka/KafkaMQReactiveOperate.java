@@ -18,7 +18,7 @@ public class KafkaMQReactiveOperate {
     private KafkaSender<String, String> kafkaSender;
 
     @Resource
-    private AbstractReactiveKafkaMQConfig.KafkaReceiverFactory kafkaReceiverFactory;
+    private KafkaMqAutoConfiguration.KafkaReceiverFactory kafkaReceiverFactory;
 
     public Mono<Void> send(KafkaMQDeclare declare, String key, String message) {
         Assert.verify(key,ES_MQ_KAFKA_003);

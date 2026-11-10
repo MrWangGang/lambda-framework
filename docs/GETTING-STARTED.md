@@ -71,7 +71,7 @@ git clone git@github.com:MrWangGang/lambda-framework-example.git
 
 预期结果：
 
-- Reactor Summary 中父项目及 13 个模块均为 SUCCESS。
+- Reactor Summary 中父项目及 14 个模块均为 SUCCESS。
 - 最后出现 BUILD SUCCESS。
 - 本机 Maven 缓存中出现 `org/lambda/framework/.../1.0.0-SNAPSHOT`。
 - 本操作不会启动 MongoDB 等服务，也不会部署应用。
@@ -117,7 +117,7 @@ cp .env.example .env
 chmod 600 .env
 ~~~
 
-编辑 `.env`，填写自己的 JDK、服务器和凭据。`scripts/run.sh` 会在运行时读取文件；IDEA 直接运行 Java 主类不会自动读取这个 shell 文件。
+编辑 `.env`，填写自己的 JDK、服务器和凭据。`scripts/run-service-a.sh`、`scripts/run-service-b.sh`、`scripts/run-gateway.sh` 会在运行时读取文件；IDEA 直接运行 Java 主类不会自动读取这个 shell 文件。
 
 服务准备顺序：
 
@@ -125,7 +125,7 @@ chmod 600 .env
 2. Redis ACL 用户和密码可用。
 3. RabbitMQ 已加载兼容版本的延迟交换机插件。
 4. Nacos 已创建应用配置，并放通 API / gRPC。
-5. Qdrant 已开启 API Key，REST 可达。
+5. Qdrant 已开启 API Key，gRPC 可达。
 6. 按[示例首次运行手册](https://github.com/MrWangGang/lambda-framework-example/blob/main/docs/QUICKSTART.md)启动应用。
 
 不要把示例启动失败一律归为编译问题。应用启动还会创建 MongoDB 索引、RabbitMQ 拓扑、Qdrant 集合，任一依赖不可达都可能使启动失败。
@@ -161,4 +161,4 @@ chmod 600 .env
 6. 提交代码与文档；Git 推送与 Maven deploy 是不同操作。
 7. 需要干净源码目录时运行两个仓库的 `./scripts/mvn.sh clean`。
 
-当前仓库按交付要求不保留临时测试源码。`mvn test` 或 `package` 不能重现已经移除的历史外部验收，具体复核步骤见示例测试手册。
+当前仓库按交付要求不保留临时测试源码。`mvn test` 或 `package` 不能重现已经移除的历史外部验收。
