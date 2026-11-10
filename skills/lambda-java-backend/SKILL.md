@@ -30,7 +30,7 @@ description: 创建、开发和审查 Lambda Framework Java 后端。规范分�
 
 ## 3. 代码与持久化
 
-- 在 `-server` 组件包下按 `controller`、`service`、`repository`、`po` 和业务需要的 `contract` 细分。持久化类用 `UserPO`，放 `po` 包，使用普通 Java 类和 Lombok。仓储用 `UserRepository`，Service 类直接以 `Impl` 结尾。依赖 Bean 在字段上用 `@Resource`，可选提供者用 `@Autowired`。Service 不使用构造函数注入。
+- 在 `-core` 组件包下按 `controller`、`service`、`repository`、`po` 和业务需要的 `contract` 细分。持久化类用 `UserPO`，放 `po` 包，使用普通 Java 类和 Lombok。仓储用 `UserRepository`，Service 类直接以 `Impl` 结尾。依赖 Bean 在字段上用 `@Resource`，可选提供者用 `@Autowired`。Service 不使用构造函数注入。
 - Repository 只执行数据读写与持久化映射，禁止业务逻辑和校验。Service 负责请求校验、默认值、类型转换、业务规则、权限、事务和响应映射。
 - 每个 MongoDB 集合的 PO 继承 `UnifyPO<ObjectId>`。公共字段为 `id`、`createdAt`、`updatedAt` 和 `@Version Long version`。在 PO 声明 `@Document` 和按业务设计的索引。PO 只放持久化字段、映射和业务枚举，接口请求和响应使用独立契约 record。
 - 普通保存由框架审计。用 `MongoAuditUpdates.modified` 维护原子更新的时间和版本，用 `insertOnly` 维护幂等插入。编辑匹配客户端版本，库存扣减匹配足额条件。部署新版本前补齐旧集合公共字段。
@@ -65,7 +65,7 @@ description: 创建、开发和审查 Lambda Framework Java 后端。规范分�
 `serviceCode` 固定八位。`00000000` 表示成功，框架错误使用 `S` 加七位数字，业务手动错误使用 `B` 加七位数字。异常码统一使用 `org.lambda.framework.enums.ExceptionEnumFunction` 的 `getCode()` 与 `getMessage()`。
 
 - 框架组件的异常枚举集中在 `lambda-framework-enum` 的 `org.lambda.framework.enums` 包。按组件定义 `*ExceptionEnum`，常量名描述错误原因，例如 `GatewayExceptionEnum.UPSTREAM_UNAVAILABLE`。组件通过 `EventException(枚举值)` 引用错误码。
-- 每个业务微服务在自己的代码目录内创建 `<项目名>-<微服务名>-enum/`。Maven artifactId 与目录名一致。模块只放本服务的 `*ExceptionEnum`，依赖 `lambda-framework-enum` 取得错误契约。由本服务的 `-server` 模块引用，业务异常在 Service 使用 `BusinessException(枚举值)` 抛出。实体状态、配置和业务实现仍按各自职责归档。
+- 每个业务微服务在自己的代码目录内创建 `<项目名>-<微服务名>-enum/`。Maven artifactId 与目录名一致。模块只放本服务的 `*ExceptionEnum`，依赖 `lambda-framework-enum` 取得错误契约。由本服务的 `-core` 模块引用，业务异常在 Service 使用 `BusinessException(枚举值)` 抛出。实体状态、配置和业务实现仍按各自职责归档。
 - 新增前核对已分配码段与重复码。已发布的数字和语义是接口契约，退役编号保留历史含义。提交前核对所有枚举常量的码格式、唯一性和提示长度。
 
 面向用户的提示要具体、自然、简短，最多 24 个 Unicode 码点。说明发生了什么，能给出下一步时给出可执行操作，例如「商品已变更，请刷新后重试」。数据库、协议、类名和堆栈等细节留在服务端日志。
@@ -112,7 +112,7 @@ db.products.updateMany({status: "inactive"}, {$set: {status: "下架"}});
 
 新建项目时确认项目名和服务名。一个应用一个 Git 仓库，App、网关、业务服务和 IM 等独立应用各有仓库。仓库名与根目录采用 `<项目名>-<微服务名>`，例如 `tazhoo-server`。统一使用小写连字符命名。Maven 父工程 artifactId、Spring 应用名、服务发现名和 Nacos Data ID 的基名与仓库名一致。每个 Java 仓库根目录各有 Maven 父 POM，直接继承已安装的 Lambda Framework。
 
-Java 源码按 `com.<项目名>.<微服务名>.<组件名>` 分包，源码目录与 `package` 声明一致。启动类位于 `server` 组件包根，运行时 Bean 位于它的子包。RPC 契约放在 `facade` 组件包。异常码模块使用 `enums` 包，`enum` 是 Java 关键字。
+Java 源码按 `com.<项目名>.<微服务名>.<组件名>` 分包，源码目录与 `package` 声明一致。启动类位于 `core` 组件包根，运行时 Bean 位于它的子包。RPC 契约放在 `facade` 组件包。异常码模块使用 `enums` 包，`enum` 是 Java 关键字。
 
 子模块使用 `<仓库名>-<模块职责>` 命名，目录名与 Maven artifactId 一致。部署目录沿用此前缀加 `-docker`。以下是 `mall-order` 独立仓库的结构。
 
@@ -120,10 +120,10 @@ Java 源码按 `com.<项目名>.<微服务名>.<组件名>` 分包，源码目�
 mall-order/
 ├── .gitignore
 ├── pom.xml                             mall-order
-├── mall-order-server/                  启动类和服务端实现
+├── mall-order-core/                  启动类和服务端实现
 │   ├── pom.xml
 │   └── src/main/
-│       ├── java/com/mall/order/server/
+│       ├── java/com/mall/order/core/
 │       └── resources/application.properties
 ├── mall-order-facade/                  Java RPC 契约
 │   ├── pom.xml
@@ -137,16 +137,16 @@ mall-order/
     └── .dockerignore
 ~~~
 
-- 每个 Java 应用必建同级的 `-server` 与 `-facade`，包括网关。当前没有 Java RPC 接口时，保留普通 JAR 模块和契约包。业务微服务另建 `-enum`，基础设施网关使用框架网关异常码。新建时提供同级 `-docker` 部署目录。
+- 每个 Java 应用必建同级的 `-core` 与 `-facade`，包括网关。当前没有 Java RPC 接口时，保留普通 JAR 模块和契约包。业务微服务另建 `-enum`，基础设施网关使用框架网关异常码。新建时提供同级 `-docker` 部署目录。
 - 父工程使用 `pom` 打包。它声明 Java 子模块和共用的插件配置。POM 统一 XML 声明、Maven 命名空间和四空格缩进，版本优先由父工程管理。
-- `-server` 打包为 Spring Boot 可执行 JAR，按需依赖本服务的 `-enum` 和 `-facade`。契约和异常码模块打包为普通 JAR。跨服务调用方只依赖提供方的 `-facade`。每个仓库维护自己的 `.gitignore`，排除 `target/`、`*.class`、打包产物和本地私有配置。
-- 服务端 Facade 实现、业务 `*ServiceImpl` 和实体 `*PO` 放在 `-server`，按职责分包。新建项目时先核对目录、POM 坐标和依赖方向，再写业务代码。
+- `-core` 打包为 Spring Boot 可执行 JAR，按需依赖本服务的 `-enum` 和 `-facade`。契约和异常码模块打包为普通 JAR。跨服务调用方只依赖提供方的 `-facade`。每个仓库维护自己的 `.gitignore`，排除 `target/`、`*.class`、打包产物和本地私有配置。
+- 服务端 Facade 实现、业务 `*ServiceImpl` 和实体 `*PO` 放在 `-core`，按职责分包。新建项目时先核对目录、POM 坐标和依赖方向，再写业务代码。
 
 ## Docker 部署编译产物
 
-`-docker` 与 `-server` 同级，独立作为镜像构建上下文。提交 Dockerfile、Compose 文件和 `.dockerignore`。构建生成的 `app.jar` 与部署环境文件通过 `.gitignore` 排除。
+`-docker` 与 `-core` 同级，独立作为镜像构建上下文。提交 Dockerfile、Compose 文件和 `.dockerignore`。构建生成的 `app.jar` 与部署环境文件通过 `.gitignore` 排除。
 
-1. 用项目约定的 JDK 和 Maven 执行 `clean install`。先构建并重打包 `-server` 的 Spring Boot 可执行 JAR，随后在 Maven 的 `install` 阶段把主 JAR 复制到同级 `-docker/app.jar`。父 POM 集中维护复制插件，只有可运行模块启用该执行并指定自己的目标目录。Maven `clean` 清除生成的 `app.jar`。
+1. 用项目约定的 JDK 和 Maven 执行 `clean install`。先构建并重打包 `-core` 的 Spring Boot 可执行 JAR，随后在 Maven 的 `install` 阶段把主 JAR 复制到同级 `-docker/app.jar`。父 POM 集中维护复制插件，只有可运行模块启用该执行并指定自己的目标目录。Maven `clean` 清除生成的 `app.jar`。
 2. 检查部署目录中的 `app.jar` 与此次构建的可执行 JAR 相同。上传整个 `-docker` 目录。Docker 构建上下文就是该目录，`Dockerfile` 复制目录内的 `app.jar`，使用部署环境指定的 Java 运行时镜像启动。
 3. 部署机从私有环境文件提供 `JAVA_RUNTIME_IMAGE`、Nacos 地址和凭据引用。组件、网关和业务配置存放在 Nacos。使用项目目标 JDK 匹配的 Java 运行时镜像，并在部署前核对镜像来源与架构。内部服务的监听和注册地址必须对调用方可达。
 4. 进入已上传的 Docker 目录，运行 `docker compose --env-file /实际部署路径/runtime.env up -d --build`。用 `docker compose --env-file /实际部署路径/runtime.env ps` 核对容器状态，查看启动日志并核对 Nacos 服务注册。再通过网关验证业务请求。示例使用 Linux host 网络，按配置中的原生端口监听。
@@ -352,11 +352,11 @@ MongoDB 单机使用单节点副本集，集群使用多节点副本集。两种
 
 ## Nacos 配置与 Data ID 命名
 
-应用运行配置在源码中只保留 `-server/src/main/resources/application.properties`。各环境如需分段，在同一个文件内使用 `#---` 和 `spring.config.activate.on-profile`。Nacos 模式只保留引导属性，端口、路由、中间件和业务参数发布到 Nacos。由环境变量提供 Nacos 地址、namespace ID、group 和登录凭据。
+应用运行配置在源码中只保留 `-core/src/main/resources/application.properties`。各环境如需分段，在同一个文件内使用 `#---` 和 `spring.config.activate.on-profile`。Nacos 模式只保留引导属性，端口、路由、中间件和业务参数发布到 Nacos。由环境变量提供 Nacos 地址、namespace ID、group 和登录凭据。
 
 - Data ID 固定为 `<项目名称>.properties`，与 `spring.application.name` 一致。例如项目 `order-gateway` 使用 `order-gateway.properties`，项目 `user-service` 使用 `user-service.properties`。同一项目的各运行环境使用各自 namespace，Data ID 保持一致。
 - 配置读取和服务发现使用明确的 namespace ID 和 group。Data ID 内容类型选 Properties，先发布再启动应用。用于发现的服务名与网关 `rb://` 和 `ws://` 的目标一致。RSocket 服务登记实际 TCP 端口。
-- 在 `-server` 的 `application.properties` 写入以下引导配置，并将第一行替换为已确认的应用名。
+- 在 `-core` 的 `application.properties` 写入以下引导配置，并将第一行替换为已确认的应用名。
 
 ~~~properties
 spring.application.name=order-gateway
@@ -372,7 +372,7 @@ spring.cloud.nacos.password=${NACOS_PASSWORD}
 
 - 网关的 `order-gateway.properties` 在 Nacos 配置 `spring.main.web-application-type=reactive`、监听地址及端口、`spring.cloud.gateway.server.webflux.routes`。业务服务的 Nacos 配置填写内网 RSocket 地址和端口，并登记实际 TCP 端口。连接数、超时等框架参数也由对应项目的配置文件提供。连接池、监听端口与路由的热更新需逐项验证，涉及启动期绑定的值按发布流程重启。
 
-Nacos 的 Data ID 在配置中心维护。交付时检查仓库内唯一的运行配置位于 `-server/src/main/resources/application.properties`，仓库根目录和契约模块保持无运行配置。
+Nacos 的 Data ID 在配置中心维护。交付时检查仓库内唯一的运行配置位于 `-core/src/main/resources/application.properties`，仓库根目录和契约模块保持无运行配置。
 
 ## RSocket、网关与聊天
 

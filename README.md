@@ -73,7 +73,7 @@ Controller 负责绑定和转发。业务逻辑与校验放在 `*ServiceImpl`，
 
 框架各组件的错误枚举位于 [lambda-framework-enum](lambda-framework-enum/src/main/java/org/lambda/framework/enums)，例如 `GatewayExceptionEnum.UPSTREAM_UNAVAILABLE`。框架通过 `EventException` 抛出枚举，业务 Service 通过 `BusinessException` 抛出本服务的异常枚举。
 
-每个 Java 应用在独立仓库中维护 `-server` 和 `-facade` 模块。业务微服务另设 `-enum` 维护自己的 `B` 码。源码中的应用配置集中在 `-server/src/main/resources/application.properties`。模块与部署目录规范见 [Lambda Java 后端技能](skills/lambda-java-backend/SKILL.md#项目名称包名和-maven-模块)。
+每个 Java 应用在独立仓库中维护 `-core` 和 `-facade` 模块。业务微服务另设 `-enum` 维护自己的 `B` 码。源码中的应用配置集中在 `-core/src/main/resources/application.properties`。模块与部署目录规范见 [Lambda Java 后端技能](skills/lambda-java-backend/SKILL.md#项目名称包名和-maven-模块)。
 
 `serviceCode` 固定八位。成功为 `00000000`。框架使用 `S` 加七位数字，业务使用 `B` 加七位数字。框架号段按组件分配。
 
