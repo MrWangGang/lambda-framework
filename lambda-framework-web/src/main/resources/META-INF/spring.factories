@@ -1,1 +1,0 @@
-org.springframework.boot.env.EnvironmentPostProcessor=org.lambda.framework.web.adapter.WebVirtualThreadConfig

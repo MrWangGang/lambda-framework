@@ -71,7 +71,7 @@ git clone git@github.com:MrWangGang/lambda-framework-example.git
 
 预期结果：
 
-- Reactor Summary 中父项目及 14 个模块均为 SUCCESS。
+- Reactor Summary 中父项目及 13 个模块均为 SUCCESS。
 - 最后出现 BUILD SUCCESS。
 - 本机 Maven 缓存中出现 `org/lambda/framework/.../1.0.0-SNAPSHOT`。
 - 本操作不会启动 MongoDB 等服务，也不会部署应用。

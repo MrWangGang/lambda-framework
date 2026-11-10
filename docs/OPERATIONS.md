@@ -26,7 +26,7 @@ ssh -T -i /实际路径/github_key -o IdentitiesOnly=yes git@github.com
 
 GitHub 返回账号认证成功提示即可；它不提供交互 shell，退出码可能不是 0。不要只凭退出码判断失败。
 
-需要新密钥时生成专用密钥，把 .pub 公钥加入 GitHub Settings → SSH and GPG keys。私钥保留在本机，已授权的私有备份见本地《第三方配置.md》，不提交到公开仓库。首次连接核对主机指纹，不关闭校验。
+需要新密钥时生成专用密钥，把 .pub 公钥加入 GitHub Settings → SSH and GPG keys。私钥由本机保管并排除在版本控制之外。首次连接核对主机指纹，不关闭校验。
 
 ## 3. 设置推送地址
 

@@ -152,11 +152,11 @@ spring.cloud.nacos.password=${NACOS_PASSWORD}
 
 Nacos 3 的端口用途：8080 控制台、8848 API、9848 Java 客户端 gRPC。本次验收包含配置刷新、注册、注销；standalone 没有集群高可用。RSocket 端口监听器另有待修事项，见 RSocket 手册。
 
-## 6. Web、Gateway、RPC 与响应格式
+## 6. Gateway、RPC 与响应格式
 
-- 示例直接使用 Boot WebFlux，并未启用整个 `lambda-framework-web` 响应包装链。
+- 示例使用 reactive 网关统一接入 HTTP 和 WSS。网关通过 Spring WebFlux 处理 HTTP 连接。
 - 框架公共 `ResponseTemplete` 定义 `serviceCode / serviceMessage / data`，不代表示例所有 HTTP 响应都有这个外壳。
-- Web / Gateway 内的请求上下文过滤器和 Security 模块配合使用，需要验证过滤顺序。
+- Gateway 的请求上下文过滤器可与 Security 模块配合使用，身份信息通过 Reactor Context 传递。
 - Gateway 的路由、目标协议和 RSocket 服务名必须明确，不能将 HTTP 端口注册后当作 RSocket TCP 端口使用。
 - Facade 方法用 `@MessageMapping` 定义路由。Java 原生 RPC 自动使用 Fory，网关根据已发现的签名自动选择交互。
 

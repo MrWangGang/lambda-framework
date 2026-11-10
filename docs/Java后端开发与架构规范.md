@@ -1,6 +1,6 @@
 # Java 后端开发与架构规范
 
-版本日期为 **2026-11-10**。本规范供开发者和智能体统一 Java 项目的结构、接口、数据模型和运行配置。部署地址、账号、云资源与 GitHub SSH 认证配置集中到本地《第三方配置.md》。仓库中的示例使用本机地址和环境变量。
+版本日期为 **2026-11-10**。本规范供开发者和智能体统一 Java 项目的结构、接口、数据模型和运行配置。部署地址与凭据由部署环境提供。SSH 私钥由本机保管。仓库中的示例使用本机地址和环境变量。
 
 ## GitHub 仓库
 
@@ -215,7 +215,7 @@ return mongo.updateFirst(filter, deduction, SkuEntity.class)
 | RabbitMQ | mq 模块继承 DefaultReactiveRabbitMQConfig。延迟交换机需要插件，处理结果落库后再确认消费。 |
 | Nacos | 配置 namespace、group、服务名与注册端口。区分 HTTP 端口与 RSocket 端口。 |
 | Qdrant | 示例通过 WebClient 访问，按集合定义维度、距离函数、ID 与 payload。 |
-| 对象存储与短信 | 环境值和对接资料见本地《第三方配置.md》。 |
+| 对象存储与短信 | 通过部署环境注入凭据，接口按云服务文档配置。 |
 
 ## Nacos 配置与 Data ID 命名
 

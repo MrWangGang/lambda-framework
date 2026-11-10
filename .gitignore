@@ -30,3 +30,4 @@ nbdist/
 .env.*
 !.env.example
 **/target/
+第三方配置.md

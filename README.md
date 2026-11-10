@@ -4,7 +4,7 @@ Lambda Framework 提供 JDK 27、Spring Boot 4.1.2 和 Spring Cloud 2025.1.4 下
 
 ## 构建与启动
 
-框架是父 POM 与 14 个模块的源码工程。应用按功能依赖模块，并单独启动 Spring Boot 进程。先把框架安装到本地 Maven 缓存，再构建 [lambda-framework-example](https://github.com/MrWangGang/lambda-framework-example)。
+框架是父 POM 与 13 个模块的源码工程。应用按功能依赖模块，并单独启动 Spring Boot 进程。先把框架安装到本地 Maven 缓存，再构建 [lambda-framework-example](https://github.com/MrWangGang/lambda-framework-example)。
 
 ~~~bash
 export JAVA_HOME='/实际的/JDK27/Contents/Home'
@@ -15,7 +15,7 @@ cp .env.example .env
 ./scripts/run.sh
 ~~~
 
-在执行 run.sh 前按本地《第三方配置.md》填入 .env 并准备 Nacos 启动配置。mvn.sh 使用已有 IDEA Maven 或显式 MAVEN_BIN。框架远程 deploy 默认跳过。
+在执行 run.sh 前填写本机环境变量并准备 Nacos 启动配置。mvn.sh 使用已有 IDEA Maven 或显式 MAVEN_BIN。框架远程 deploy 默认跳过。
 
 ~~~xml
 <parent>
@@ -40,7 +40,6 @@ cp .env.example .env
 | repository | MongoDB、Redis、R2DBC MySQL、Elasticsearch、分页 |
 | compliance | 通用 Service、树操作、PrincipalFactory、SecurityPrincipalHolder |
 | security | 认证 Redis、令牌、URL 授权和自定义校验 |
-| web | WebFlux 上下文、响应与异常处理 |
 | gateway | HTTP POST 和 WebSocket 到 RSocket、JSON 与 NDJSON |
 | rsocket | 编解码策略、SocketAcceptor 拦截、Payload 生命周期、异常编码 |
 | rpc | Java Facade 调用方代理与连接复用 |
@@ -296,7 +295,7 @@ WSS 每条文本消息发送一个 JSON 请求值，例如 `{"sku":"A01"}`。每
 
 ## Java 后端开发与架构规范
 
-版本日期为 **2026-11-10**。本规范供开发者和智能体统一 Java 项目的结构、接口、数据模型和运行配置。部署地址、账号、云资源与 GitHub SSH 认证配置集中到本地《第三方配置.md》。仓库中的示例使用本机地址和环境变量。
+版本日期为 **2026-11-10**。本规范供开发者和智能体统一 Java 项目的结构、接口、数据模型和运行配置。部署地址与凭据由部署环境提供。SSH 私钥由本机保管。仓库中的示例使用本机地址和环境变量。
 
 ### GitHub 仓库
 
@@ -511,7 +510,7 @@ return mongo.updateFirst(filter, deduction, SkuEntity.class)
 | RabbitMQ | mq 模块继承 DefaultReactiveRabbitMQConfig。延迟交换机需要插件，处理结果落库后再确认消费。 |
 | Nacos | 配置 namespace、group、服务名与注册端口。区分 HTTP 端口与 RSocket 端口。 |
 | Qdrant | 示例通过 WebClient 访问，按集合定义维度、距离函数、ID 与 payload。 |
-| 对象存储与短信 | 环境值和对接资料见本地《第三方配置.md》。 |
+| 对象存储与短信 | 通过部署环境注入凭据，接口按云服务文档配置。 |
 
 ### Nacos 配置与 Data ID 命名
 
@@ -612,7 +611,7 @@ description: 按统一风格开发、修改或审查 Lambda Framework Java 后�
 
 新建项目或微服务前确认项目名称。用户已提供时直接使用。缺少名称时询问，等待期间可以检查现有代码和准备设计。用已确认的名称派生 Maven artifactId、`com.<项目名>` 包根、Spring 应用名、服务发现名和 Nacos Data ID `<项目名称>.properties`。
 
-仓库版规范位于 `../../docs/Java后端开发与架构规范.md`，本机安装版随技能提供 `references/Java后端开发与架构规范.md`。环境值从本地《第三方配置.md》或环境变量读取。提交前检查真实凭据是否混入 Git。
+仓库版规范位于 `../../docs/Java后端开发与架构规范.md`，本机安装版随技能提供 `references/Java后端开发与架构规范.md`。环境值由部署环境或本机环境变量提供。提交前检查真实凭据是否混入 Git。
 
 - 业务微服务拆为 `<项目名>-service` 和 `<项目名>-facade`。service 依赖 facade，RPC 调用方只依赖 facade。
 - 对外接口放 facade 模块的 `facade` 包，服务端实现放 service 模块的 `facade` 包。业务类 `UserServiceImpl` 直接放 `service` 包，省略业务接口和 `impl` 子包。
