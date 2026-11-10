@@ -480,6 +480,35 @@ Java 服务间原生 RPC 固定使用 Apache Fory。提供方依赖 `lambda-fram
 
 现有网关在收到第一条客户端消息后才建立后端 Channel，并默认对首次响应设置 15 秒超时。正式聊天连接应发送定义明确的首条会话建立消息，由服务端及时返回确认；认证信息、会话绑定和后续消息格式应形成前后端共同的接口契约，不能把现有 echo 示例当作完整聊天功能。网关参数按部署环境配置，服务端推送不得要求用户先发送聊天正文。
 
+当前项目的 `/ws/api/im/echo` 是本地 profile 下的回显示例。以下为普通 uni-app JavaScript 用法，域名和认证方式必须替换为实际部署配置；uni-app x 使用 UTS 时按所用版本调整类型。该例用于理解消息格式，正式聊天还须实现前述会话建立和下述可靠性规则。
+
+~~~javascript
+const socket = uni.connectSocket({
+  url: 'wss://<网关域名>/ws/api/im/echo',
+  header: { Authorization: `Bearer ${token}` }
+})
+
+socket.onOpen(() => {
+  socket.send({ data: JSON.stringify({ text: '你好' }) })
+})
+
+socket.onMessage(({ data }) => {
+  const result = JSON.parse(data)
+  if (result.serviceCode !== '00000000') {
+    console.error(result.serviceMessage)
+    return
+  }
+  for (const item of result.data || []) {
+    console.log(item.text)
+  }
+})
+
+socket.onError((error) => console.error('连接错误', error))
+socket.onClose(() => console.log('连接关闭'))
+~~~
+
+发送一条 `{"text":"你好"}` 时，当前 echo 接口预期以独立 WebSocket 文本消息返回 `{"serviceCode":"00000000","serviceMessage":"操作成功","data":[{"text":"你好"}]}`。是否允许访问和如何携带 token 由实际认证配置决定；示例不包含重连、补拉或离线投递实现。
+
 聊天协议至少定义消息类型、客户端消息 ID、会话 ID、发送人、服务端时间、消息内容及可恢复的会话游标或序号。单聊与群聊均校验会话成员；群聊投递需明确成员变动时点。消息可靠性按以下规则实现：
 
 - 服务端可靠持久化后才确认接收；客户端对发送中、成功和失败提供明确状态，同一客户端消息 ID 重试时服务端幂等去重。
