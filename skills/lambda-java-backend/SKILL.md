@@ -352,6 +352,14 @@ return mongo.updateFirst(filter, deduction, SkuPO.class)
 
 `ReactiveUnifyPagingRepositoryOperation.queryPage` 提供 count 与 query 的协调，也可给 Mongo Repository 使用。两者传相同过滤条件，查询应用 Pageable。排序使用可索引的稳定键，例如 `createdAt DESC, _id DESC`。聊天历史等长期增长列表使用复合游标，游标中的 ID 转为 ObjectId。业务需考虑 count 与查询分开执行时的并发更新。
 
+## 第三方 HTTP 请求（强制）
+
+所有微服务调用第三方 HTTP/HTTPS 接口时，必须引入 `lambda-framework-httpclient`，通过该组件封装第三方客户端，并以 Reactor 的 `Mono<T>` 或 `Flux<T>` 向 Service 提供接口。第三方地址、超时和凭据引用放在对应环境的 Nacos 配置中；密钥不写入源码或公开仓库。
+
+当前组件基于 Spring WebFlux，提供 `HttpclientResponseHandler.create(ReponseVerify)` 响应过滤器，并非开箱即用的完整通用客户端。应根据接口响应格式在组件内封装 WebClient 请求、响应映射及异常处理；遇到空响应、流式响应、鉴权或其他现有组件不支持的场景，先在框架的 `lambda-framework-httpclient` 中补齐并验证，再供微服务调用，不在微服务内重复建设通用 HTTP 客户端。
+
+调用链保持非阻塞，不在响应式链路使用 `block()` 或自行 `subscribe()`。按接口特点设置连接及响应超时、连接池和必要的并发限制；结合 HTTP 状态与第三方业务错误映射框架或业务异常。仅对满足幂等条件的调用按明确策略重试；流式数据逐项处理，避免无界聚合。
+
 ## 数据和运行配置
 
 应用选择 Maven 模块，启动类使用 `@SpringBootApplication`。连接配置出现时自动创建客户端和检查，生命周期由 Spring 管理。完整属性与示例见 [组件配置手册](../../README.md#组件配置)。
