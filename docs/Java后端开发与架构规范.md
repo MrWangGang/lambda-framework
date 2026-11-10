@@ -164,7 +164,7 @@ Flux<FavoriteRepository.MerchantStats> stats(ObjectId userId, ObjectId reviewerI
 
 统一使用强类型 Repository 签名。聚合根集合匹配、`$expr`、`$in` 和 `$lookup.let` 都绑定原生 ObjectId。Spring Data 的主键映射可能转换合法的 String。普通关联字段和跨集合条件一律显式保持 BSON 类型一致。
 
-历史数据优先迁移为统一 BSON 类型。兼容期确需处理旧字符串时，`$toObjectId` 遇到非法值会使聚合失败，`$convert` 可定义 `onError` 和 `onNull`。不要在热查询中逐行转换索引字段。优先对参数完成转换，再直接匹配索引字段。上线前用代表性数据的 `explain("executionStats")` 核对根集合与各 `$lookup` 的执行计划。[Spring Data 聚合方法](https://docs.spring.io/spring-data/mongodb/reference/mongodb/repositories/query-methods.html#mongodb.repositories.queries.aggregation) · [MongoDB 类型转换](https://www.mongodb.com/docs/manual/reference/operator/aggregation/convert/)
+历史字符串 ID 在数据迁移时统一转为 BSON ObjectId。迁移脚本可用 `$convert` 的 `onError` 和 `onNull` 显式处理异常值。不要在热查询中逐行转换索引字段。优先对参数完成转换，再直接匹配索引字段。上线前用代表性数据的 `explain("executionStats")` 核对根集合与各 `$lookup` 的执行计划。[Spring Data 聚合方法](https://docs.spring.io/spring-data/mongodb/reference/mongodb/repositories/query-methods.html#mongodb.repositories.queries.aggregation) · [MongoDB 类型转换](https://www.mongodb.com/docs/manual/reference/operator/aggregation/convert/)
 
 ## 乐观锁、SKU 库存和金额原子更新
 
@@ -253,7 +253,7 @@ Java RPC 的 Facade 方法写完整的 `@MessageMapping`，例如 `order.orderFa
 | `Flux<I>` 等普通响应式入参，返回 `BiFlux<O>` | `request/channel` | 双向 NDJSON，客户端可发 JSON 数组或 NDJSON 行，响应逐行返回。 |
 | 普通单条入参，返回 `BiFlux<O>` | `request/stream` | 处理一条输入，响应逐行返回 NDJSON。 |
 
-HTTP 业务请求经网关的 `rb://` 路由发送 POST。WebSocket 经网关的 `ws://` 路由访问输入为 `Flux<I>`、返回为 `BiFlux<O>` 的接口。两种入口都核对服务端通过 `@MessageMapping` 发布的固定斜杠路径。网关使用重写后的路径查契约。未公开路径返回 404，契约暂不可用返回 503。业务方法声明映射和签名即可。
+HTTP 业务请求经网关的 `rb://` 路由发送 POST。WebSocket 经网关的 `ws://` 路由访问输入为 `Flux<I>`、返回为 `BiFlux<O>` 的接口。两种入口都核对服务端通过 `@MessageMapping` 发布的固定斜杠路径。按服务划分网关路径前缀。新增方法落在已有前缀内时，业务方法声明映射和签名即可。网关使用重写后的路径查契约。未公开路径返回 404，契约暂不可用返回 503。
 
 ~~~java
 @MessageMapping("/api/order/summary")
@@ -283,20 +283,20 @@ public BiFlux<Check> exchange(Flux<Item> items) {
 
 ### WSS 路由与服务间双向 RPC
 
-客户端连接 `wss://<网关域名>/ws/chat`。在网关的 Nacos 配置内加入下列路由，业务服务仍使用 RSocket TCP。TLS 由网关或其前置入口终止。前置代理应转发 WebSocket Upgrade，认证与授权在网关握手时生效。
+客户端连接 `wss://<网关域名>/ws/api/order/exchange`。在网关的 Nacos 配置内按服务加一条路由，`StripPrefix=1` 去掉 `/ws`。业务服务仍使用 RSocket TCP，并通过 `@MessageMapping("/api/order/exchange")` 公开处理方法。TLS 由网关或其前置入口终止。前置代理应转发 WebSocket Upgrade，认证与授权在网关握手时生效。
 
 ~~~properties
-spring.cloud.gateway.server.webflux.routes[1].id=chat-websocket
-spring.cloud.gateway.server.webflux.routes[1].uri=ws://chat-service
-spring.cloud.gateway.server.webflux.routes[1].predicates[0]=Path=/ws/chat
-spring.cloud.gateway.server.webflux.routes[1].filters[0]=SetPath=/api/order/exchange
+spring.cloud.gateway.server.webflux.routes[1].id=order-websocket
+spring.cloud.gateway.server.webflux.routes[1].uri=ws://order
+spring.cloud.gateway.server.webflux.routes[1].predicates[0]=Path=/ws/api/order/**
+spring.cloud.gateway.server.webflux.routes[1].filters[0]=StripPrefix=1
 ~~~
 
 每条 WebSocket 文本消息包含一个 JSON 请求值。每个响应元素独立发送一条 JSON 文本消息，例如 `{"serviceCode":"E00000000","serviceMessage":"操作成功","data":[{"sku":"A1"}]}`。业务失败发送错误外壳，`data` 为 `[]`，随后关闭连接。客户端可在同一个连接上先收到回复再发送下一条请求。
 
 服务 A 可以将入站 `Flux<I>` 传给服务 B 的 Facade，由服务 B 的 `BiFlux<O>` 直接返回给 A。B 的 Facade 使用点分隔的 `@MessageMapping`，A 用 `@RSocketRpc` 注入。前端到网关是 WebSocket JSON，网关到 A 是 RSocket JSON，A 到 B 是 RSocket Fory。业务逻辑保留响应式链路，取消随订阅传递。
 
-Java 服务间原生 RPC 固定使用 Apache Fory。两端导入 `RSocketStrategiesConfig` 后，框架从已声明的请求、响应类型中自动收集 record、嵌套泛型、枚举和框架分页类型。保持 Facade 契约同版。旧项目中的多态实际类型或非 record DTO 可用 `ForyRpcTypes` 扩展白名单。服务端拒绝用 JSON 或二进制连接调用点分隔的原生 RPC 路由。网关 JSON 业务路由使用 `/` 前缀。身份元数据沿用 JSON。
+Java 服务间原生 RPC 固定使用 Apache Fory。两端导入 `RSocketStrategiesConfig` 后，框架从已声明的请求、响应类型中自动收集 record、嵌套泛型、枚举和框架分页类型。保持 Facade 契约同版。签名之外的多态子类型用 `ForyRpcTypes` 显式注册。服务端拒绝用 JSON 或二进制连接调用点分隔的原生 RPC 路由。网关 JSON 业务路由使用 `/` 前缀。身份元数据沿用 JSON。
 
 网关默认每个后端实例复用一条 RSocket TCP 连接。需要承受单条连接断开的关键路由可在 Nacos 配置 `rsocketConnectionsPerInstance=2`。连接关闭后按最近一次成功发现的目标列表补建连接。请求已发出时由调用方根据业务幂等规则决定如何处理，网关不自动重放。
 
