@@ -110,9 +110,9 @@ db.products.updateMany({status: "inactive"}, {$set: {status: "下架"}});
 
 ## 项目名称、包名和 Maven 模块
 
-新建项目时确认项目名和服务名，并沿用用户指定的目录、仓库及应用名称。一个应用一个 Git 仓库，App、网关、业务服务和 IM 等独立应用各有仓库。每个 Java 仓库根目录各有 Maven 父 POM，直接继承已安装的 Lambda Framework。Java 包根使用 `com.<项目名>`，按服务和职责细分。
+新建项目时确认项目名和服务名。一个应用一个 Git 仓库，App、网关、业务服务和 IM 等独立应用各有仓库。仓库名与根目录采用 `<项目名>-<微服务名>`，例如 `tazhoo-server`。统一使用小写连字符命名。Maven 父工程 artifactId、Spring 应用名、服务发现名和 Nacos Data ID 的基名与仓库名一致。每个 Java 仓库根目录各有 Maven 父 POM，直接继承已安装的 Lambda Framework。Java 包根使用 `com.<项目名>`，按服务和职责细分。
 
-微服务的子模块采用统一前缀，目录名与 Maven artifactId 一致。以下是 `mall-order` 独立仓库的结构。
+子模块使用 `<仓库名>-<模块职责>` 命名，目录名与 Maven artifactId 一致。部署目录沿用此前缀加 `-docker`。以下是 `mall-order` 独立仓库的结构。
 
 ~~~text
 mall-order/
