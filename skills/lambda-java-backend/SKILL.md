@@ -20,13 +20,19 @@ description: 创建、开发和审查 Lambda Framework Java 后端。规范分�
 | RabbitMQ、Kafka、ZooKeeper | 使用的组件、单机或集群、节点、RabbitMQ vhost、Kafka topic 与 group、ZooKeeper 锁命名空间、认证 |
 | 业务 | 登录校验、可信网络范围、雪花 worker 分配、外部接口与凭据引用 |
 
-真实服务器信息保存在本机安装版的 `references/deployment.local.md`，凭据从本机私有配置或密钥管理读取。公开仓库只放占位值。
+真实服务器信息和凭据以本机私有的 `第三方配置.md` 为准，可结合本机安装版的 `references/deployment.local.md` 查阅。公开仓库只放占位值，禁止提交或推送私有配置。
 
 ## 2. 配置与模块
 
 - 先按[项目结构](#项目名称包名和-maven-模块)建立独立仓库和 Maven 模块，再按 [Nacos 配置规范](#nacos-配置与-data-id-命名)写入唯一的应用配置文件。
 - 示例配置模板默认单机，集群属性给出注释版本。MongoDB 单机也用副本集，Redis 集群使用 DB 0，RabbitMQ 延迟插件在接入节点启用，集群队列用 quorum。ZooKeeper、Kafka 等按连接属性自动启用。未使用时省略连接属性。雪花集群为每个实例分配不同 worker。
 - 启动类用 `@SpringBootApplication`，由框架自动装配和检查连接。应用只声明依赖、Nacos 配置和业务组件。部署共享服务时，限制 RSocket 和中间件的网络访问范围。
+
+## 数据库命名
+
+项目启动前确认项目名。MongoDB 的业务 database 统一使用项目名，例如项目 `tazhoo` 使用 `tazhoo`。同一项目下的微服务使用该项目名，MongoDB 系统库由数据库自身维护。项目名应符合目标数据库的命名限制，确认大小写和长度；已有数据库变更名称需要先制定数据迁移方案。
+
+Redis 的逻辑库使用数字编号，单机统一选择 DB 0，集群使用 DB 0。业务 key 使用 `<项目名>:<业务>:<标识>`，例如 `tazhoo:user:123`。Qdrant 的 collection 以项目名开头并追加业务含义，例如 `tazhoo_product_vectors`。只为项目实际用到的数据库配置名称和连接。
 
 ## 3. 代码与持久化
 
@@ -46,7 +52,9 @@ description: 创建、开发和审查 Lambda Framework Java 后端。规范分�
 
 ## 5. 交付
 
-示例覆盖组件的实际调用和可启用的配置。构建并验收正常入口、错误路径及启用的部署模式。使用隔离数据和配置，验收后清理临时资源并停止本次启动的应用。通用用法写入本技能，验收结果记入交付报告。
+**强制部署与验收规则**。禁止在用户的电脑上启动 Java 微服务、网关或其他业务应用。允许在本机编译、打包和检查产物。应用的启动、联调和运行验收必须在用户指定的服务器上通过 Docker 进行。
+
+构建后仅向服务器上传编译好的 `app.jar` 和运行所需的 Docker 部署文件，例如 `Dockerfile`、`compose.yaml` 和 `.dockerignore`。源码、Maven 工程、测试代码和本机私有配置不作为部署产物上传。服务器的环境参数按部署环境提供，测试使用隔离资源，结束后清理测试数据和临时容器。通用用法写入本技能，验收结果记入交付报告。
 
 每个交付项目的根目录 `README.md` 只记录以下清单。
 
@@ -152,7 +160,7 @@ mall-order/
 `-docker` 与 `-core` 同级，独立作为镜像构建上下文。提交 Dockerfile、Compose 文件和 `.dockerignore`。构建生成的 `app.jar` 与部署环境文件通过 `.gitignore` 排除。
 
 1. 用项目约定的 JDK 和 Maven 执行 `clean install`。先构建并重打包 `-core` 的 Spring Boot 可执行 JAR，随后在 Maven 的 `install` 阶段把主 JAR 复制到同级 `-docker/app.jar`。父 POM 集中维护复制插件，只有可运行模块启用该执行并指定自己的目标目录。Maven `clean` 清除生成的 `app.jar`。
-2. 检查部署目录中的 `app.jar` 与此次构建的可执行 JAR 相同。上传整个 `-docker` 目录。Docker 构建上下文就是该目录，`Dockerfile` 复制目录内的 `app.jar`，使用部署环境指定的 Java 运行时镜像启动。
+2. 检查部署目录中的 `app.jar` 与此次构建的可执行 JAR 相同。部署目录只上传编译 JAR 和 Docker 运行文件，禁止上传源码与测试代码。Docker 构建上下文就是该目录，`Dockerfile` 复制目录内的 `app.jar`，使用部署环境指定的 Java 运行时镜像启动。
 3. 部署机从私有环境文件提供 `JAVA_RUNTIME_IMAGE`、Nacos 地址和凭据引用。组件、网关和业务配置存放在 Nacos。使用项目目标 JDK 匹配的 Java 运行时镜像，并在部署前核对镜像来源与架构。内部服务的监听和注册地址必须对调用方可达。
 4. 进入已上传的 Docker 目录，运行 `docker compose --env-file /实际部署路径/runtime.env up -d --build`。用 `docker compose --env-file /实际部署路径/runtime.env ps` 核对容器状态，查看启动日志并核对 Nacos 服务注册。再通过网关验证业务请求。示例使用 Linux host 网络，按配置中的原生端口监听。
 5. 发布时把完整部署目录作为一个版本保存。应用回滚使用上一版部署目录及与之对应的 Nacos 配置。变更数据库结构或共享组件时单独维护迁移顺序。
@@ -170,6 +178,12 @@ mall-order/
 Service 类直接以 `Impl` 结尾，放在 `service` 包。用字段上的 `@Resource` 注入 Bean，需要 `ObjectProvider` 等特殊注入时可用 `@Autowired`。Service 禁止编写注入构造函数，也不用 Lombok 生成注入构造函数。使用 Jakarta Bean Validation 时，在 Service 类声明 `@Validated`，Service 方法参数使用 `@Valid`，契约 record 组件声明约束。领域规则在 Service 中显式校验。
 
 分页由 Service 解析页码、应用默认值并校验页大小，再将已处理的 `Paging` 传给 Repository。库存扣减由 Service 校验数量和解释失败原因，数据库查询仍应保留足额条件，确保扣减原子性。
+
+## MQ 主题契约
+
+发布者在自己的 `-facade` 模块公开消息主题常量和事件契约。Kafka 的 topic 名称由该模块统一定义，发布者和消费者都引用同一常量，业务应用不重复硬编码。事件消息字段和版本也由对外契约维护。
+
+RabbitMQ 的 exchange 与 routing key 分别定义在发布者 Facade。消费队列、消费者组和重试策略由消费服务按职责配置，不与发布主题混为一项。主题名变更按对外契约管理，先核对已有发布者与消费者。
 
 ## Facade 契约与 record 命名
 
