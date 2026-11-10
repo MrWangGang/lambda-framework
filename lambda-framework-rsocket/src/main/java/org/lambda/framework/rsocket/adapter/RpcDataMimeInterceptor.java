@@ -10,8 +10,7 @@ import io.rsocket.metadata.RoutingMetadata;
 import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.plugins.SocketAcceptorInterceptor;
 import io.rsocket.util.RSocketProxy;
-import org.lambda.framework.common.annotation.rsocket.GatewayStream;
-import org.lambda.framework.common.annotation.rsocket.RSocketRpcType;
+import org.lambda.framework.common.enums.RSocketContract;
 import org.lambda.framework.common.enums.GatewayInteraction;
 import org.reactivestreams.Publisher;
 import org.springframework.util.InvalidMimeTypeException;
@@ -21,7 +20,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 final class RpcDataMimeInterceptor implements SocketAcceptorInterceptor {
-    private static final MimeType FORY = MimeType.valueOf(RSocketRpcType.FORY_MIME_TYPE);
+    private static final MimeType FORY = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
     private static final String ROUTING_MIME = WellKnownMimeType.MESSAGE_RSOCKET_ROUTING.getString();
     private static final String COMPOSITE_MIME = WellKnownMimeType.MESSAGE_RSOCKET_COMPOSITE_METADATA.getString();
 
@@ -103,8 +102,7 @@ final class RpcDataMimeInterceptor implements SocketAcceptorInterceptor {
         } catch (IndexOutOfBoundsException | IllegalArgumentException malformedMetadata) {
             return false;
         }
-        return route != null && (route.startsWith("/") || GatewayStream.DISCOVERY_ROUTE.equals(route)
-                || GatewayInteraction.DISCOVERY_ROUTE.equals(route));
+        return route != null && (route.startsWith("/") || GatewayInteraction.DISCOVERY_ROUTE.equals(route));
     }
 
     private static <T> Mono<T> reject(Payload payload) {

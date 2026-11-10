@@ -49,15 +49,20 @@ public class GatewayFilter implements GlobalFilter,Ordered{
                 throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由配置信息");
             }
 
-            if (!RB_SCHEME.equals(targetRoute.getScheme())) {
+            boolean webSocket = WS_SCHEME.equals(targetRoute.getScheme());
+            if (!RB_SCHEME.equals(targetRoute.getScheme()) && !webSocket) {
                 return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "No public MessageMapping for this route"));
+            }
+            if (webSocket && (targetRoute.getHost() == null || targetRoute.getPort() != -1
+                    || targetRoute.getUserInfo() != null)) {
+                return Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Use ws://service-name for this route"));
             }
             URI targetUri = (URI)exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR);
             if(targetUri == null){
                 throw new EventException(ES_GATEWAY_000,"该资源没有对应的路由信息");
             }
-            return rsocketRequestFactory.execute(exchange, chain, new GlobalFilterRoute() {
+            GlobalFilterRoute mapping = new GlobalFilterRoute() {
                 @Override
                 public String host() {
                     return targetRoute.getHost();
@@ -72,7 +77,9 @@ public class GatewayFilter implements GlobalFilter,Ordered{
                 public Map<String, Object> metadata() {
                     return route.getMetadata();
                 }
-            });
+            };
+            return webSocket ? rsocketRequestFactory.executeWebSocket(exchange, mapping)
+                    : rsocketRequestFactory.execute(exchange, chain, mapping);
         }
         throw new EventException(ES_GATEWAY_000,"请求协议仅支持http与https");
     }

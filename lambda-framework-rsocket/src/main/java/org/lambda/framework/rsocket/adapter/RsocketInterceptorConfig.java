@@ -2,7 +2,6 @@ package org.lambda.framework.rsocket.adapter;
 
 import io.rsocket.frame.FrameType;
 import org.lambda.framework.common.support.BiFlux;
-import org.lambda.framework.common.support.TFlux;
 import org.lambda.framework.common.support.UiFlux;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -19,7 +18,7 @@ import java.lang.reflect.ParameterizedType;
 import java.util.Arrays;
 
 @Configuration
-@Import({GatewayStreamContractController.class, RsocketInterceptorConfig.RejectHttpListener.class})
+@Import({GatewayContractController.class, RsocketInterceptorConfig.RejectHttpListener.class})
 public class RsocketInterceptorConfig  {
     @Bean
     public RSocketServerCustomizer rSocketServerCustomizer(RSocketAcceptorInterceptor interceptor,
@@ -45,19 +44,11 @@ public class RsocketInterceptorConfig  {
             }).toList();
             var result = method.getReturnType();
             Class<?> resultType = result.getParameterType();
-            if (resultType == TFlux.class) {
-                if (!channel || streamingParameters.size() != 1
-                        || streamingParameters.getFirst().getParameterType() != TFlux.class
-                        || !(streamingParameters.getFirst().getGenericParameterType() instanceof ParameterizedType)
-                        || !(result.getGenericParameterType() instanceof ParameterizedType)) {
-                    throw new IllegalStateException("Legacy TFlux requires TFlux<I> input and TFlux<O> return: " + method);
-                }
-            } else if (resultType == BiFlux.class || resultType == UiFlux.class || channel) {
-                if (!(result.getGenericParameterType() instanceof ParameterizedType)
+            if ((resultType == BiFlux.class || resultType == UiFlux.class || channel)
+                    && (!(result.getGenericParameterType() instanceof ParameterizedType)
                         || (channel && (resultType != BiFlux.class || streamingParameters.size() != 1
-                            || !(streamingParameters.getFirst().getGenericParameterType() instanceof ParameterizedType)))) {
-                    throw new IllegalStateException("A streaming request requires a typed publisher and BiFlux<O> return: " + method);
-                }
+                            || !(streamingParameters.getFirst().getGenericParameterType() instanceof ParameterizedType))))) {
+                throw new IllegalStateException("A streaming request requires a typed publisher and BiFlux<O> return: " + method);
             }
         }));
     }

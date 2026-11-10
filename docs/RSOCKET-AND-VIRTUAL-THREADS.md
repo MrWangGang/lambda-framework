@@ -7,7 +7,7 @@
 ## 1. 调用链
 
 ~~~text
-业务字段 @RSocketRpc → 客户端代理 → 服务名 / 直连地址解析
+业务字段 @RSocketRpc → 客户端代理 → 服务名解析
 → RSocketLoadbalance / RSocketRequester → Reactor Netty TCP
 → RSocketAcceptorInterceptor → 路由与业务方法 → Mono / Flux 响应
 ~~~
@@ -31,7 +31,7 @@ public interface CatalogApi {
 4. 两端使用兼容的 Facade record 与路由约定。业务服务统一使用 `@MessageMapping`。
 5. 校验身份传递和异常转换。
 
-使用方法级 `@MessageMapping` 时，点分隔的路由首段对应服务发现名。同一个 Facade 使用同一服务名。旧项目可继续使用 `@RSocketRpcDiscorvery` 与约定路由。返回 `Mono` 是单次响应。普通 `Flux` 在网关聚合为数组，`UiFlux` 逐行发送 NDJSON，`BiFlux` 可接收普通 `Flux<I>` 入参走双向交互。旧 `TFlux` 签名保留兼容，迁移时将输入改为普通 Flux、返回改为 BiFlux。
+使用方法级 `@MessageMapping` 时，点分隔的路由首段对应服务发现名。同一个 Facade 使用同一服务名。返回 `Mono` 是单次响应。普通 `Flux` 在网关聚合为数组，`UiFlux` 逐行发送 NDJSON，`BiFlux` 可接收普通 `Flux<I>` 入参走双向交互。
 
 ### 内部 Java RPC 使用 Fory
 
@@ -41,7 +41,9 @@ public interface CatalogApi {
 
 发布时两端使用兼容的 Facade 契约。业务网关使用 `rb://` 转发。服务端发布固定 `@MessageMapping` 路径的签名后，网关按 Mono、Flux、UiFlux、BiFlux 自动选择响应。未发布路径返回 404，契约不可用返回 503。
 
-业务服务导入 `RsocketInterceptorConfig`，设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.transport=tcp`。只把 reactive 网关的 HTTP 端口对外开放。服务端 TCP 端口限网关与授权服务访问。
+业务服务导入 `RsocketInterceptorConfig`，设置 `spring.main.web-application-type=none` 和 `spring.rsocket.server.transport=tcp`。由 reactive 网关提供 HTTPS/WSS 对外入口。服务端 TCP 端口限网关与授权服务访问。
+
+客户端 WSS 请求使用网关的 `ws://<服务名>` 路由，映射到接受 `Flux<I>` 并返回 `BiFlux<O>` 的业务方法。网关仍通过 RSocket TCP Channel 发送 JSON。业务服务可继续向其他 Java 服务发起 Fory Channel。
 
 ## 3. 拦截器与握手的关系
 

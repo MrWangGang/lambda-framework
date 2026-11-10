@@ -1,10 +1,8 @@
 package org.lambda.framework.rsocket.adapter;
 
 import io.rsocket.frame.FrameType;
-import org.lambda.framework.common.annotation.rsocket.GatewayStream;
 import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.common.support.BiFlux;
-import org.lambda.framework.common.support.TFlux;
 import org.lambda.framework.common.support.UiFlux;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.messaging.handler.DestinationPatternsMessageCondition;
@@ -17,31 +15,16 @@ import reactor.core.publisher.Mono;
 
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Controller
-class GatewayStreamContractController {
+class GatewayContractController {
     private final ObjectProvider<RSocketMessageHandler> handlers;
 
-    GatewayStreamContractController(ObjectProvider<RSocketMessageHandler> handlers) {
+    GatewayContractController(ObjectProvider<RSocketMessageHandler> handlers) {
         this.handlers = handlers;
-    }
-
-    @MessageMapping(GatewayStream.DISCOVERY_ROUTE)
-    Mono<List<String>> streamRoutes() {
-        return Mono.fromSupplier(() -> handlers.getObject().getHandlerMethods().entrySet().stream()
-                .filter(entry -> entry.getValue().hasMethodAnnotation(GatewayStream.class))
-                .filter(entry -> entry.getKey().getCondition(RSocketFrameTypeMessageCondition.class)
-                        .getFrameTypes().contains(FrameType.REQUEST_STREAM))
-                .flatMap(entry -> entry.getKey().getCondition(DestinationPatternsMessageCondition.class)
-                        .getPatterns().stream())
-                .filter(GatewayInteraction::isPublicPath)
-                .distinct()
-                .sorted()
-                .toList());
     }
 
     @MessageMapping(GatewayInteraction.DISCOVERY_ROUTE)
@@ -65,7 +48,7 @@ class GatewayStreamContractController {
     }
 
     private static GatewayInteraction classify(Class<?> type, Set<FrameType> frames) {
-        if (frames.contains(FrameType.REQUEST_CHANNEL) && (type == BiFlux.class || type == TFlux.class)) {
+        if (frames.contains(FrameType.REQUEST_CHANNEL) && type == BiFlux.class) {
             return GatewayInteraction.REQUEST_CHANNEL;
         }
         if (Flux.class.isAssignableFrom(type) && frames.contains(FrameType.REQUEST_STREAM)) {

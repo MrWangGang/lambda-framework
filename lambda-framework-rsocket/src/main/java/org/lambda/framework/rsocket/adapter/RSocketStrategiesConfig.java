@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectReader;
 import org.lambda.framework.common.util.sample.JsonUtil;
-import org.lambda.framework.common.support.TFlux;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
@@ -12,8 +11,6 @@ import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.ReactiveAdapterRegistry;
-import org.springframework.core.ReactiveTypeDescriptor;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.AbstractDecoder;
 import org.springframework.core.io.buffer.DataBuffer;
@@ -54,11 +51,7 @@ public class RSocketStrategiesConfig implements BeanFactoryAware {
     @Bean
     public RSocketStrategies rSocketStrategies() {
         var mapper = JsonUtil.getJsonFactory();
-        var adapters = new ReactiveAdapterRegistry();
-        adapters.registerReactiveType(ReactiveTypeDescriptor.multiValue(TFlux.class, () -> TFlux.of(Flux.empty())),
-                source -> (TFlux<?>) source, TFlux::of);
         var builder = RSocketStrategies.builder()
-                .reactiveAdapterStrategy(adapters)
                 .decoder(new Jackson2JsonDecoder(mapper))
                 .encoder(new Jackson2JsonEncoder(mapper))
                 // Spring's default StringEncoder sends raw text, even on a JSON RSocket connection.

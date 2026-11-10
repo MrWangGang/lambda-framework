@@ -1,7 +1,6 @@
 package org.lambda.framework.rsocket.adapter;
 
 import org.lambda.framework.common.annotation.rsocket.RSocketRpc;
-import org.lambda.framework.common.annotation.rsocket.RSocketRpcType;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.ResolvableType;
@@ -32,8 +31,7 @@ final class ForyRpcContracts {
                     if (facade.isInterface()) {
                         for (Method method : facade.getMethods()) {
                             if (!Modifier.isStatic(method.getModifiers()) && (!method.isDefault()
-                                    || AnnotationUtils.findAnnotation(method, MessageMapping.class) != null
-                                    || method.isAnnotationPresent(RSocketRpcType.class))) {
+                                    || AnnotationUtils.findAnnotation(method, MessageMapping.class) != null)) {
                                 contracts.addMethod(method, facade);
                             }
                         }

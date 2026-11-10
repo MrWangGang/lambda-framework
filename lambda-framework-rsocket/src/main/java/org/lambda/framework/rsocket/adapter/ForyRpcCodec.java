@@ -7,7 +7,7 @@ import org.apache.fory.context.ReadContext;
 import org.apache.fory.context.WriteContext;
 import org.apache.fory.serializer.Serializer;
 import org.bson.types.ObjectId;
-import org.lambda.framework.common.annotation.rsocket.RSocketRpcType;
+import org.lambda.framework.common.enums.RSocketContract;
 import org.reactivestreams.Publisher;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.AbstractDecoder;
@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 final class ForyRpcCodec {
-    private static final MimeType MIME_TYPE = MimeType.valueOf(RSocketRpcType.FORY_MIME_TYPE);
+    private static final MimeType MIME_TYPE = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
     private final SingletonSupplier<ThreadSafeFory> fory;
 
     ForyRpcCodec(List<ForyRpcTypes> groups, Supplier<Set<Class<?>>> contracts) {
