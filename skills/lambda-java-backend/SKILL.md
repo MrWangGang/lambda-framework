@@ -24,7 +24,7 @@ description: 创建、开发和审查 Lambda Framework Java 后端。规范分�
 
 ## 2. 配置与模块
 
-- 本地只留 Nacos 引导属性。用 `nacos:<项目名>.properties` 导入配置。MongoDB、Redis、Qdrant、MQ、锁、路由、业务参数全部按应用写入 Nacos，Data ID 与项目名一致。同环境的网关和服务使用同一 namespace 和 group。
+- 先按[项目结构](#项目名称包名和-maven-模块)建立独立仓库和 Maven 模块，再按 [Nacos 配置规范](#nacos-配置与-data-id-命名)写入唯一的应用配置文件。
 - 示例配置模板默认单机，集群属性给出注释版本。MongoDB 单机也用副本集，Redis 集群使用 DB 0，RabbitMQ 延迟插件在接入节点启用，集群队列用 quorum。ZooKeeper、Kafka 等按连接属性自动启用。未使用时省略连接属性。雪花集群为每个实例分配不同 worker。
 - 启动类用 `@SpringBootApplication`，由框架自动装配和检查连接。应用只声明依赖、Nacos 配置和业务组件。部署共享服务时，限制 RSocket 和中间件的网络访问范围。
 
@@ -110,33 +110,30 @@ db.products.updateMany({status: "inactive"}, {$set: {status: "下架"}});
 
 ## 项目名称、包名和 Maven 模块
 
-新建业务微服务前确认项目名和微服务名，缺少时询问。Maven 父工程命名为 `<项目名>-<微服务名>`，运行时使用约定的微服务名作为应用名、服务发现名和 Nacos Data ID 的基名。Java 包根使用 `com.<项目名>`，按微服务和职责细分。Java 包名使用小写标识符，名称中的连字符对应包层级。
+新建项目时确认项目名和服务名，并沿用用户指定的目录、仓库及应用名称。一个应用一个 Git 仓库，App、网关、业务服务和 IM 等独立应用各有仓库。每个 Java 仓库根目录各有 Maven 父 POM，直接继承已安装的 Lambda Framework。Java 包根使用 `com.<项目名>`，按服务和职责细分。
 
-微服务的子模块采用统一前缀，目录名与 Maven artifactId 一致。项目 `mall` 的 `order` 服务示例如下。
+微服务的子模块采用统一前缀，目录名与 Maven artifactId 一致。以下是 `mall-order` 独立仓库的结构。
 
 ~~~text
-mall/
-└── order/
-    ├── pom.xml                        mall-order
-    ├── mall-order-server/             应用、Controller、Service、Repository 和 PO
-    │   ├── pom.xml
-    │   └── src/main/
-    ├── mall-order-facade/             Java RPC 契约
-    │   ├── pom.xml
-    │   └── src/main/java/com/mall/order/facade/
-    ├── mall-order-enum/               本服务异常码枚举
-    │   ├── pom.xml
-    │   └── src/main/java/com/mall/order/enums/
-    └── mall-order-docker/             独立可上传的容器部署包
-        ├── Dockerfile
-        ├── compose.yaml
-        ├── .dockerignore
-        └── app.jar                    Maven install 生成，排除在 Git 之外
+mall-order/
+├── .gitignore
+├── pom.xml                             mall-order
+├── mall-order-server/                  启动类和服务端实现
+│   ├── pom.xml
+│   └── src/main/
+│       ├── java/com/mall/order/
+│       └── resources/application.properties
+├── mall-order-facade/                  Java RPC 契约
+│   ├── pom.xml
+│   └── src/main/java/com/mall/order/facade/
+└── mall-order-enum/                    本服务异常码枚举
+    ├── pom.xml
+    └── src/main/java/com/mall/order/enums/
 ~~~
 
-- 每个业务微服务必建 `-server` 和独立的 `-enum`，提供 Java RPC 时加 `-facade`，容器部署时加同级 `-docker`。业务异常表随各自服务维护。基础设施网关使用框架网关异常码。
+- 每个 Java 应用必建同级的 `-server` 与 `-facade`，包括网关。当前没有 Java RPC 接口时，保留普通 JAR 模块和契约包。业务微服务另建 `-enum`，基础设施网关使用框架网关异常码。需要容器部署时再加同级 `-docker`。
 - 父工程使用 `pom` 打包。它声明 Java 子模块和共用的插件配置。POM 统一 XML 声明、Maven 命名空间和四空格缩进，版本优先由父工程管理。
-- `-server` 是可执行的 Spring Boot JAR，依赖本服务的 `-enum`，提供 RPC 时同时依赖自己的 `-facade`。后两者为普通 JAR。其他微服务只通过提供方的 `-facade` 引入 RPC 接口和契约 record。
+- `-server` 打包为 Spring Boot 可执行 JAR，按需依赖本服务的 `-enum` 和 `-facade`。契约和异常码模块打包为普通 JAR。跨服务调用方只依赖提供方的 `-facade`。每个仓库维护自己的 `.gitignore`，排除 `target/`、`*.class`、打包产物和本地私有配置。
 - 服务端 Facade 实现、业务 `*ServiceImpl` 和实体 `*PO` 放在 `-server`，按职责分包。新建项目时先核对目录、POM 坐标和依赖方向，再写业务代码。
 
 ## Docker 部署编译产物
@@ -347,11 +344,11 @@ MongoDB 单机使用单节点副本集，集群使用多节点副本集。两种
 
 ## Nacos 配置与 Data ID 命名
 
-业务应用引入 `lambda-framework-nacos`。端口、路由、数据库、缓存、消息队列和业务开关统一放 Nacos。项目本地只保留加载 Nacos 所需的项目名、必需导入声明和引导参数。环境变量提供 Nacos 地址、namespace ID、group 和登录凭据。Nacos 中可通过占位符引用部署环境注入的第三方凭据。
+应用运行配置在源码中只保留 `-server/src/main/resources/application.properties`。各环境如需分段，在同一个文件内使用 `#---` 和 `spring.config.activate.on-profile`。Nacos 模式只保留引导属性，端口、路由、中间件和业务参数发布到 Nacos。由环境变量提供 Nacos 地址、namespace ID、group 和登录凭据。
 
 - Data ID 固定为 `<项目名称>.properties`，与 `spring.application.name` 一致。例如项目 `order-gateway` 使用 `order-gateway.properties`，项目 `user-service` 使用 `user-service.properties`。同一项目的各运行环境使用各自 namespace，Data ID 保持一致。
 - 配置读取和服务发现使用明确的 namespace ID 和 group。Data ID 内容类型选 Properties，先发布再启动应用。用于发现的服务名与网关 `rb://` 和 `ws://` 的目标一致。RSocket 服务登记实际 TCP 端口。
-- 项目本地 `application.properties` 使用如下引导配置，第一行用已确认的项目名。
+- 在 `-server` 的 `application.properties` 写入以下引导配置，并将第一行替换为已确认的应用名。
 
 ~~~properties
 spring.application.name=order-gateway
@@ -367,7 +364,7 @@ spring.cloud.nacos.password=${NACOS_PASSWORD}
 
 - 网关的 `order-gateway.properties` 在 Nacos 配置 `spring.main.web-application-type=reactive`、监听地址及端口、`spring.cloud.gateway.server.webflux.routes`。业务服务的 Nacos 配置填写内网 RSocket 地址和端口，并登记实际 TCP 端口。连接数、超时等框架参数也由对应项目的配置文件提供。连接池、监听端口与路由的热更新需逐项验证，涉及启动期绑定的值按发布流程重启。
 
-本地配置只保留 Nacos 引导属性，业务、数据库、MQ、锁和网关配置写入 Nacos。Data ID 使用 `<项目名>.properties`。
+Nacos 的 Data ID 在配置中心维护。交付时检查仓库内唯一的运行配置位于 `-server/src/main/resources/application.properties`，仓库根目录和契约模块保持无运行配置。
 
 ## RSocket、网关与聊天
 
