@@ -1,11 +1,10 @@
-package org.lambda.framework.gateway.enums;
+package org.lambda.framework.enums;
 
 import lombok.Getter;
-import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
 @Getter
 public enum GatewayExceptionEnum implements ExceptionEnumFunction {
-    ES_GATEWAY_000("S0100000", "系统繁忙，请稍后重试"),
+    UNEXPECTED_FAILURE("S0100000", "系统繁忙，请稍后重试"),
     UPSTREAM_UNAVAILABLE("S0100001", "服务暂不可用，请稍后重试"),
     INVALID_REQUEST("S0100002", "请求参数不正确"),
     NOT_FOUND("S0100003", "找不到请求的内容"),

@@ -12,8 +12,8 @@ import reactor.core.publisher.Mono;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.ES_REPOSITORY_100;
-import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.ES_REPOSITORY_103;
+import static org.lambda.framework.enums.RepositoryExceptionEnum.INVALID_PAGING;
+import static org.lambda.framework.enums.RepositoryExceptionEnum.PAGING_REQUIRED;
 
 public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
     default <C> Mono<Paged<Entity>> pageFrom(Paging paging, C condition, Sort sort,
@@ -60,10 +60,10 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
 
     private static PageRequest request(Paging paging, Sort sort) {
         if (paging == null) {
-            throw new EventException(ES_REPOSITORY_103);
+            throw new EventException(PAGING_REQUIRED);
         }
         if (paging.getPage() == null || paging.getSize() == null || paging.getPage() < 1 || paging.getSize() < 1) {
-            throw new EventException(ES_REPOSITORY_100);
+            throw new EventException(INVALID_PAGING);
         }
         return PageRequest.of(paging.getPage() - 1, paging.getSize(), sort == null ? Sort.unsorted() : sort);
     }

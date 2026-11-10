@@ -19,7 +19,7 @@ import java.net.URI;
 import java.util.Map;
 
 import static org.lambda.framework.gateway.enums.GatewayContract.*;
-import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.ES_GATEWAY_000;
+import static org.lambda.framework.enums.GatewayExceptionEnum.UNEXPECTED_FAILURE;
 
 public class GatewayFilter implements GlobalFilter,Ordered{
 
@@ -35,12 +35,12 @@ public class GatewayFilter implements GlobalFilter,Ordered{
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String scheme = OptionalUtil.require(exchange.getRequest().getURI().getScheme(),
-                () -> new EventException(ES_GATEWAY_000, "请求协议缺失"));
+                () -> new EventException(UNEXPECTED_FAILURE, "请求协议缺失"));
         if (!HTTP_SCHEME.equals(scheme) && !HTTPS_SCHEME.equals(scheme)) {
-            return Mono.error(new EventException(ES_GATEWAY_000, "请求协议仅支持 HTTP 与 HTTPS"));
+            return Mono.error(new EventException(UNEXPECTED_FAILURE, "请求协议仅支持 HTTP 与 HTTPS"));
         }
         Route route = OptionalUtil.require(exchange.<Route>getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR),
-                () -> new EventException(ES_GATEWAY_000, "该资源没有对应的路由配置"));
+                () -> new EventException(UNEXPECTED_FAILURE, "该资源没有对应的路由配置"));
         URI targetRoute = OptionalUtil.require(route.getUri());
         boolean webSocket = WS_SCHEME.equals(targetRoute.getScheme());
         if (!RB_SCHEME.equals(targetRoute.getScheme()) && !webSocket) {

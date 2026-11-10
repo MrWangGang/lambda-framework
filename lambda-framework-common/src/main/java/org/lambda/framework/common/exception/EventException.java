@@ -1,6 +1,7 @@
 package org.lambda.framework.common.exception;
 
 import org.lambda.framework.common.exception.basic.GlobalException;
+import org.lambda.framework.enums.ExceptionEnumFunction;
 
 /**
  * Created by WangGang on 2017/6/22 0022.

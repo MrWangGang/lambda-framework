@@ -15,7 +15,7 @@ import java.util.List;
 
 import static com.mongodb.client.model.changestream.OperationType.*;
 import static org.lambda.framework.repository.enums.EnumOpertionType.*;
-import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.*;
+import static org.lambda.framework.enums.RepositoryExceptionEnum.*;
 
 public class ReactiveMongoChangeStreamListener {
     private static final Logger log = LoggerFactory.getLogger(ReactiveMongoChangeStreamListener.class);
@@ -36,9 +36,9 @@ public class ReactiveMongoChangeStreamListener {
     }
 
     private <T> void start(ReactiveMongoChangeStreamOperate<T> operate) {
-        if (operate == null) throw new EventException(ES_REPOSITORY_MONGO_016);
-        if (reactiveMongoTemplate == null) throw new EventException(ES_REPOSITORY_MONGO_016);
-        if (operate.clazz() == null) throw new EventException(ES_REPOSITORY_MONGO_016);
+        if (operate == null) throw new EventException(CHANGE_STREAM_CONFIGURATION_INVALID);
+        if (reactiveMongoTemplate == null) throw new EventException(CHANGE_STREAM_CONFIGURATION_INVALID);
+        if (operate.clazz() == null) throw new EventException(CHANGE_STREAM_CONFIGURATION_INVALID);
         this.watch(operate.clazz(), reactiveMongoTemplate)
                 .subscribe(event -> {
                     try {
@@ -57,7 +57,7 @@ public class ReactiveMongoChangeStreamListener {
                             // 后续使用idAsString进行操作
                         } else {
                             // 处理其他不符合预期的类型情况，比如抛出异常或者进行默认处理等
-                            throw new EventException(ES_REPOSITORY_MONGO_017);
+                            throw new EventException(CHANGE_STREAM_ID_TYPE_UNSUPPORTED);
                         }
                         String opid = db + "." + doc + "." + docId + "." + time;
                         if (event.getOperationType().equals(INSERT)) {
@@ -79,7 +79,7 @@ public class ReactiveMongoChangeStreamListener {
     private  <T>Flux<ChangeStreamEvent<T>> watch(Class<T> clazz,ReactiveMongoTemplate reactiveMongoTemplate) {
         org.springframework.data.mongodb.core.mapping.Document annotation = clazz.getAnnotation(org.springframework.data.mongodb.core.mapping.Document.class);
         if(annotation == null){
-            throw new EventException(ES_REPOSITORY_MONGO_018);
+            throw new EventException(COLLECTION_MAPPING_REQUIRED);
         }
         String docName = null;
         if(StringUtils.isNotBlank(annotation.value())){
@@ -90,7 +90,7 @@ public class ReactiveMongoChangeStreamListener {
         }
 
         if(StringUtils.isBlank(docName)){
-            throw new EventException(ES_REPOSITORY_MONGO_019);
+            throw new EventException(COLLECTION_NAME_REQUIRED);
         }
         // 构建 ChangeStreamOptions，过滤操作类型为 insert 和 update,delete
         ChangeStreamOptions options = ChangeStreamOptions.builder()

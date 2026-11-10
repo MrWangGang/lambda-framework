@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.function.Function;
 
-import static org.lambda.framework.rsocket.enums.RsocketExceptionEnum.ES_RSOCKET_003;
+import static org.lambda.framework.enums.RSocketExceptionEnum.INVALID_IDENTITY;
 
 public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
     private static final MimeType FORY = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
@@ -64,7 +64,7 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
                 }
                 var content = entry.getContent();
                 if (stash != null || binary != rpc || content.readableBytes() > MAX_IDENTITY_BYTES) {
-                    throw new EventException(ES_RSOCKET_003);
+                    throw new EventException(INVALID_IDENTITY);
                 }
                 if (binary) {
                     var buffer = DefaultDataBufferFactory.sharedInstance.wrap(content.nioBuffer());
@@ -76,12 +76,12 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
                     stash = JSON_IDENTITY.readValue(bytes);
                 }
                 if (stash == null) {
-                    throw new EventException(ES_RSOCKET_003);
+                    throw new EventException(INVALID_IDENTITY);
                 }
             }
             return stash == null ? ANONYMOUS : stash;
         } catch (RuntimeException | IOException error) {
-            throw new EventException(ES_RSOCKET_003);
+            throw new EventException(INVALID_IDENTITY);
         }
     }
 

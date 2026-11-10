@@ -20,8 +20,8 @@ import java.util.regex.Pattern;
 import static org.lambda.framework.common.enums.ConmonContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY;
 import static org.lambda.framework.common.enums.ConmonContract.LAMBDA_SECURITY_AUTH_TOKEN_REGEX;
 import static org.lambda.framework.common.enums.ConmonContract.LAMBDA_SECURITY_TOKEN_TIME_SECOND;
-import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_000;
-import static org.lambda.framework.compliance.enums.ComplianceExceptionEnum.ES_COMPLIANCE_001;
+import static org.lambda.framework.enums.ComplianceExceptionEnum.CONTEXT_INVALID;
+import static org.lambda.framework.enums.ComplianceExceptionEnum.SESSION_INVALID;
 
 public final class PrincipalFactory {
     private static final Pattern TOKEN_FORMAT = Pattern.compile(LAMBDA_SECURITY_AUTH_TOKEN_REGEX);
@@ -57,7 +57,7 @@ public final class PrincipalFactory {
     public Mono<ObjectId> currentUserObjectId() {
         return currentUserId().map(id -> {
             if (!ObjectId.isValid(id)) {
-                throw new EventException(ES_COMPLIANCE_000, "用户ID不是有效的 ObjectId");
+                throw new EventException(CONTEXT_INVALID, "用户ID不是有效的 ObjectId");
             }
             return new ObjectId(id);
         });
@@ -67,7 +67,7 @@ public final class PrincipalFactory {
     public <T extends SecurityLoginUser<?>> Mono<T> currentUser(Class<T> type) {
         return currentIdentity().flatMap(identity -> Mono.justOrEmpty(identity.getPrincipal()))
                 .map(principal -> JsonUtil.readRequired(principal, type,
-                        () -> new EventException(ES_COMPLIANCE_000, "用户身份无法读取")));
+                        () -> new EventException(CONTEXT_INVALID, "用户身份无法读取")));
     }
 
     public Mono<String> currentToken() {
@@ -146,7 +146,7 @@ public final class PrincipalFactory {
 
     private static String sessionKey(SecurityLoginUser<?> user) {
         if (user == null || user.getId() == null || !USER_ID_FORMAT.matcher(user.getId().toString()).matches()) {
-            throw new EventException(ES_COMPLIANCE_000, "用户ID必须由英文字母或数字组成");
+            throw new EventException(CONTEXT_INVALID, "用户ID必须由英文字母或数字组成");
         }
         return LAMBDA_SECURITY_AUTH_TOKEN_KEY + user.getId();
     }
@@ -160,7 +160,7 @@ public final class PrincipalFactory {
     }
 
     private static EventException invalidToken() {
-        return new EventException(ES_COMPLIANCE_001, "无效令牌");
+        return new EventException(SESSION_INVALID, "无效令牌");
     }
 
     private record Session(String principal, String token) {}

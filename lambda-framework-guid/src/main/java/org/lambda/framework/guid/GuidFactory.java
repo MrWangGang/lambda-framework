@@ -1,5 +1,8 @@
 package org.lambda.framework.guid;
 
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.GuidExceptionEnum;
+
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
@@ -34,14 +37,17 @@ public final class GuidFactory {
     public synchronized long nextLong() {
         long now = clock.millis() - EPOCH;
         if (now < 0 || now > MAX_TIMESTAMP) {
-            throw new IllegalStateException("Clock is outside the Snowflake epoch range");
+            throw new EventException(GuidExceptionEnum.CLOCK_OUT_OF_RANGE,
+                    "Clock is outside the Snowflake epoch range");
         }
         if (now < lastMillis) {
-            throw new IllegalStateException("Clock moved backwards; Snowflake ID generation is suspended");
+            throw new EventException(GuidExceptionEnum.CLOCK_MOVED_BACKWARDS,
+                    "Clock moved backwards; Snowflake ID generation is suspended");
         }
         int nextSequence = now == lastMillis ? sequence + 1 : 0;
         if (nextSequence > MAX_SEQUENCE) {
-            throw new IllegalStateException("Snowflake worker exhausted 4096 IDs in the current millisecond");
+            throw new EventException(GuidExceptionEnum.SEQUENCE_EXHAUSTED,
+                    "Snowflake worker exhausted 4096 IDs in the current millisecond");
         }
         lastMillis = now;
         sequence = nextSequence;

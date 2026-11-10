@@ -4,10 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import io.rsocket.exceptions.ConnectionErrorException;
 import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.common.exception.basic.GlobalException;
-import org.lambda.framework.common.exception.ExceptionEnumFunction;
-import org.lambda.framework.gateway.enums.GatewayExceptionEnum;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.JsonUtil;
+import org.lambda.framework.enums.ExceptionEnumFunction;
+import org.lambda.framework.enums.GatewayExceptionEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
@@ -27,7 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 
-import static org.lambda.framework.gateway.enums.GatewayExceptionEnum.*;
+import static org.lambda.framework.enums.GatewayExceptionEnum.*;
 
 
 /**
@@ -88,7 +88,7 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
                 case 502 -> RESPONSE_MISSING;
                 case 503 -> UPSTREAM_UNAVAILABLE;
                 case 504 -> TIMEOUT;
-                default -> ES_GATEWAY_000;
+                default -> UNEXPECTED_FAILURE;
             };
             return result(code);
         }
@@ -102,7 +102,7 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
                 .map(known -> result(known.getCode(), known.getMessage()))
                 .orElseGet(() -> {
                     logger.error("Gateway request failed", error);
-                    return result(ES_GATEWAY_000);
+                    return result(UNEXPECTED_FAILURE);
                 });
     }
 

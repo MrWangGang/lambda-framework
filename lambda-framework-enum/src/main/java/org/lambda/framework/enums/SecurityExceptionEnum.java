@@ -1,11 +1,10 @@
-package org.lambda.framework.security.enums;
+package org.lambda.framework.enums;
 
 import lombok.Getter;
-import org.lambda.framework.common.exception.ExceptionEnumFunction;
 
 @Getter
 public enum SecurityExceptionEnum implements ExceptionEnumFunction {
-    ES_SECURITY_000("S0600000", "请先登录");
+    AUTHENTICATION_REQUIRED("S0600000", "请先登录");
 
     private final String code;
     private final String message;

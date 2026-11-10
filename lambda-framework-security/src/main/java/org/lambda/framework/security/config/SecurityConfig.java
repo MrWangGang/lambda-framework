@@ -4,7 +4,7 @@ import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.JsonUtil;
-import org.lambda.framework.security.enums.SecurityExceptionEnum;
+import org.lambda.framework.enums.SecurityExceptionEnum;
 import org.springframework.http.MediaType;
 
 import java.nio.charset.StandardCharsets;
@@ -99,7 +99,7 @@ public class SecurityConfig {
         var response = exchange.getResponse();
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
         var body = new ResponseTemplete();
-        var error = SecurityExceptionEnum.ES_SECURITY_000;
+        var error = SecurityExceptionEnum.AUTHENTICATION_REQUIRED;
         body.setServiceCode(error.getCode());
         body.setServiceMessage(error.getMessage());
         return response.writeWith(Mono.fromSupplier(() ->

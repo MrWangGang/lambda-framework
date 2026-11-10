@@ -8,7 +8,7 @@ import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_035;
+import static org.lambda.framework.enums.CommonExceptionEnum.OBJECT_SERIALIZATION_FAILED;
 
 public class ObjectUtil {
     public static List<byte[]> serializeObject(Object object) {
@@ -18,7 +18,7 @@ public class ObjectUtil {
             oos.writeObject(object);
             byteList.add(bos.toByteArray());
         } catch (IOException e) {
-            throw new EventException(ES_COMMON_035);
+            throw new EventException(OBJECT_SERIALIZATION_FAILED);
         }
         return byteList;
     }

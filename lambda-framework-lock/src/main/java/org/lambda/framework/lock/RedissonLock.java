@@ -6,7 +6,7 @@ import org.redisson.api.RLock;
 import org.redisson.api.RReadWriteLock;
 import org.redisson.api.RedissonClient;
 
-import static org.lambda.framework.lock.enums.LockExceptionEnum.*;
+import static org.lambda.framework.enums.LockExceptionEnum.*;
 
 public class RedissonLock {
     private Long threadId ;
@@ -24,52 +24,52 @@ public class RedissonLock {
         try {
             return rLock.tryLock();
         }catch (Exception e){
-            throw new EventException(ES_LOCK_REDISSON_017);
+            throw new EventException(REDIS_LOCK_ACQUIRE_FAILED);
         }
     }
 
     public void unlock(){
-        Assert.verify(rLock,ES_LOCK_REDISSON_010);
+        Assert.verify(rLock,REDIS_MUTEX_UNAVAILABLE);
         try {
             rLock.unlock();
         }catch (Exception e){
-            throw new EventException(ES_LOCK_REDISSON_018);
+            throw new EventException(REDIS_LOCK_RELEASE_FAILED);
         }
     }
 
     public boolean tryReadLock() {
         try {
-            Assert.verify(rReadWriteLock,ES_LOCK_REDISSON_011);
+            Assert.verify(rReadWriteLock,REDIS_READ_WRITE_LOCK_UNAVAILABLE);
             return rReadWriteLock.readLock().tryLock();
         } catch (Exception e) {
-            throw new EventException(ES_LOCK_REDISSON_017);
+            throw new EventException(REDIS_LOCK_ACQUIRE_FAILED);
         }
     }
 
     public void unReadlock(){
         try {
-            Assert.verify(rReadWriteLock,ES_LOCK_REDISSON_011);
+            Assert.verify(rReadWriteLock,REDIS_READ_WRITE_LOCK_UNAVAILABLE);
             rReadWriteLock.readLock().unlock();
         } catch (Exception e) {
-            throw new EventException(ES_LOCK_REDISSON_018);
+            throw new EventException(REDIS_LOCK_RELEASE_FAILED);
         }
     }
 
     public boolean tryWriteLock() {
         try {
-            Assert.verify(rReadWriteLock,ES_LOCK_REDISSON_011);
+            Assert.verify(rReadWriteLock,REDIS_READ_WRITE_LOCK_UNAVAILABLE);
             return rReadWriteLock.writeLock().tryLock();
         } catch (Exception e) {
-            throw new EventException(ES_LOCK_REDISSON_017);
+            throw new EventException(REDIS_LOCK_ACQUIRE_FAILED);
         }
     }
 
     public void unWritelock(){
         try {
-            Assert.verify(rReadWriteLock,ES_LOCK_REDISSON_011);
+            Assert.verify(rReadWriteLock,REDIS_READ_WRITE_LOCK_UNAVAILABLE);
             rReadWriteLock.writeLock().unlock();
         } catch (Exception e) {
-            throw new EventException(ES_LOCK_REDISSON_018);
+            throw new EventException(REDIS_LOCK_RELEASE_FAILED);
         }
     }
 }

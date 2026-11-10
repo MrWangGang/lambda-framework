@@ -7,7 +7,7 @@ import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.convert.converter.ConverterFactory;
 import org.springframework.data.convert.ReadingConverter;
 
-import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.ES_REPOSITORY_106;
+import static org.lambda.framework.enums.RepositoryExceptionEnum.UNKNOWN_ENUM_VALUE;
 @ReadingConverter
 public class EnumReadConverter<T extends ConverterEnum> implements ConverterFactory<String, T> {
 
@@ -27,7 +27,7 @@ public class EnumReadConverter<T extends ConverterEnum> implements ConverterFact
 
         @Override
         public T convert(String source) {
-            return EnumUtil.findByKey(enumType, source).orElseThrow(() -> new EventException(ES_REPOSITORY_106));
+            return EnumUtil.findByKey(enumType, source).orElseThrow(() -> new EventException(UNKNOWN_ENUM_VALUE));
         }
     }
 }

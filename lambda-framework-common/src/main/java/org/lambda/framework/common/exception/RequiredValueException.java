@@ -1,9 +1,9 @@
 package org.lambda.framework.common.exception;
 
-import org.lambda.framework.common.enums.CommonExceptionEnum;
+import org.lambda.framework.enums.CommonExceptionEnum;
 
 public final class RequiredValueException extends EventException {
     public RequiredValueException() {
-        super(CommonExceptionEnum.ES_COMMON_036);
+        super(CommonExceptionEnum.REQUIRED_VALUE_MISSING);
     }
 }

@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
-import static org.lambda.framework.loadbalance.enums.LoadBalanceExceptionEnum.*;
+import static org.lambda.framework.enums.LoadBalanceExceptionEnum.*;
 
 public class RSocketLoadbalance {
     private static final Logger log = LoggerFactory.getLogger(RSocketLoadbalance.class);
@@ -105,8 +105,8 @@ public class RSocketLoadbalance {
     }
 
     public Mono<ProcessResponse> build(MimeType mimeType, String ip, Integer port) {
-        Assert.verify(ip, EB_LOADBALANCE_005);
-        Assert.verify(port, EB_LOADBALANCE_006);
+        Assert.verify(ip, HOST_REQUIRED);
+        Assert.verify(port, PORT_REQUIRED);
         RequesterKey key = new RequesterKey(ip, port, mimeType, 1);
         return Mono.fromSupplier(() -> requesters.computeIfAbsent(key, this::createRequester));
     }
@@ -116,7 +116,7 @@ public class RSocketLoadbalance {
     }
 
     public Mono<ProcessResponse> buildForService(MimeType mimeType, String serviceName, int connectionsPerInstance) {
-        Assert.verify(serviceName, EB_LOADBALANCE_001);
+        Assert.verify(serviceName, SERVICE_NAME_REQUIRED);
         if (connectionsPerInstance < 1 || connectionsPerInstance > 8) {
             throw new IllegalArgumentException("RSocket connections per instance must be between 1 and 8");
         }

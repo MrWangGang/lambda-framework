@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.lambda.framework.rpc.enums.RpcExceptionEnum.*;
+import static org.lambda.framework.enums.RpcExceptionEnum.*;
 
 public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcessor {
     private static final MimeType FORY_MIME_TYPE = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
@@ -55,13 +55,13 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
         for (Field field : getAllFields(clazz)) {
             Class<?> facade = field.getType();
             if (!facade.isInterface()) {
-                throw new EventException(ES_RPC_000);
+                throw new EventException(INVALID_FACADE);
             }
             try {
                 String service = field.getAnnotation(RSocketRpc.class).value();
                 field.set(bean, proxies.computeIfAbsent(new ProxyKey(facade, service), this::createProxy));
             } catch (IllegalAccessException error) {
-                throw new EventException(ES_RPC_016);
+                throw new EventException(PROXY_INJECTION_FAILED);
             }
         }
     }
@@ -76,7 +76,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
                     case "toString" -> "RSocket facade " + facade.getName();
                     case "hashCode" -> System.identityHashCode(proxy);
                     case "equals" -> proxy == args[0];
-                    default -> throw new EventException(ES_RPC_003);
+                    default -> throw new EventException(METHOD_UNAVAILABLE);
                 };
             }
             String route = routes.get(method);
@@ -86,7 +86,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
             if (method.isDefault()) {
                 return InvocationHandler.invokeDefault(proxy, method, args);
             }
-            throw new EventException(ES_RPC_003);
+            throw new EventException(METHOD_UNAVAILABLE);
         });
     }
 
@@ -98,11 +98,11 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
             throw new IllegalArgumentException("A streaming request requires BiFlux<O> return: " + method);
         }
         var bodyType = ParameterizedTypeReference.forType(returnType.getActualTypeArguments()[0]);
-        var connection = ReactiveValues.require(requester, () -> new EventException(ES_RPC_013));
+        var connection = ReactiveValues.require(requester, () -> new EventException(CONNECTION_UNAVAILABLE));
         if (resultType == Mono.class) {
             var result = connection.flatMap(rpc -> rpc.retrieveMono(principalStash, route, data, bodyType));
             return bodyType.getType() == Void.class
-                    ? result : ReactiveValues.require(result, () -> new EventException(ES_RPC_017));
+                    ? result : ReactiveValues.require(result, () -> new EventException(RESPONSE_MISSING));
         }
         var values = connection.flatMapMany(rpc -> rpc.retrieveFlux(principalStash, route, data, bodyType));
         if (resultType == Flux.class) {
@@ -138,9 +138,9 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
             return new byte[0];
         }
         if (arguments.length != 1) {
-            throw new EventException(ES_RPC_014);
+            throw new EventException(INVALID_PAYLOAD);
         }
-        return OptionalUtil.require(arguments[0], () -> new EventException(ES_RPC_014));
+        return OptionalUtil.require(arguments[0], () -> new EventException(INVALID_PAYLOAD));
     }
 
 }

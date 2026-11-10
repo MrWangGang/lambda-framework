@@ -3,7 +3,7 @@ package org.lambda.framework.lock;
 import org.lambda.framework.common.exception.Assert;
 import org.redisson.api.RedissonReactiveClient;
 
-import static org.lambda.framework.lock.enums.LockExceptionEnum.ES_LOCK_000;
+import static org.lambda.framework.enums.LockExceptionEnum.LOCK_NAME_REQUIRED;
 
 public class ReactiveRedissonBuilder {
     private RedissonReactiveClient redissonReactiveClient;
@@ -11,7 +11,7 @@ public class ReactiveRedissonBuilder {
         this.redissonReactiveClient= redissonReactiveClient;
     }
     public ReactiveRedissonLock getLock(String lockName){
-        Assert.verify(lockName,ES_LOCK_000);
+        Assert.verify(lockName,LOCK_NAME_REQUIRED);
         return new ReactiveRedissonLock(redissonReactiveClient,lockName);
     }
 }

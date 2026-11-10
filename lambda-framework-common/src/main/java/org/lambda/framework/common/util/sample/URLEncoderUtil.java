@@ -7,7 +7,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Map;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_004;
+import static org.lambda.framework.enums.CommonExceptionEnum.UNSUPPORTED_TEXT_ENCODING;
 
 
 /**
@@ -21,7 +21,7 @@ public class URLEncoderUtil {
         try {
             return URLEncoder.encode(value,"UTF-8");
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ES_COMMON_004);
+            throw new EventException(UNSUPPORTED_TEXT_ENCODING);
         }
     }
 

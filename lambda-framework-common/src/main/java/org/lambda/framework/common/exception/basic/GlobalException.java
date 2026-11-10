@@ -1,6 +1,6 @@
 package org.lambda.framework.common.exception.basic;
 
-import org.lambda.framework.common.enums.CommonExceptionEnum;
+import org.lambda.framework.enums.CommonExceptionEnum;
 import org.lambda.framework.common.enums.ServiceCodes;
 
 import java.util.Optional;
@@ -11,8 +11,8 @@ public class GlobalException extends RuntimeException {
 
     public GlobalException(String code, String message) {
         super(ServiceCodes.isError(code) && ServiceCodes.isPublicMessage(message)
-                ? message : CommonExceptionEnum.ES_COMMON_000.getMessage());
-        this.code = ServiceCodes.isError(code) ? code : CommonExceptionEnum.ES_COMMON_000.getCode();
+                ? message : CommonExceptionEnum.UNEXPECTED_FAILURE.getMessage());
+        this.code = ServiceCodes.isError(code) ? code : CommonExceptionEnum.UNEXPECTED_FAILURE.getCode();
     }
 
     public String getCode() {

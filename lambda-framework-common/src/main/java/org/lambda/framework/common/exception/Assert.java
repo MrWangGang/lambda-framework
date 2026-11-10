@@ -2,25 +2,26 @@ package org.lambda.framework.common.exception;
 
 import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.common.exception.basic.GlobalException;
+import org.lambda.framework.enums.ExceptionEnumFunction;
 
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Set;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
+import static org.lambda.framework.enums.CommonExceptionEnum.*;
 
 public class Assert {
     public static void verify(Object object,String code,String message){
-        if(StringUtils.isBlank(code))throw new EventException(ES_COMMON_033);
-        if(StringUtils.isBlank(message))throw new EventException(ES_COMMON_034);
+        if(StringUtils.isBlank(code))throw new EventException(ERROR_CODE_REQUIRED);
+        if(StringUtils.isBlank(message))throw new EventException(ERROR_MESSAGE_REQUIRED);
         if(!verify(object)){
             throw new GlobalException(code,message);
         }
     }
 
     public static void check(Object obj,String code,String message) {
-        if(StringUtils.isBlank(code))throw new EventException(ES_COMMON_033);
-        if(StringUtils.isBlank(message))throw new EventException(ES_COMMON_034);
+        if(StringUtils.isBlank(code))throw new EventException(ERROR_CODE_REQUIRED);
+        if(StringUtils.isBlank(message))throw new EventException(ERROR_MESSAGE_REQUIRED);
         if(!check(obj)){
             throw new GlobalException(code,message);
         }
@@ -101,7 +102,7 @@ public class Assert {
     public static <T>T review(T obj) {
         if(obj == null) return null;
         if(!check(obj)){
-            throw new EventException(ES_COMMON_029);
+            throw new EventException(OBJECT_VALIDATION_FAILED);
         }
         return obj;
     }
@@ -152,7 +153,7 @@ public class Assert {
                 }
             } catch (IllegalAccessException e) {
                 // 处理异常，如果有需要
-                throw new EventException(ES_COMMON_026);
+                throw new EventException(FIELD_ACCESS_FAILED);
             }
         }
 
@@ -192,7 +193,7 @@ public class Assert {
                 }
             }
         } catch (IllegalAccessException e) {
-            throw new EventException(ES_COMMON_026);
+            throw new EventException(FIELD_ACCESS_FAILED);
         }
 
         return false;

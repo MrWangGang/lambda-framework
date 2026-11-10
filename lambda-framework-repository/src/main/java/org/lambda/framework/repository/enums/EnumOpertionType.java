@@ -4,7 +4,7 @@ import lombok.Getter;
 import org.lambda.framework.common.enums.ConverterEnum;
 import org.lambda.framework.common.exception.EventException;
 
-import static org.lambda.framework.repository.enums.RepositoryExceptionEnum.ES_REPOSITORY_107;
+import static org.lambda.framework.enums.RepositoryExceptionEnum.UNKNOWN_CHANGE_OPERATION;
 @Getter
 public enum EnumOpertionType implements ConverterEnum {
     ENUM_OPERTION_TYPE_INSERT("插入","INSERT"),
@@ -17,7 +17,7 @@ public enum EnumOpertionType implements ConverterEnum {
                 return true;
             }
         }
-        throw new EventException(ES_REPOSITORY_107);
+        throw new EventException(UNKNOWN_CHANGE_OPERATION);
     }
 
     public static EnumOpertionType get(String value) {
@@ -26,7 +26,7 @@ public enum EnumOpertionType implements ConverterEnum {
                 return enumValue;
             }
         }
-        throw new EventException(ES_REPOSITORY_107);
+        throw new EventException(UNKNOWN_CHANGE_OPERATION);
     }
 
     EnumOpertionType(String description, String value) {

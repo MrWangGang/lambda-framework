@@ -14,7 +14,7 @@ import java.io.UnsupportedEncodingException;
 import java.security.*;
 import java.security.spec.*;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
+import static org.lambda.framework.enums.CommonExceptionEnum.*;
 
 /**
  * Created by WangGang on 2017/6/22 0022.
@@ -47,7 +47,7 @@ public class RSACoderAlgorithmUtil {
 
             return Base64AlgorithmUtil.byteArrayToBase64(encryptedResult);
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ES_COMMON_004);
+            throw new EventException(UNSUPPORTED_TEXT_ENCODING);
         }
     }
 
@@ -66,7 +66,7 @@ public class RSACoderAlgorithmUtil {
             String signParams = RSACoderAlgorithmUtil.sign(dataInBytes, privateKey,signType);//用应用的私钥加签.
             return signParams;
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ES_COMMON_004);
+            throw new EventException(UNSUPPORTED_TEXT_ENCODING);
         }
     }
 
@@ -84,7 +84,7 @@ public class RSACoderAlgorithmUtil {
             byte[] encryptedBytes = decryptByPrivateKey(byte64, key, null);
             return new String(encryptedBytes, charset);
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ES_COMMON_004);
+            throw new EventException(UNSUPPORTED_TEXT_ENCODING);
         }
 
     }
@@ -104,7 +104,7 @@ public class RSACoderAlgorithmUtil {
             byte[] encryptedBytes = decryptByPrivateKey(byte64, key, encryptionType);
             return new String(encryptedBytes, charset);
         } catch (UnsupportedEncodingException e) {
-            throw new EventException(ES_COMMON_004);
+            throw new EventException(UNSUPPORTED_TEXT_ENCODING);
         }
     }
 
@@ -155,19 +155,19 @@ public class RSACoderAlgorithmUtil {
 
             return decryptedData;
         } catch (IOException e) {
-            throw new EventException(ES_COMMON_007);
+            throw new EventException(DECRYPTION_INPUT_UNREADABLE);
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ES_COMMON_005);
+            throw new EventException(CRYPTO_ALGORITHM_UNAVAILABLE);
         } catch (InvalidKeyException e) {
-            throw new EventException(ES_COMMON_008);
+            throw new EventException(INVALID_PRIVATE_KEY);
         } catch (NoSuchPaddingException e) {
-            throw new EventException(ES_COMMON_006);
+            throw new EventException(CRYPTO_PADDING_UNAVAILABLE);
         } catch (BadPaddingException e) {
-            throw new EventException(ES_COMMON_009);
+            throw new EventException(DECRYPTION_PADDING_INVALID);
         }  catch (IllegalBlockSizeException e) {
-            throw new EventException(ES_COMMON_010);
+            throw new EventException(DECRYPTION_BLOCK_INVALID);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES_COMMON_011);
+            throw new EventException(INVALID_PRIVATE_KEY_FORMAT);
         }
 
     }
@@ -220,19 +220,19 @@ public class RSACoderAlgorithmUtil {
             }
             return encryptedData;
         } catch (IOException e) {
-            throw new EventException(ES_COMMON_012);
+            throw new EventException(ENCRYPTION_INPUT_UNREADABLE);
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ES_COMMON_005);
+            throw new EventException(CRYPTO_ALGORITHM_UNAVAILABLE);
         } catch (InvalidKeyException e) {
-            throw new EventException(ES_COMMON_013);
+            throw new EventException(INVALID_PUBLIC_KEY);
         } catch (NoSuchPaddingException e) {
-            throw new EventException(ES_COMMON_006);
+            throw new EventException(CRYPTO_PADDING_UNAVAILABLE);
         } catch (BadPaddingException e) {
-            throw new EventException(ES_COMMON_014);
+            throw new EventException(ENCRYPTION_PADDING_INVALID);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES_COMMON_015);
+            throw new EventException(INVALID_PUBLIC_KEY_FORMAT);
         } catch (IllegalBlockSizeException e) {
-            throw new EventException(ES_COMMON_016);
+            throw new EventException(ENCRYPTION_BLOCK_INVALID);
         }
 
     }
@@ -262,13 +262,13 @@ public class RSACoderAlgorithmUtil {
 
             return encryptBASE64(signature.sign());
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ES_COMMON_005);
+            throw new EventException(CRYPTO_ALGORITHM_UNAVAILABLE);
         } catch (SignatureException e) {
-            throw new EventException(ES_COMMON_017);
+            throw new EventException(SIGNATURE_PROCESSING_FAILED);
         } catch (InvalidKeyException e) {
-            throw new EventException(ES_COMMON_008);
+            throw new EventException(INVALID_PRIVATE_KEY);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES_COMMON_011);
+            throw new EventException(INVALID_PRIVATE_KEY_FORMAT);
         }
 
     }
@@ -299,13 +299,13 @@ public class RSACoderAlgorithmUtil {
             //验证签名是否正常
             return signature.verify(decryptBASE64(sign));
         } catch (NoSuchAlgorithmException e) {
-            throw new EventException(ES_COMMON_005);
+            throw new EventException(CRYPTO_ALGORITHM_UNAVAILABLE);
         } catch (SignatureException e) {
-            throw new EventException(ES_COMMON_017);
+            throw new EventException(SIGNATURE_PROCESSING_FAILED);
         } catch (InvalidKeyException e) {
-            throw new EventException(ES_COMMON_013);
+            throw new EventException(INVALID_PUBLIC_KEY);
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES_COMMON_015);
+            throw new EventException(INVALID_PUBLIC_KEY_FORMAT);
         }
     }
 
@@ -325,7 +325,7 @@ public class RSACoderAlgorithmUtil {
             maxLength = keyLength / 8 - 11;
             return maxLength;
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES_COMMON_015);
+            throw new EventException(INVALID_PUBLIC_KEY_FORMAT);
         }
 
     }
@@ -362,7 +362,7 @@ public class RSACoderAlgorithmUtil {
             maxLength = keyLength / 8;
             return maxLength;
         } catch (InvalidKeySpecException e) {
-            throw new EventException(ES_COMMON_015);
+            throw new EventException(INVALID_PUBLIC_KEY_FORMAT);
         }
     }
 

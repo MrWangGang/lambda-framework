@@ -10,7 +10,7 @@ import reactor.kafka.receiver.ReceiverRecord;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderRecord;
 
-import static org.lambda.framework.mq.enums.MqExceptionEnum.*;
+import static org.lambda.framework.enums.MqExceptionEnum.*;
 
 public class KafkaMQReactiveOperate {
 
@@ -21,7 +21,7 @@ public class KafkaMQReactiveOperate {
     private KafkaMqAutoConfiguration.KafkaReceiverFactory kafkaReceiverFactory;
 
     public Mono<Void> send(KafkaMQDeclare declare, String key, String message) {
-        Assert.verify(key,ES_MQ_KAFKA_003);
+        Assert.verify(key,KAFKA_KEY_REQUIRED);
         return this.sendMessage(declare,key,message);
     }
 
@@ -30,20 +30,20 @@ public class KafkaMQReactiveOperate {
     }
 
     private Mono<Void> sendMessage(KafkaMQDeclare declare, String key,String message) {
-        Assert.check(declare,ES_MQ_KAFKA_001);
-        Assert.verify(message,ES_MQ_KAFKA_002);
+        Assert.check(declare,KAFKA_DESTINATION_REQUIRED);
+        Assert.verify(message,KAFKA_MESSAGE_REQUIRED);
         return kafkaSender.send(Mono.just(
                         SenderRecord.create(declare.getTopic(), null, null, key, message, null)))
                 .then();
     }
 
     public Flux<ReceiverRecord<String, String>> receiverManual(KafkaMQDeclare declare) {
-        Assert.check(declare,ES_MQ_KAFKA_001);
+        Assert.check(declare,KAFKA_DESTINATION_REQUIRED);
         return kafkaReceiverFactory.createReceiver(declare.getTopic(), declare.getGroupId()).receive();
     }
 
     public Flux<Flux<ConsumerRecord<String, String>>> receiverAuto(KafkaMQDeclare declare){
-        Assert.check(declare,ES_MQ_KAFKA_001);
+        Assert.check(declare,KAFKA_DESTINATION_REQUIRED);
         return kafkaReceiverFactory.createReceiver(declare.getTopic(), declare.getGroupId()).receiveAutoAck();
     }
 

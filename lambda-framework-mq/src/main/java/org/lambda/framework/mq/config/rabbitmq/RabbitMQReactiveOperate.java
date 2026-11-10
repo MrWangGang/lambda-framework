@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-import static org.lambda.framework.mq.enums.MqExceptionEnum.ES_MQ_000;
+import static org.lambda.framework.enums.MqExceptionEnum.RABBIT_PUBLISH_NOT_CONFIRMED;
 
 public class RabbitMQReactiveOperate {
     @Resource
@@ -48,7 +48,7 @@ public class RabbitMQReactiveOperate {
             var outbound = new OutboundMessage(declaration.getExchangeName(), declaration.getRoutingKey(),
                     properties, message.getBytes(StandardCharsets.UTF_8));
             return sender.sendWithPublishConfirms(Mono.just(outbound)).single().flatMap(result ->
-                    result.isAck() ? Mono.empty() : Mono.error(new EventException(ES_MQ_000)));
+                    result.isAck() ? Mono.empty() : Mono.error(new EventException(RABBIT_PUBLISH_NOT_CONFIRMED)));
         });
     }
 

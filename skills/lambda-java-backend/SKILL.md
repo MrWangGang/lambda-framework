@@ -40,7 +40,7 @@ description: 创建、开发和审查 Lambda Framework Java 后端。规范分�
 ## 4. 接口、身份与 RPC
 
 - 前端经 reactive 网关访问。Controller 只用 `@MessageMapping("/api/...")` 定义固定路径，普通 HTTP 统一 POST，使用独立 record 作为参数与结果。Controller 只绑定请求并调用 Service，禁止业务逻辑和校验。使用 Bean Validation 时在 Service 类加 `@Validated`，Service 参数加 `@Valid`，请求 record 声明约束。
-- 提供者把 `facade/` 契约 JAR 放在服务目录内。实现类加 `@RSocketFacade`，每个实现类对应一个 `*Facade` 接口。调用者只依赖契约 JAR，并用 `@RSocketRpc("服务名")`。框架生成方法路由，拒绝重复路由和重载。RPC 业务与身份元数据固定 Fory。网关内部转发用 JSON。
+- 提供者把 `-facade` 契约模块放在该微服务的代码目录内。实现类加 `@RSocketFacade`，每个实现类对应一个 `*Facade` 接口。调用者只依赖契约 JAR，并用 `@RSocketRpc("服务名")`。框架生成方法路由，拒绝重复路由和重载。RPC 业务与身份元数据固定 Fory。网关内部转发用 JSON。
 - `Mono` 单次响应，`Flux` 聚合数组，`UiFlux` 单向 NDJSON，`Flux<I> → BiFlux<O>` 用于 WSS 或 Java 双向 RPC。网关路由按服务前缀配置。
 - 登录核验后用 `PrincipalFactory.setPrincipal` 签发会话。网关用 Redis 校验令牌并透传身份。用 `currentUserId()`、`currentUserObjectId()` 或 `currentUser(type)` 从 Reactor Context 获取，业务检查资源权限。内部 RSocket 只开放给可信调用方。
 
@@ -62,7 +62,11 @@ description: 创建、开发和审查 Lambda Framework Java 后端。规范分�
 
 网关遇到非 Void 的空单次响应时返回 502 与 `S0100005`。Java RPC 调用方遇到非 Void 空响应时抛 `S0300017`。集合和 `Mono<Void>` 保持各自成功语义。
 
-`serviceCode` 固定八位。`00000000` 表示成功，框架错误使用 `S` 加七位数字，业务手动错误使用 `B` 加七位数字。新增业务错误在业务模块的 `enums` 包声明枚举，实现 `ExceptionEnumFunction`，用 `BusinessException(枚举值)` 抛出。错误码保持唯一并作为契约维护。
+`serviceCode` 固定八位。`00000000` 表示成功，框架错误使用 `S` 加七位数字，业务手动错误使用 `B` 加七位数字。异常码统一使用 `org.lambda.framework.enums.ExceptionEnumFunction` 的 `getCode()` 与 `getMessage()`。
+
+- 框架组件的异常枚举集中在 `lambda-framework-enum` 的 `org.lambda.framework.enums` 包。按组件定义 `*ExceptionEnum`，常量名描述错误原因，例如 `GatewayExceptionEnum.UPSTREAM_UNAVAILABLE`。组件通过 `EventException(枚举值)` 引用错误码。
+- 每个业务微服务在自己的代码目录内创建 `<项目名>-<微服务名>-enum/`。Maven artifactId 与目录名一致。模块只放本服务的 `*ExceptionEnum`，依赖 `lambda-framework-enum` 取得错误契约。由本服务的 `-server` 模块引用，业务异常在 Service 使用 `BusinessException(枚举值)` 抛出。实体状态、配置和业务实现仍按各自职责归档。
+- 新增前核对已分配码段与重复码。已发布的数字和语义是接口契约，退役编号保留历史含义。提交前核对所有枚举常量的码格式、唯一性和提示长度。
 
 面向用户的提示要具体、自然、简短，最多 24 个 Unicode 码点。说明发生了什么，能给出下一步时给出可执行操作，例如「商品已变更，请刷新后重试」。数据库、协议、类名和堆栈等细节留在服务端日志。
 
@@ -106,34 +110,44 @@ db.products.updateMany({status: "inactive"}, {$set: {status: "下架"}});
 
 ## 项目名称、包名和 Maven 模块
 
-新建业务微服务前确认项目名称，缺少名称时询问。父工程 artifactId、Spring 应用名、服务发现名和 Nacos Data ID 的文件名使用项目名称。Java 包根使用 `com.<项目名>`，在其下按职责分包。包名用小写 Java 标识符，项目名中的连字符对应包层级，例如 `order-center` 对应 `com.order.center`。
+新建业务微服务前确认项目名和微服务名，缺少时询问。Maven 父工程命名为 `<项目名>-<微服务名>`，运行时使用约定的微服务名作为应用名、服务发现名和 Nacos Data ID 的基名。Java 包根使用 `com.<项目名>`，按微服务和职责细分。Java 包名使用小写标识符，名称中的连字符对应包层级。
 
-业务微服务使用一个 Maven 父工程和两个子模块。以下用 `user` 举例。
+微服务的子模块采用统一前缀，目录名与 Maven artifactId 一致。项目 `mall` 的 `order` 服务示例如下。
 
 ~~~text
-user/
-├── pom.xml
-├── app/
-│   ├── pom.xml
-│   └── src/main/
-│       ├── java/com/user/
-│       │   ├── UserApplication.java
-│       │   ├── controller/UserController.java
-│       │   ├── service/UserServiceImpl.java
-│       │   ├── facade/UserFacadeImpl.java
-│       │   ├── po/UserPO.java
-│       │   └── repository/UserRepository.java
-│       └── resources/application.properties
-└── facade/
-    ├── pom.xml
-    └── src/main/java/com/user/
-        └── facade/UserFacade.java
+mall/
+└── order/
+    ├── pom.xml                        mall-order
+    ├── mall-order-server/             应用、Controller、Service、Repository 和 PO
+    │   ├── pom.xml
+    │   └── src/main/
+    ├── mall-order-facade/             Java RPC 契约
+    │   ├── pom.xml
+    │   └── src/main/java/com/mall/order/facade/
+    ├── mall-order-enum/               本服务异常码枚举
+    │   ├── pom.xml
+    │   └── src/main/java/com/mall/order/enums/
+    └── mall-order-docker/             独立可上传的容器部署包
+        ├── Dockerfile
+        ├── compose.yaml
+        ├── .dockerignore
+        └── app.jar                    Maven install 生成，排除在 Git 之外
 ~~~
 
-- 父工程使用 `pom` 打包，管理模块与版本。`app/` 是可运行模块，依赖同一服务目录中的 `facade/`。其他微服务通过 `<项目名>-facade` 引入 RPC 契约。
-- `facade/` 打包成 `<项目名>-facade` 契约 JAR，`facade` 包内放对外接口和接口内的入参、出参 `record`。该模块只引入编译和使用契约所需的依赖。
-- 服务端的 `UserFacadeImpl` 放在 service 模块的 `facade` 包。业务实现直接命名为 `UserServiceImpl`，放在 `service` 包根，省略 `UserService` 接口和 `service.impl` 子包。
-- 每个 MongoDB 集合对应一个持久化类，放在 `po` 包并以 `PO` 结尾。`UserPO` 映射到 `user`，由 `UserRepository` 访问。枚举按业务归属放在实体或 `enums` 包，连接配置放在 `config` 包。
+- 每个业务微服务必建 `-server` 和独立的 `-enum`，提供 Java RPC 时加 `-facade`，容器部署时加同级 `-docker`。业务异常表随各自服务维护。基础设施网关使用框架网关异常码。
+- 父工程使用 `pom` 打包。它声明 Java 子模块和共用的插件配置。POM 统一 XML 声明、Maven 命名空间和四空格缩进，版本优先由父工程管理。
+- `-server` 是可执行的 Spring Boot JAR，依赖本服务的 `-enum`，提供 RPC 时同时依赖自己的 `-facade`。后两者为普通 JAR。其他微服务只通过提供方的 `-facade` 引入 RPC 接口和契约 record。
+- 服务端 Facade 实现、业务 `*ServiceImpl` 和实体 `*PO` 放在 `-server`，按职责分包。新建项目时先核对目录、POM 坐标和依赖方向，再写业务代码。
+
+## Docker 部署编译产物
+
+1. 用项目约定的 JDK 和 Maven 执行 `clean install`。先构建并重打包 `-server` 的 Spring Boot 可执行 JAR，随后在 Maven 的 `install` 阶段把主 JAR 复制到同级 `-docker/app.jar`。父 POM 集中维护复制插件，只有可运行模块启用该执行并指定自己的目标目录。Maven `clean` 清除生成的 `app.jar`。
+2. 检查部署目录中的 `app.jar` 与此次构建的可执行 JAR 相同。上传整个 `-docker` 目录。Docker 构建上下文就是该目录，`Dockerfile` 复制目录内的 `app.jar`，使用部署环境指定的 Java 运行时镜像启动。
+3. 部署机从私有环境文件提供 `JAVA_RUNTIME_IMAGE`、Nacos 地址和凭据引用。组件、网关和业务配置存放在 Nacos。使用项目目标 JDK 匹配的 Java 运行时镜像，并在部署前核对镜像来源与架构。内部服务的监听和注册地址必须对调用方可达。
+4. 进入已上传的 Docker 目录，运行 `docker compose --env-file /实际部署路径/runtime.env up -d --build`。用 `docker compose --env-file /实际部署路径/runtime.env ps` 核对容器状态，查看启动日志并核对 Nacos 服务注册。再通过网关验证业务请求。示例使用 Linux host 网络，按配置中的原生端口监听。
+5. 发布时把完整部署目录作为一个版本保存。应用回滚使用上一版部署目录及与之对应的 Nacos 配置。变更数据库结构或共享组件时单独维护迁移顺序。
+
+[示例的 Maven 打包与 Docker 命令](https://github.com/MrWangGang/lambda-framework-example#docker-部署)
 
 ## Controller、Service 与 Repository 分层
 
@@ -278,7 +292,7 @@ Flux<FavoriteRepository.MerchantStats> stats(ObjectId userId, ObjectId reviewerI
 
 `Update`、`findAndModify`、原生驱动和批量写入需要核对审计字段。使用 `MongoAuditUpdates.modified(update)` 同步维护 `updatedAt` 与版本。库存扣减以可用库存作为原子条件，在同一条语句中扣库存、更新日期和递增版本。收藏关系、消息回执等只插入一次的幂等写入，使用 `MongoAuditUpdates.insertOnly(update, createdAt, updatedAt)`，重复命中时保留初始版本和审计时间。
 
-升级已有项目时，先在部署迁移中回填缺失或为空的公共字段，已有值保留。旧 `createTime` 和 `updateTime` 迁到 `createdAt` 和 `updatedAt`，缺失的版本初始化为 BSON Int64 `0`。在所有旧写入方停写后执行迁移，核对缺失数为零，再启动启用版本的应用。见 [数据访问手册](../../docs/DATA-AND-PAGINATION.md#旧集合迁移)。
+升级已有项目时，先在部署迁移中回填缺失或为空的公共字段，已有值保留。旧 `createTime` 和 `updateTime` 迁到 `createdAt` 和 `updatedAt`，缺失的版本初始化为 BSON Int64 `0`。在所有旧写入方停写后执行迁移，核对缺失数为零，再启动启用版本的应用。见 [数据访问手册](../../README.md#旧集合迁移)。
 
 ### SKU 防超卖
 
@@ -316,7 +330,7 @@ return mongo.updateFirst(filter, deduction, SkuPO.class)
 
 ## 数据和运行配置
 
-应用选择 Maven 模块，启动类使用 `@SpringBootApplication`。连接配置出现时自动创建客户端和检查，生命周期由 Spring 管理。完整属性与示例见 [组件配置手册](../../docs/MODULES-AND-CONFIGURATION.md)。
+应用选择 Maven 模块，启动类使用 `@SpringBootApplication`。连接配置出现时自动创建客户端和检查，生命周期由 Spring 管理。完整属性与示例见 [组件配置手册](../../README.md#组件配置)。
 
 | 场景 | 模块和使用方式 |
 |---|---|

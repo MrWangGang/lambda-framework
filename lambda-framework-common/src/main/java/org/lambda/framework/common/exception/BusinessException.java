@@ -2,6 +2,7 @@ package org.lambda.framework.common.exception;
 
 import org.lambda.framework.common.enums.ServiceCodes;
 import org.lambda.framework.common.util.OptionalUtil;
+import org.lambda.framework.enums.ExceptionEnumFunction;
 
 public final class BusinessException extends EventException {
     public <E extends Enum<E> & ExceptionEnumFunction> BusinessException(E error) {

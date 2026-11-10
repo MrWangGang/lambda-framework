@@ -24,8 +24,8 @@ import org.lambda.framework.common.exception.RequiredValueException;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_018;
-import static org.lambda.framework.common.enums.CommonExceptionEnum.ES_COMMON_019;
+import static org.lambda.framework.enums.CommonExceptionEnum.JSON_READ_FAILED;
+import static org.lambda.framework.enums.CommonExceptionEnum.JSON_WRITE_FAILED;
 
 
 /** Shared Jackson configuration for gateway, RSocket, Redis and MQ payloads. */
@@ -62,7 +62,7 @@ public final class JsonUtil {
         try {
             return MAPPER.writeValueAsString(value);
         } catch (JsonProcessingException error) {
-            throw new EventException(ES_COMMON_019);
+            throw new EventException(JSON_WRITE_FAILED);
         }
     }
 
@@ -86,7 +86,7 @@ public final class JsonUtil {
         try {
             return MAPPER.readValue(json, type);
         } catch (JsonProcessingException error) {
-            throw new EventException(ES_COMMON_018);
+            throw new EventException(JSON_READ_FAILED);
         }
     }
 }

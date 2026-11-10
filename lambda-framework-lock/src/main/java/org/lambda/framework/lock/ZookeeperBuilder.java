@@ -3,7 +3,7 @@ package org.lambda.framework.lock;
 import org.apache.curator.framework.CuratorFramework;
 import org.lambda.framework.common.exception.Assert;
 
-import static org.lambda.framework.lock.enums.LockExceptionEnum.ES_LOCK_000;
+import static org.lambda.framework.enums.LockExceptionEnum.LOCK_NAME_REQUIRED;
 
 public class ZookeeperBuilder {
     private CuratorFramework curatorFramework;
@@ -11,7 +11,7 @@ public class ZookeeperBuilder {
         this.curatorFramework = curatorFramework;
     }
     public ZookeeperLock getLock(String lockName){
-        Assert.verify(lockName,ES_LOCK_000);
+        Assert.verify(lockName,LOCK_NAME_REQUIRED);
         return new ZookeeperLock(curatorFramework,lockName);
     }
 }

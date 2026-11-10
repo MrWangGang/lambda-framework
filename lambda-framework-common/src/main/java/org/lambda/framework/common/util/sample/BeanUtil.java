@@ -4,7 +4,7 @@ import org.lambda.framework.common.exception.EventException;
 import org.modelmapper.ModelMapper;
 import org.springframework.cglib.beans.BeanCopier;
 
-import static org.lambda.framework.common.enums.CommonExceptionEnum.*;
+import static org.lambda.framework.enums.CommonExceptionEnum.*;
 
 public class BeanUtil {
 
@@ -19,10 +19,10 @@ public class BeanUtil {
 
     public static  <T> T deepCopy(T source, Class<? extends T> targetClass) {
         if (source == null) {
-            throw new EventException(ES_COMMON_031);
+            throw new EventException(COPY_SOURCE_MISSING);
         }
         if (targetClass == null) {
-            throw new EventException(ES_COMMON_032);
+            throw new EventException(COPY_TARGET_MISSING);
         }
         T target = instantiateTarget(targetClass);
         BeanCopier.create(source.getClass(), target.getClass(), false)
@@ -33,10 +33,10 @@ public class BeanUtil {
     public static  <T> T shallowCopy
             (T source, Class<? extends T> targetClass) {
         if (source == null) {
-            throw new EventException(ES_COMMON_031);
+            throw new EventException(COPY_SOURCE_MISSING);
         }
         if (targetClass == null) {
-            throw new EventException(ES_COMMON_032);
+            throw new EventException(COPY_TARGET_MISSING);
         }
         T target = instantiateTarget(targetClass);
         BeanCopier.create(source.getClass(), target.getClass(), false)
@@ -48,7 +48,7 @@ public class BeanUtil {
         try {
             return targetClass.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
-            throw new EventException(ES_COMMON_030);
+            throw new EventException(OBJECT_CREATION_FAILED);
         }
     }
 }

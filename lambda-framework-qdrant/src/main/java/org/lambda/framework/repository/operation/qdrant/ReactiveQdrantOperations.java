@@ -11,7 +11,9 @@ import io.qdrant.client.grpc.Points.QueryPoints;
 import io.qdrant.client.grpc.Points.ScoredPoint;
 import io.qdrant.client.grpc.Points.UpdateResult;
 import io.qdrant.client.grpc.Points.UpsertPoints;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.util.ReactiveValues;
+import org.lambda.framework.enums.QdrantExceptionEnum;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
@@ -54,7 +56,8 @@ public final class ReactiveQdrantOperations implements AutoCloseable {
     public Mono<Void> awaitCollection(String name) {
         return Flux.fromIterable(clients).flatMap(client -> ReactiveValues.require(fromFuture(() -> client.collectionExistsAsync(name)))
                 .flatMap(exists -> exists ? Mono.<Void>empty()
-                        : Mono.error(new IllegalStateException("Qdrant collection is not visible on every node")))
+                        : Mono.error(new EventException(QdrantExceptionEnum.COLLECTION_NOT_READY,
+                                "Qdrant collection is not visible on every node")))
                 .retryWhen(Retry.fixedDelay(12, Duration.ofMillis(250)))).then();
     }
 
