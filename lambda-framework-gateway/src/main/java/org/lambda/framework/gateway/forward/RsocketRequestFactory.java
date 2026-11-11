@@ -1,6 +1,8 @@
 package org.lambda.framework.gateway.forward;
 
+import jakarta.annotation.PreDestroy;
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -106,8 +108,8 @@ public class RsocketRequestFactory {
         if (!"websocket".equalsIgnoreCase(exchange.getRequest().getHeaders().getUpgrade())) {
             return Mono.error(new ResponseStatusException(HttpStatus.UPGRADE_REQUIRED, "WebSocket upgrade required"));
         }
-        return interaction(route).flatMap(interaction -> {
-            if (interaction != GatewayInteraction.REQUEST_CHANNEL) {
+        return interaction(route).flatMap(contract -> {
+            if (contract.interaction() != GatewayInteraction.REQUEST_CHANNEL) {
                 return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public channel for this path"));
             }
             var webSocketService = OptionalUtil.require(webSocketServices.getIfAvailable(),
@@ -135,8 +137,12 @@ public class RsocketRequestFactory {
                     if (!first.hasValue()) {
                         return input;
                     }
-                    return timeoutFirstReply(channelReplies(route, input, sessionPrincipal))
-                            .map(value -> encodeResponse(List.of(value)));
+                    return timeoutFirstReply(interaction(route).flatMapMany(contract -> {
+                        if (contract.interaction() != GatewayInteraction.REQUEST_CHANNEL) {
+                            return Flux.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public channel for this path"));
+                        }
+                        return channelReplies(route, contract, input, sessionPrincipal);
+                    })).map(value -> encodeResponse(List.of(value)));
                 })
                 .onErrorResume(error -> Mono.fromSupplier(() ->
                         encode(GatewayGlobalExceptionHandler.errorResponse(response, error, true))));
@@ -177,24 +183,24 @@ public class RsocketRequestFactory {
         }
         HttpHeaders headers = request.getHeaders();
         Map<String, Object> metadata = route.metadata();
-        return interaction(route).flatMap(interaction -> {
-            exchange.getAttributes().put(GatewayGlobalExceptionHandler.INTERACTION_ATTRIBUTE, interaction);
+        return interaction(route).flatMap(contract -> {
+            exchange.getAttributes().put(GatewayGlobalExceptionHandler.INTERACTION_ATTRIBUTE, contract.interaction());
             MediaType contentType = resolveContentType(metadata, headers);
-            return forward(exchange, route, interaction, contentType);
+            return forward(exchange, route, contract, contentType);
         });
     }
 
-    private Mono<GatewayInteraction> interaction(GatewayFilter.GlobalFilterRoute route) {
+    private Mono<RsocketStreamRoutes.Route> interaction(GatewayFilter.GlobalFilterRoute route) {
         String path = route.path();
         if (!GatewayInteraction.isPublicPath(path)) {
             return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public MessageMapping for this path"));
         }
-        return streamRoutes.forService(route.host()).map(interactions -> OptionalUtil.find(interactions, path)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No public MessageMapping for this path")));
+        return streamRoutes.resolve(route.host(), path);
     }
 
     private Mono<Void> forward(ServerWebExchange exchange, GatewayFilter.GlobalFilterRoute route,
-                               GatewayInteraction interaction, MediaType contentType) {
+                               RsocketStreamRoutes.Route contract, MediaType contentType) {
+        var interaction = contract.interaction();
         var request = exchange.getRequest();
         var response = exchange.getResponse();
         if (interaction == GatewayInteraction.REQUEST_CHANNEL) {
@@ -217,7 +223,7 @@ public class RsocketRequestFactory {
                     })
                     .switchIfEmpty(Flux.error(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "A channel requires a first record")));
-            return stream(response, channelReplies(route, frames, principalStash));
+            return stream(response, channelReplies(route, contract, frames, principalStash));
         }
         if (!MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
                 && !MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(contentType)) {
@@ -235,10 +241,17 @@ public class RsocketRequestFactory {
                 .or(() -> Optional.ofNullable(request.getHeaders().getFirst(RSOCKET_ECHO))).orElse("");
         Class<?> responseType = RSOCKET_ECHO_CHAR.equals(binaryEcho) ? String.class : Object.class;
         if (interaction.isNdjson()) {
-            return stream(response, body.flatMapMany(bytes -> requester(mimeType, route, Traffic.STREAM)
+            return stream(response, body.flatMapMany(bytes -> requester(mimeType, route, contract, Traffic.STREAM)
                     .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, responseType))));
         }
-        Mono<byte[]> result = body.flatMap(bytes -> requester(mimeType, route, requestStream ? Traffic.STREAM : Traffic.UNARY).flatMap(rpc -> {
+        if (json && interaction == GatewayInteraction.REQUEST_RESPONSE) {
+            var value = body.flatMap(bytes -> requester(mimeType, route, contract, Traffic.UNARY)
+                    .flatMap(rpc -> rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, DataBuffer.class)
+                            .doOnDiscard(DataBuffer.class, DataBufferUtils::release)
+                            .mapNotNull(this::jsonEnvelope)));
+            return writeJsonResponse(response, requireReply(value));
+        }
+        Mono<byte[]> result = body.flatMap(bytes -> requester(mimeType, route, contract, requestStream ? Traffic.STREAM : Traffic.UNARY).flatMap(rpc -> {
             if (requestStream) {
                 Flux<byte[]> encoded = json
                         ? rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, byte[].class)
@@ -250,29 +263,28 @@ public class RsocketRequestFactory {
             if (interaction == GatewayInteraction.REQUEST_VOID || !json && RSOCKET_ECHO_VOID.equals(binaryEcho)) {
                 return rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, Void.class).thenReturn(EMPTY_RESPONSE);
             }
-            if (json) {
-                var value = rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, byte[].class)
-                        .map(this::validateJson).filter(reply -> reply.length != 0);
-                return requireReply(value).map(this::wrapJsonObject);
-            }
             return requireReply(rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, responseType))
                     .map(this::encodeResponse);
         }));
-        return result.timeout(requestTimeout, Mono.error(() -> new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT,
-                        "RSocket request timed out")))
-                .flatMap(bytes -> {
-                    response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-                    return response.writeWith(Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes)));
-                });
+        return writeJsonResponse(response, result);
     }
 
-    private Flux<Object> channelReplies(GatewayFilter.GlobalFilterRoute route, Flux<byte[]> frames, PrincipalStash principal) {
-        return requester(MediaType.APPLICATION_JSON, route, Traffic.CHANNEL)
+    private Mono<Void> writeJsonResponse(ServerHttpResponse response, Mono<byte[]> result) {
+        return result.timeout(requestTimeout, Mono.error(() -> new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT,
+                        "RSocket request timed out"))).flatMap(bytes -> {
+            response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+            return response.writeWith(Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes)));
+        });
+    }
+
+    private Flux<Object> channelReplies(GatewayFilter.GlobalFilterRoute route, RsocketStreamRoutes.Route contract,
+                                        Flux<byte[]> frames, PrincipalStash principal) {
+        return requester(MediaType.APPLICATION_JSON, route, contract, Traffic.CHANNEL)
                 .flatMapMany(rpc -> rpc.retrieveChannel(principal, route.path(), frames, Object.class));
     }
 
     private Mono<RSocketLoadbalance.ProcessResponse> requester(MediaType mimeType,
-            GatewayFilter.GlobalFilterRoute route, Traffic traffic) {
+            GatewayFilter.GlobalFilterRoute route, RsocketStreamRoutes.Route contract, Traffic traffic) {
         Map<String, Object> metadata = route.metadata();
         String specific = switch (traffic) {
             case UNARY -> "rsocketConnectionsPerInstance";
@@ -282,7 +294,7 @@ public class RsocketRequestFactory {
         String key = metadata.containsKey(specific) ? specific : "rsocketConnectionsPerInstance";
         Object configured = metadata.get(key);
         if (configured == null) {
-            return loadbalance.buildForService(mimeType, route.host(), traffic);
+            return loadbalance.buildForGateway(mimeType, route.host(), traffic, Optional.empty(), contract.endpoints());
         }
         int connections;
         try {
@@ -290,7 +302,12 @@ public class RsocketRequestFactory {
         } catch (NumberFormatException error) {
             throw new IllegalArgumentException(key + " must be an integer", error);
         }
-        return loadbalance.buildForService(mimeType, route.host(), connections, traffic);
+        return loadbalance.buildForGateway(mimeType, route.host(), traffic, Optional.of(connections), contract.endpoints());
+    }
+
+    @PreDestroy
+    void close() {
+        streamRoutes.close();
     }
 
     private static <T> Mono<T> requireReply(Mono<T> response) {
@@ -376,30 +393,64 @@ public class RsocketRequestFactory {
         int start = bytes.length >= 3 && bytes[0] == (byte) 0xef && bytes[1] == (byte) 0xbb
                 && bytes[2] == (byte) 0xbf ? 3 : 0;
         try (var parser = UTF8_JSON.createParser(bytes, start, bytes.length - start)) {
-            JsonToken root = parser.nextToken();
-            if (root == null) {
-                throw new IOException("Missing JSON value");
-            }
-            parser.skipChildren();
-            if (parser.nextToken() != null) {
-                throw new IOException("Expected one JSON value");
-            }
-            if (root == JsonToken.VALUE_NULL) {
+            if (readJsonRoot(parser) == JsonToken.VALUE_NULL) {
                 return EMPTY_BODY;
             }
             return start == 0 ? bytes : Arrays.copyOfRange(bytes, start, bytes.length);
         }
     }
 
-    private byte[] wrapJsonObject(byte[] value) {
-        long size = (long) OBJECT_START.length + value.length + 1;
-        if (size > maxResponseBytes) {
-            throw responseLimit();
+    private static JsonToken readJsonRoot(JsonParser parser) throws IOException {
+        JsonToken root = parser.nextToken();
+        if (root == null) {
+            throw new IOException("Missing JSON value");
         }
-        byte[] bytes = Arrays.copyOf(OBJECT_START, (int) size);
-        System.arraycopy(value, 0, bytes, OBJECT_START.length, value.length);
-        bytes[bytes.length - 1] = '}';
-        return bytes;
+        parser.skipChildren();
+        if (parser.nextToken() != null) {
+            throw new IOException("Expected one JSON value");
+        }
+        return root;
+    }
+
+    private byte[] jsonEnvelope(DataBuffer value) {
+        try {
+            int size = value.readableByteCount();
+            if (size == 0) {
+                return null;
+            }
+            if (size > maxResponseBytes) {
+                throw responseLimit();
+            }
+
+            int start = value.readPosition();
+            if (size >= 3 && value.getByte(start) == (byte) 0xef && value.getByte(start + 1) == (byte) 0xbb
+                    && value.getByte(start + 2) == (byte) 0xbf) {
+                value.readPosition(start + 3);
+                size -= 3;
+            }
+
+            // Copy directly from RSocket into the final HTTP body and validate just its JSON value.
+            long total = (long) OBJECT_START.length + size + 1;
+            if (total > Integer.MAX_VALUE) {
+                throw responseLimit();
+            }
+            byte[] bytes = Arrays.copyOf(OBJECT_START, (int) total);
+            value.read(bytes, OBJECT_START.length, size);
+            try (var parser = UTF8_JSON.createParser(bytes, OBJECT_START.length, size)) {
+                if (readJsonRoot(parser) == JsonToken.VALUE_NULL) {
+                    return null;
+                }
+            }
+            if (total > maxResponseBytes) {
+                throw responseLimit();
+            }
+            bytes[bytes.length - 1] = '}';
+            return bytes;
+        } catch (IOException error) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "RSocket returned invalid UTF-8 JSON", error);
+        } finally {
+            DataBufferUtils.release(value);
+        }
     }
 
     private Mono<Void> stream(ServerHttpResponse response, Flux<?> values) {

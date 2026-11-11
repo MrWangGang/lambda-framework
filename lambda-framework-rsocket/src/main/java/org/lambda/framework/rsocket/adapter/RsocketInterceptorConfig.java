@@ -1,6 +1,7 @@
 package org.lambda.framework.rsocket.adapter;
 
 import org.lambda.framework.rsocket.error.RsocketGlobalExceptionHandler;
+import org.lambda.framework.common.support.GatewayRouteContract;
 import io.rsocket.frame.FrameType;
 import org.lambda.framework.common.annotation.rsocket.RSocketFacade;
 import org.lambda.framework.common.enums.GatewayInteraction;
@@ -58,6 +59,11 @@ public class RsocketInterceptorConfig {
         return server -> server.maxInboundPayloadSize(maxInboundPayloadBytes)
                 .interceptors(registry -> registry.forSocketAcceptor(interceptor)
                         .forSocketAcceptor(new RpcDataMimeInterceptor()));
+    }
+
+    @Bean
+    RSocketServerCustomizer gatewayRouteVersionCustomizer(ObjectProvider<GatewayRouteContract> routes) {
+        return server -> server.interceptors(registry -> registry.forSocketAcceptor(new GatewayRouteVersionInterceptor(routes)));
     }
 
     @Bean

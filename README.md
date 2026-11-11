@@ -68,9 +68,14 @@ lambda.rsocket.client.io-workers.unary=2
 lambda.rsocket.client.io-workers.stream=2
 lambda.rsocket.client.io-workers.channel=2
 lambda.rsocket.client.connections-per-instance=2
+lambda.rsocket.client.adaptive-load-balancing=true
 ```
 
-线程数是每种交互在一个 JVM 内的 I/O 工作线程数。连接数是每个下游实例、每种交互和编码各自的 TCP 连接数。网关可用路由元数据 `rsocketConnectionsPerInstance`、`rsocketStreamConnectionsPerInstance` 或 `rsocketChannelConnectionsPerInstance` 覆盖连接数。单条连接支持多个并行请求或流；连接数不限制业务并发数。修改线程数后重启对应应用。
+线程数是每种交互在一个 JVM 内的 I/O 工作线程数。连接数是每个下游实例、每种交互和编码各自的 TCP 连接数，支持 1 至 8 条。网关可用路由元数据 `rsocketConnectionsPerInstance`、`rsocketStreamConnectionsPerInstance` 或 `rsocketChannelConnectionsPerInstance` 覆盖连接数。单条连接支持多个并行请求或流；连接数不限制业务并发数。修改客户端配置后重启对应应用。
+
+按服务名发起的普通请求默认使用自适应负载均衡，在已连通实例中结合在途请求数和近期响应耗时选择实例，再轮询该实例的可用连接。慢实例仍保留少量流量用于发现恢复。连接在后台补建，已发送的请求不会自动重放。设置 `lambda.rsocket.client.adaptive-load-balancing=false` 可切回轮询。
+
+接入 Nacos 时，连接池和网关订阅实例变更。服务注册时公布路由清单的版本，网关首次看到该版本时从对应实例读取并校验完整清单。后续请求直接查本地快照，清单没有固定到期时间。滚动发布时，新增路径只发给声明该路径的实例。相同路径如果同时声明不同交互类型，网关返回 503，等到版本一致后恢复。没有路由版本的旧提供方按实例加载清单，升级提供方后才能识别地址未变的路由变更。未使用 Nacos 时，实例发现仍使用通用轮询。
 
 
 所有 MongoDB 集合实体放在 `po` 包并以 `PO` 结尾，继承 `UnifyPO<ObjectId>`。Spring Data 审计自动维护 `createdAt`、`updatedAt` 和 `@Version`。手写更新和已有数据迁移见 [数据访问与分页](#数据访问与分页)。

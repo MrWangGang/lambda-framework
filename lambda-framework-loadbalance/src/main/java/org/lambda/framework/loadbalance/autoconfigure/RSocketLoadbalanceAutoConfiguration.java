@@ -4,6 +4,7 @@ import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.loadbalance.factory.RSocketClientResources;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
+import org.lambda.framework.common.support.ServiceInstanceSource;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -13,6 +14,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.messaging.rsocket.RSocketStrategies;
 import reactor.core.publisher.Mono;
+
+import java.util.Optional;
 
 @AutoConfiguration
 public class RSocketLoadbalanceAutoConfiguration {
@@ -29,11 +32,13 @@ public class RSocketLoadbalanceAutoConfiguration {
     @ConditionalOnMissingBean
     RSocketLoadbalance rSocketLoadbalance(DiscoveryClient discoveryClient,
             ObjectProvider<RSocketRequester.Builder> builders, RSocketStrategies strategies,
-            RSocketClientResources resources,
+            RSocketClientResources resources, ObjectProvider<ServiceInstanceSource> instanceSource,
             @Value("${lambda.rsocket.client.max-inbound-payload-bytes:16777216}") int maxInboundPayloadBytes,
-            @Value("${lambda.rsocket.client.connections-per-instance:2}") int connectionsPerInstance) {
+            @Value("${lambda.rsocket.client.connections-per-instance:2}") int connectionsPerInstance,
+            @Value("${lambda.rsocket.client.adaptive-load-balancing:true}") boolean adaptiveLoadBalancing) {
         return new RSocketLoadbalance(discoveryClient, builders, strategies, resources,
-                maxInboundPayloadBytes, connectionsPerInstance);
+                maxInboundPayloadBytes, connectionsPerInstance, adaptiveLoadBalancing,
+                Optional.ofNullable(instanceSource.getIfAvailable()));
     }
 
     @Bean

@@ -1,1 +1,2 @@
 org.lambda.framework.nacos.autoconfigure.RSocketNacosAutoConfiguration
+org.lambda.framework.nacos.autoconfigure.NacosInstanceSourceAutoConfiguration
