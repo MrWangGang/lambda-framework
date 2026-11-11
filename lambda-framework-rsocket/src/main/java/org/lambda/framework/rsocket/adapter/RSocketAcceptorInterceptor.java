@@ -2,6 +2,7 @@ package org.lambda.framework.rsocket.adapter;
 
 import org.lambda.framework.rsocket.error.RsocketGlobalExceptionHandler;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import io.netty.buffer.ByteBufInputStream;
 import io.netty.util.ReferenceCountUtil;
 import io.rsocket.Payload;
 import io.rsocket.RSocket;
@@ -23,6 +24,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -71,9 +73,9 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
                     stash = strategies.<SecurityStash>decoder(IDENTITY_TYPE, FORY)
                             .decode(buffer, IDENTITY_TYPE, FORY, Map.of());
                 } else {
-                    byte[] bytes = new byte[content.readableBytes()];
-                    content.getBytes(content.readerIndex(), bytes);
-                    stash = JSON_IDENTITY.readValue(bytes);
+                    try (InputStream source = new ByteBufInputStream(content.duplicate(), false)) {
+                        stash = JSON_IDENTITY.readValue(source);
+                    }
                 }
                 if (stash == null) {
                     throw new EventException(INVALID_IDENTITY);

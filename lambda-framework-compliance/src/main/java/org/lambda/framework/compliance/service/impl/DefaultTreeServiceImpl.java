@@ -15,9 +15,11 @@ import reactor.core.publisher.Mono;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
 
 import static org.lambda.framework.compliance.enums.ComplianceConstant.ROOT_NODE_DEFAULT;
 import static org.lambda.framework.enums.ComplianceExceptionEnum.*;
@@ -43,26 +45,34 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
     }
 
 
-    //使用递归构建树
-    //使用po参数是为了校验机构号这个必要的参数
     public Mono<List<PO>> findTree(FindTreeDTO<ID> dto) {
         if(dto == null || dto.getOrganizationId() == null)throw new EventException(CONTEXT_INVALID,"节点所属机构ID不能为空");
         PO po = this.instance(clazz);
         po.setOrganizationId(dto.getOrganizationId());
-        return super.find(po).collectList().flatMap(e->{
-            return Mono.just(process(e, (ID) ROOT_NODE_DEFAULT));
-        });
+        return super.find(po).collectList().map(nodes -> process(nodes, (ID) ROOT_NODE_DEFAULT));
     }
 
-    private List<PO> process(List<PO> flattenStream, ID parentId) {
-        List<PO> tree = new ArrayList<>();
-        flattenStream.forEach(po -> {
-            if (Objects.equals(parentId, po.getParentId())) {
-                po.setChildrens(process(flattenStream, po.getId()));
-                tree.add(po);
+    private List<PO> process(List<PO> nodes, ID rootId) {
+        Map<ID, List<PO>> childrenByParent = new HashMap<>();
+        for (PO node : nodes) {
+            childrenByParent.computeIfAbsent(node.getParentId(), ignored -> new ArrayList<>()).add(node);
+        }
+        List<PO> roots = childrenByParent.remove(rootId);
+        if (roots == null) {
+            return new ArrayList<>();
+        }
+        var pending = new ArrayDeque<>(roots);
+        while (!pending.isEmpty()) {
+            PO node = pending.removeFirst();
+            List<PO> children = childrenByParent.remove(node.getId());
+            if (children == null) {
+                node.setChildrens(new ArrayList<>());
+            } else {
+                node.setChildrens(children);
+                pending.addAll(children);
             }
-        });
-        return tree;
+        }
+        return roots;
     }
 
 

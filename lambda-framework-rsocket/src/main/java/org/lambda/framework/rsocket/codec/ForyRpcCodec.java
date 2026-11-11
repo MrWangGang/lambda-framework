@@ -24,6 +24,7 @@ import org.springframework.util.MimeType;
 import org.springframework.util.function.SingletonSupplier;
 import reactor.core.publisher.Flux;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +33,12 @@ import java.util.stream.Stream;
 
 final class ForyRpcCodec {
     private static final MimeType MIME_TYPE = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
+    private static final ClassValue<Boolean> DIRECT_DECODE_TYPES = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            return decodesWithoutBufferViews(type, new HashSet<>());
+        }
+    };
     private final SingletonSupplier<ThreadSafeFory> fory;
 
     ForyRpcCodec(List<ForyRpcTypes> groups, Supplier<Set<Class<?>>> contracts) {
@@ -84,9 +91,7 @@ final class ForyRpcCodec {
             public Object decode(DataBuffer input, ResolvableType type, MimeType mimeType, Map<String, Object> hints) {
                 Object decoded;
                 try {
-                    byte[] bytes = new byte[input.readableByteCount()];
-                    input.read(bytes);
-                    decoded = fory.obtain().deserialize(bytes);
+                    decoded = decodePayload(input, type.toClass());
                 } catch (RuntimeException error) {
                     throw new DecodingException("Cannot decode Fory RPC payload", error);
                 } finally {
@@ -105,6 +110,45 @@ final class ForyRpcCodec {
                         .doOnDiscard(DataBuffer.class, DataBufferUtils::release);
             }
         };
+    }
+
+    private Object decodePayload(DataBuffer input, Class<?> type) {
+        if (DIRECT_DECODE_TYPES.get(type)) {
+            try (var buffers = input.readableByteBuffers()) {
+                if (buffers.hasNext()) {
+                    var first = buffers.next();
+                    if (first.isDirect() && !buffers.hasNext()) {
+                        return fory.obtain().deserialize(first);
+                    }
+                }
+            }
+        }
+        byte[] bytes = new byte[input.readableByteCount()];
+        input.read(bytes);
+        return fory.obtain().deserialize(bytes);
+    }
+
+    private static boolean decodesWithoutBufferViews(Class<?> type, Set<Class<?>> visiting) {
+        // Fory can return views into its input for ByteBuffer and other open types.
+        if (ClassUtils.isPrimitiveOrWrapper(type) || type == String.class || type == ObjectId.class || type.isEnum()) {
+            return true;
+        }
+        if (type.isArray()) {
+            return decodesWithoutBufferViews(type.getComponentType(), visiting);
+        }
+        if (!type.isRecord() || !visiting.add(type)) {
+            return false;
+        }
+        try {
+            for (var component : type.getRecordComponents()) {
+                if (!decodesWithoutBufferViews(component.getType(), visiting)) {
+                    return false;
+                }
+            }
+            return true;
+        } finally {
+            visiting.remove(type);
+        }
     }
 
     private static final class ObjectIdSerializer extends Serializer<ObjectId> {

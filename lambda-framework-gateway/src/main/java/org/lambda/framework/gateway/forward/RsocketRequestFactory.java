@@ -46,6 +46,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO;
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO_CHAR;
@@ -232,24 +233,21 @@ public class RsocketRequestFactory {
         }
         MediaType mimeType = MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
                 ? MediaType.APPLICATION_JSON : MediaType.APPLICATION_OCTET_STREAM;
-        Mono<byte[]> body = DataBufferUtils.join(request.getBody(), maxRequestBytes)
+        Mono<DataBuffer> requestBody = DataBufferUtils.join(request.getBody(), maxRequestBytes);
+        boolean json = MediaType.APPLICATION_JSON.equals(mimeType);
+        if (json && interaction == GatewayInteraction.REQUEST_RESPONSE) {
+            return forwardJsonRequest(response, requestBody, mimeType, route, contract);
+        }
+        Mono<byte[]> body = requestBody
                 .map(RsocketRequestFactory::readAndRelease)
                 .defaultIfEmpty(EMPTY_BODY);
         boolean requestStream = !interaction.isUnary();
-        boolean json = MediaType.APPLICATION_JSON.equals(mimeType);
         String binaryEcho = json ? "" : option(route.metadata(), "rsocketEcho")
                 .or(() -> Optional.ofNullable(request.getHeaders().getFirst(RSOCKET_ECHO))).orElse("");
         Class<?> responseType = RSOCKET_ECHO_CHAR.equals(binaryEcho) ? String.class : Object.class;
         if (interaction.isNdjson()) {
             return stream(response, body.flatMapMany(bytes -> requester(mimeType, route, contract, Traffic.STREAM)
                     .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, responseType))));
-        }
-        if (json && interaction == GatewayInteraction.REQUEST_RESPONSE) {
-            var value = body.flatMap(bytes -> requester(mimeType, route, contract, Traffic.UNARY)
-                    .flatMap(rpc -> rpc.retrieveMono(principalStash, mimeType, route.path(), bytes, DataBuffer.class)
-                            .doOnDiscard(DataBuffer.class, DataBufferUtils::release)
-                            .mapNotNull(this::jsonEnvelope)));
-            return writeJsonResponse(response, requireReply(value));
         }
         Mono<byte[]> result = body.flatMap(bytes -> requester(mimeType, route, contract, requestStream ? Traffic.STREAM : Traffic.UNARY).flatMap(rpc -> {
             if (requestStream) {
@@ -267,6 +265,36 @@ public class RsocketRequestFactory {
                     .map(this::encodeResponse);
         }));
         return writeJsonResponse(response, result);
+    }
+
+    private Mono<Void> forwardJsonRequest(ServerHttpResponse response, Mono<DataBuffer> requestBody, MediaType mimeType,
+                                          GatewayFilter.GlobalFilterRoute route, RsocketStreamRoutes.Route contract) {
+        var buffered = requestBody.map(BufferedRequest::new)
+                .switchIfEmpty(Mono.fromSupplier(() -> new BufferedRequest(null)));
+        var result = Mono.usingWhen(buffered, body -> requester(mimeType, route, contract, Traffic.UNARY)
+                        .flatMap(rpc -> rpc.retrieveMono(principalStash, mimeType, route.path(),
+                                        Mono.fromSupplier(body::transfer), DataBuffer.class)
+                                .mapNotNull(this::jsonEnvelope)),
+                body -> Mono.fromRunnable(body::release))
+                .doOnDiscard(BufferedRequest.class, BufferedRequest::release);
+        return writeJsonResponse(response, requireReply(result));
+    }
+
+    private static final class BufferedRequest {
+        private final AtomicReference<DataBuffer> buffer;
+
+        private BufferedRequest(DataBuffer buffer) {
+            this.buffer = new AtomicReference<>(buffer);
+        }
+
+        private DataBuffer transfer() {
+            // RSocket owns the buffer once its request publisher takes it.
+            return buffer.getAndSet(null);
+        }
+
+        private void release() {
+            DataBufferUtils.release(buffer.getAndSet(null));
+        }
     }
 
     private Mono<Void> writeJsonResponse(ServerHttpResponse response, Mono<byte[]> result) {
