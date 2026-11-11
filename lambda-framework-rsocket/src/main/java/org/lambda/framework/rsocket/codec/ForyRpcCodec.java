@@ -19,6 +19,7 @@ import org.springframework.core.codec.EncodingException;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.io.buffer.NettyDataBufferFactory;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.MimeType;
 import org.springframework.util.function.SingletonSupplier;
@@ -66,7 +67,7 @@ final class ForyRpcCodec {
             public DataBuffer encodeValue(Object value, DataBufferFactory factory, ResolvableType type,
                                           MimeType mimeType, Map<String, Object> hints) {
                 try {
-                    return factory.wrap(fory.obtain().serialize(value));
+                    return encodePayload(value, factory);
                 } catch (RuntimeException error) {
                     throw new EncodingException("Cannot encode Fory RPC payload", error);
                 }
@@ -78,6 +79,25 @@ final class ForyRpcCodec {
                 return Flux.from(values).map(value -> encodeValue(value, factory, type, mimeType, hints));
             }
         };
+    }
+
+    private DataBuffer encodePayload(Object value, DataBufferFactory factory) {
+        var serializer = fory.obtain();
+        if (!(factory instanceof NettyDataBufferFactory)) {
+            return factory.wrap(serializer.serialize(value));
+        }
+        DataBuffer output = factory.allocateBuffer();
+        boolean success = false;
+        try {
+            // Fory writes from its reusable serialization buffer without creating a result array.
+            serializer.serialize(output.asOutputStream(), value);
+            success = true;
+            return output;
+        } finally {
+            if (!success) {
+                DataBufferUtils.release(output);
+            }
+        }
     }
 
     AbstractDecoder<Object> decoder() {

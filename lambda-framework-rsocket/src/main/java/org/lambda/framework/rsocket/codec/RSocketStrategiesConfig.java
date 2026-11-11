@@ -19,7 +19,6 @@ import org.springframework.core.codec.AbstractDecoder;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
-import org.springframework.http.codec.json.Jackson2JsonEncoder;
 import org.springframework.messaging.rsocket.RSocketStrategies;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
@@ -57,9 +56,9 @@ public class RSocketStrategiesConfig implements BeanFactoryAware {
         var mapper = JsonUtil.mapper();
         var builder = RSocketStrategies.builder()
                 .decoder(new Jackson2JsonDecoder(mapper))
-                .encoder(new Jackson2JsonEncoder(mapper))
+                .encoder(new RSocketJsonEncoder(mapper))
                 // Spring's default StringEncoder sends raw text, even on a JSON RSocket connection.
-                .encoders(encoders -> encoders.addFirst(new Jackson2JsonEncoder(mapper) {
+                .encoders(encoders -> encoders.addFirst(new RSocketJsonEncoder(mapper) {
                     @Override
                     public boolean canEncode(ResolvableType type, MimeType mimeType) {
                         return type.toClass() == String.class && MimeTypeUtils.APPLICATION_JSON.isCompatibleWith(mimeType);
