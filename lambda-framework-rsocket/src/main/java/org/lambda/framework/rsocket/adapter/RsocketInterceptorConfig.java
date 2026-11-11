@@ -1,5 +1,8 @@
 package org.lambda.framework.rsocket.adapter;
 
+
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.RSocketExceptionEnum;
 import org.lambda.framework.rsocket.error.RsocketGlobalExceptionHandler;
 import org.lambda.framework.common.support.GatewayRouteContract;
 import io.rsocket.frame.FrameType;
@@ -54,7 +57,7 @@ public class RsocketInterceptorConfig {
             @Value("${lambda.rsocket.server.max-inbound-payload-bytes:16777216}") int maxInboundPayloadBytes,
             @Value("${spring.rsocket.server.transport:tcp}") String transport) {
         if (!"tcp".equalsIgnoreCase(transport)) {
-            throw new IllegalStateException("Business RSocket services require spring.rsocket.server.transport=tcp");
+            throw new EventException(RSocketExceptionEnum.SETUP_REJECTED, "Business RSocket services require spring.rsocket.server.transport=tcp");
         }
         return server -> server.maxInboundPayloadSize(maxInboundPayloadBytes)
                 .interceptors(registry -> registry.forSocketAcceptor(interceptor)
@@ -73,7 +76,7 @@ public class RsocketInterceptorConfig {
             boolean nativeRoute = destinations != null && destinations.getPatterns().stream()
                     .anyMatch(path -> !path.startsWith("/") && !GatewayInteraction.DISCOVERY_ROUTE.equals(path));
             if (nativeRoute && !AnnotatedElementUtils.hasAnnotation(method.getBeanType(), RSocketFacade.class)) {
-                throw new IllegalStateException("Java RSocket RPC routes require @RSocketFacade on the implementation: " + method);
+                throw new EventException(RSocketExceptionEnum.SETUP_REJECTED, "Java RSocket RPC routes require @RSocketFacade on the implementation: " + method);
             }
             var frames = mapping.getCondition(RSocketFrameTypeMessageCondition.class);
             boolean channel = frames != null && frames.getFrameTypes().contains(FrameType.REQUEST_CHANNEL);
@@ -88,7 +91,7 @@ public class RsocketInterceptorConfig {
                     && (!(result.getGenericParameterType() instanceof ParameterizedType)
                         || (channel && (resultType != BiFlux.class || streamingParameters.size() != 1
                             || !(streamingParameters.getFirst().getGenericParameterType() instanceof ParameterizedType))))) {
-                throw new IllegalStateException("A streaming request requires a typed publisher and BiFlux<O> return: " + method);
+                throw new EventException(RSocketExceptionEnum.SETUP_REJECTED, "A streaming request requires a typed publisher and BiFlux<O> return: " + method);
             }
         }));
     }
@@ -108,7 +111,7 @@ public class RsocketInterceptorConfig {
     @ConditionalOnWebApplication
     static class RejectHttpListener {
         RejectHttpListener() {
-            throw new IllegalStateException("Business RSocket services must use spring.main.web-application-type=none; expose HTTP through the gateway");
+            throw new EventException(RSocketExceptionEnum.SETUP_REJECTED, "Business RSocket services must use spring.main.web-application-type=none; expose HTTP through the gateway");
         }
     }
 }

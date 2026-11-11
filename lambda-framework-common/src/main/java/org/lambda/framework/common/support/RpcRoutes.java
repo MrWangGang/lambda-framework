@@ -1,5 +1,8 @@
 package org.lambda.framework.common.support;
 
+
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.RpcExceptionEnum;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
@@ -31,10 +34,10 @@ public final class RpcRoutes {
 
     public static Map<Method, String> routes(String service, Class<?> facade) {
         if (!SERVICE_NAME.matcher(service).matches()) {
-            throw new IllegalArgumentException("Expected a Nacos service name for Facade " + facade.getName());
+            throw new EventException(RpcExceptionEnum.INVALID_FACADE, "Expected a Nacos service name for Facade " + facade.getName());
         }
         if (!isFacade(facade)) {
-            throw new IllegalArgumentException("Expected an interface named *Facade: " + facade.getName());
+            throw new EventException(RpcExceptionEnum.INVALID_FACADE, "Expected an interface named *Facade: " + facade.getName());
         }
         String prefix = service + "." + StringUtils.uncapitalizeAsProperty(facade.getSimpleName()) + ".";
         Map<Method, String> routes = new LinkedHashMap<>();
@@ -43,13 +46,13 @@ public final class RpcRoutes {
             String route = prefix + method.getName();
             Method previous = byRoute.putIfAbsent(route, method);
             if (previous != null) {
-                throw new IllegalArgumentException("Duplicate RSocket route " + route + ": " + previous + " and " + method);
+                throw new EventException(RpcExceptionEnum.INVALID_FACADE, "Duplicate RSocket route " + route + ": " + previous + " and " + method);
             }
             validateSignature(method);
             routes.put(method, route);
         }
         if (routes.isEmpty()) {
-            throw new IllegalArgumentException("Facade declares no RPC methods: " + facade.getName());
+            throw new EventException(RpcExceptionEnum.INVALID_FACADE, "Facade declares no RPC methods: " + facade.getName());
         }
         return Map.copyOf(routes);
     }
@@ -59,16 +62,16 @@ public final class RpcRoutes {
         if (!(method.getGenericReturnType() instanceof ParameterizedType)
                 || (result != Mono.class && result != Flux.class
                     && result != BiFlux.class && result != UiFlux.class)) {
-            throw new IllegalArgumentException("Facade must return a typed Mono, Flux, UiFlux or BiFlux: " + method);
+            throw new EventException(RpcExceptionEnum.INVALID_FACADE, "Facade must return a typed Mono, Flux, UiFlux or BiFlux: " + method);
         }
         if (method.getParameterCount() > 1) {
-            throw new IllegalArgumentException("Facade accepts at most one payload: " + method);
+            throw new EventException(RpcExceptionEnum.INVALID_FACADE, "Facade accepts at most one payload: " + method);
         }
         if (method.getParameterCount() == 1) {
             var adapter = ReactiveAdapterRegistry.getSharedInstance().getAdapter(method.getParameterTypes()[0]);
             if (adapter != null && adapter.isMultiValue() && (result != BiFlux.class
                     || !(method.getGenericParameterTypes()[0] instanceof ParameterizedType))) {
-                throw new IllegalArgumentException("A streaming request requires a typed publisher and BiFlux<O> return: " + method);
+                throw new EventException(RpcExceptionEnum.INVALID_FACADE, "A streaming request requires a typed publisher and BiFlux<O> return: " + method);
             }
         }
     }

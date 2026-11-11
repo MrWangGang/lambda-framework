@@ -1,7 +1,6 @@
 package org.lambda.framework.common.exception;
 
 import org.apache.commons.lang3.StringUtils;
-import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.enums.ExceptionEnumFunction;
 
 import java.lang.reflect.Field;
@@ -11,29 +10,13 @@ import java.util.Set;
 import static org.lambda.framework.enums.CommonExceptionEnum.*;
 
 public class Assert {
-    public static void verify(Object object,String code,String message){
-        if(StringUtils.isBlank(code))throw new EventException(ERROR_CODE_REQUIRED);
-        if(StringUtils.isBlank(message))throw new EventException(ERROR_MESSAGE_REQUIRED);
-        if(!verify(object)){
-            throw new GlobalException(code,message);
-        }
-    }
-
-    public static void check(Object obj,String code,String message) {
-        if(StringUtils.isBlank(code))throw new EventException(ERROR_CODE_REQUIRED);
-        if(StringUtils.isBlank(message))throw new EventException(ERROR_MESSAGE_REQUIRED);
-        if(!check(obj)){
-            throw new GlobalException(code,message);
-        }
-    }
-
-    public static void verify(Object object,ExceptionEnumFunction exceptionEnumFunction){
+    public static <E extends Enum<E> & ExceptionEnumFunction> void verify(Object object,E exceptionEnumFunction){
         if(!verify(object)){
             throw new EventException(exceptionEnumFunction);
         }
     }
 
-    public static void verify(Object object,ExceptionEnumFunction exceptionEnumFunction,String message){
+    public static <E extends Enum<E> & ExceptionEnumFunction> void verify(Object object,E exceptionEnumFunction,String message){
         if(!verify(object)){
             throw new EventException(exceptionEnumFunction,message);
         }
@@ -75,25 +58,25 @@ public class Assert {
         return true;
     }
 
-    public static void check(Object obj,ExceptionEnumFunction exceptionEnumFunction) {
+    public static <E extends Enum<E> & ExceptionEnumFunction> void check(Object obj,E exceptionEnumFunction) {
         if(!check(obj)){
             throw new EventException(exceptionEnumFunction);
         }
     }
 
-    public static void check(Object obj,ExceptionEnumFunction exceptionEnumFunction,String message) {
+    public static <E extends Enum<E> & ExceptionEnumFunction> void check(Object obj,E exceptionEnumFunction,String message) {
         if(!check(obj)){
             throw new EventException(exceptionEnumFunction,message);
         }
     }
 
-    public static void ifExistCheckNotNull(Object obj,ExceptionEnumFunction exceptionEnumFunction){
+    public static <E extends Enum<E> & ExceptionEnumFunction> void ifExistCheckNotNull(Object obj,E exceptionEnumFunction){
         if(obj!=null){
             check(obj,exceptionEnumFunction);
         }
     }
 
-    public static void ifExistCheckNotNull(Object obj,ExceptionEnumFunction exceptionEnumFunction,String message){
+    public static <E extends Enum<E> & ExceptionEnumFunction> void ifExistCheckNotNull(Object obj,E exceptionEnumFunction,String message){
         if(obj!=null){
             check(obj,exceptionEnumFunction,message);
         }

@@ -1,5 +1,8 @@
 package org.lambda.framework.common.util.sample;
 
+
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.CommonExceptionEnum;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.UnsupportedEncodingException;
@@ -98,7 +101,7 @@ public class StringUtil extends StringUtils {
 
     public static String[] getStringByComma(String strComma) {
         if (StringUtils.isBlank(strComma)) {
-            throw new RuntimeException("strComma:" + strComma + "is null or  blank ");
+            throw new EventException(CommonExceptionEnum.OBJECT_VALIDATION_FAILED, "strComma:" + strComma + "is null or  blank ");
         }
         String[] strArr = strComma.split(",");
         return strArr;
@@ -196,7 +199,7 @@ public class StringUtil extends StringUtils {
                     }
                 }
             } catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e.getMessage(), e);
+                throw new EventException(CommonExceptionEnum.OBJECT_VALIDATION_FAILED, e.getMessage(), e);
             }
         }
         return result;

@@ -2,9 +2,12 @@ package org.lambda.framework.repository.autoconfigure;
 
 import io.lettuce.core.cluster.ClusterClientOptions;
 import io.lettuce.core.cluster.ClusterTopologyRefreshOptions;
+
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.startup.ComponentCheck;
 import org.lambda.framework.common.startup.DeploymentMode;
 import org.lambda.framework.common.util.JsonUtil;
+import org.lambda.framework.enums.RepositoryExceptionEnum;
 import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -56,7 +59,7 @@ public class RedisDataAutoConfiguration {
         var password = RedisPassword.of(settings.password());
         if (settings.mode() == DeploymentMode.SINGLE) {
             if (settings.nodes().size() != 1 || settings.database() < 0) {
-                throw new IllegalArgumentException("Redis single requires one host:port and database >= 0");
+                throw new EventException(RepositoryExceptionEnum.CONFIGURATION_INVALID, "Redis single requires one host:port and database >= 0");
             }
             var node = RedisNode.fromString(settings.nodes().getFirst());
             var config = new RedisStandaloneConfiguration(node.getHost(), node.getPort());
@@ -66,7 +69,7 @@ public class RedisDataAutoConfiguration {
             return new LettuceConnectionFactory(config, client.build());
         }
         if (settings.nodes().size() < 2 || settings.database() != 0) {
-            throw new IllegalArgumentException("Redis cluster requires at least two seeds and database 0");
+            throw new EventException(RepositoryExceptionEnum.CONFIGURATION_INVALID, "Redis cluster requires at least two seeds and database 0");
         }
         var config = new RedisClusterConfiguration(settings.nodes());
         config.setUsername(settings.username());

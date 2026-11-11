@@ -7,9 +7,11 @@ import com.alibaba.cloud.nacos.discovery.NacosServiceDiscovery;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.listener.NamingEvent;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.GatewayRouteContract;
 import org.lambda.framework.common.support.ServiceInstanceSource;
 import org.lambda.framework.common.support.ServiceInstanceSource.Endpoint;
+import org.lambda.framework.enums.NacosExceptionEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -45,7 +47,7 @@ public class NacosInstanceSourceAutoConfiguration {
                     try {
                         naming.subscribe(service, group, listener);
                     } catch (NacosException error) {
-                        sink.error(error);
+                        sink.error(new EventException(NacosExceptionEnum.SUBSCRIPTION_FAILED, null, error));
                         return;
                     }
                     sink.onDispose(() -> {

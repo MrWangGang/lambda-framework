@@ -1,13 +1,14 @@
 package org.lambda.framework.gateway.forward;
 
+
 import org.lambda.framework.common.enums.GatewayInteraction;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.GatewayRouteContract;
+import org.lambda.framework.enums.GatewayHttpExceptionEnum;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.lambda.framework.common.support.ServiceInstanceSource.Endpoint;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.web.server.ResponseStatusException;
 import reactor.core.Disposable;
 import reactor.core.Disposables;
 import reactor.core.publisher.Flux;
@@ -92,8 +93,8 @@ final class RsocketStreamRoutes implements AutoCloseable {
                 .retryWhen(Retry.backoff(Long.MAX_VALUE, Duration.ofMillis(250)).maxBackoff(Duration.ofSeconds(10)));
     }
 
-    private static ResponseStatusException unavailable() {
-        return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "RSocket route contract unavailable");
+    private static EventException unavailable() {
+        return new EventException(GatewayHttpExceptionEnum.SERVICE_UNAVAILABLE, "RSocket route contract unavailable");
     }
 
     @Override
@@ -144,11 +145,11 @@ final class RsocketStreamRoutes implements AutoCloseable {
                 throw unavailable();
             }
             if (conflicts.contains(path)) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Conflicting RSocket route contracts");
+                throw new EventException(GatewayHttpExceptionEnum.SERVICE_UNAVAILABLE, "Conflicting RSocket route contracts");
             }
             var route = routes.get(path);
             if (route == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No public MessageMapping for this path");
+                throw new EventException(GatewayHttpExceptionEnum.NOT_FOUND, "No public MessageMapping for this path");
             }
             return route;
         }

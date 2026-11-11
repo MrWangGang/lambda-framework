@@ -1,7 +1,10 @@
 package org.lambda.framework.common.support;
 
-import org.lambda.framework.common.enums.GatewayInteraction;
 
+
+import org.lambda.framework.common.enums.GatewayInteraction;
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.CommonExceptionEnum;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -28,7 +31,7 @@ public interface GatewayRouteContract {
             });
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException error) {
-            throw new IllegalStateException("SHA-256 unavailable", error);
+            throw new EventException(CommonExceptionEnum.DIGEST_FAILED, "SHA-256 unavailable", error);
         }
     }
 }

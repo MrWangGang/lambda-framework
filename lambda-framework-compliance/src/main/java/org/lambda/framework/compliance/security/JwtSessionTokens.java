@@ -22,6 +22,7 @@ import org.lambda.framework.common.po.ScopedLoginUser;
 import org.lambda.framework.common.po.ScopedLoginUser.Realm;
 import org.lambda.framework.common.po.ScopedLoginUser.Terminal;
 import org.lambda.framework.common.util.IdUtil;
+import org.lambda.framework.enums.ComplianceExceptionEnum;
 import org.springframework.core.io.Resource;
 import org.springframework.security.converter.RsaKeyConverters;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
@@ -59,7 +60,7 @@ final class JwtSessionTokens {
                 || settings.publicKeys().isEmpty() || settings.lifetime().getSeconds() < 60
                 || settings.lifetime().toSeconds() > 3600 || appLifetime.getSeconds() < 60
                 || appLifetime.compareTo(MAX_APP_LIFETIME) > 0 || !settings.redisPrefix().matches("[a-zA-Z0-9:_-]+")) {
-            throw new IllegalArgumentException("Invalid JWT session configuration");
+            throw new EventException(ComplianceExceptionEnum.SESSION_CONFIGURATION_INVALID, "Invalid JWT session configuration");
         }
         publicKeys = settings.publicKeys().entrySet().stream().collect(Collectors.toUnmodifiableMap(
                 Map.Entry::getKey, entry -> publicKey(entry.getValue())));
@@ -76,7 +77,7 @@ final class JwtSessionTokens {
 
     Issued issue(ScopedLoginUser user) {
         if (encoder == null) {
-            throw new IllegalStateException("JWT signing key is not configured");
+            throw new EventException(ComplianceExceptionEnum.SESSION_CONFIGURATION_INVALID, "JWT signing key is not configured");
         }
         var key = key(user);
         var sessionId = IdUtil.compactUuid();
@@ -141,17 +142,17 @@ final class JwtSessionTokens {
         }
         var publicKey = publicKeys.get(settings.signingKeyId());
         if (publicKey == null || settings.privateKey() == null) {
-            throw new IllegalArgumentException("JWT signing key requires a matching verification key");
+            throw new EventException(ComplianceExceptionEnum.SESSION_CONFIGURATION_INVALID, "JWT signing key requires a matching verification key");
         }
         try (var input = settings.privateKey().getInputStream()) {
             RSAPrivateKey privateKey = RsaKeyConverters.pkcs8().convert(input);
             if (privateKey == null || !privateKey.getModulus().equals(publicKey.getModulus())) {
-                throw new IllegalArgumentException("JWT signing and verification keys do not match");
+                throw new EventException(ComplianceExceptionEnum.SESSION_CONFIGURATION_INVALID, "JWT signing and verification keys do not match");
             }
             var key = new RSAKey.Builder(publicKey).privateKey(privateKey).keyID(settings.signingKeyId()).build();
             return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(key)));
         } catch (IOException failure) {
-            throw new IllegalArgumentException("Cannot load JWT signing key", failure);
+            throw new EventException(ComplianceExceptionEnum.SESSION_CONFIGURATION_INVALID, "Cannot load JWT signing key", failure);
         }
     }
 
@@ -159,11 +160,11 @@ final class JwtSessionTokens {
         try (var input = resource.getInputStream()) {
             RSAPublicKey key = RsaKeyConverters.x509().convert(input);
             if (key == null || key.getModulus().bitLength() < 2048) {
-                throw new IllegalArgumentException("JWT verification key must be at least 2048 bits");
+                throw new EventException(ComplianceExceptionEnum.SESSION_CONFIGURATION_INVALID, "JWT verification key must be at least 2048 bits");
             }
             return key;
         } catch (IOException failure) {
-            throw new IllegalArgumentException("Cannot load JWT verification key", failure);
+            throw new EventException(ComplianceExceptionEnum.SESSION_CONFIGURATION_INVALID, "Cannot load JWT verification key", failure);
         }
     }
 

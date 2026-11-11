@@ -7,6 +7,7 @@ import org.lambda.framework.common.po.SecurityLoginUser;
 import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.common.util.JsonUtil;
 import org.lambda.framework.common.util.IdUtil;
+import org.lambda.framework.enums.ComplianceExceptionEnum;
 import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -215,7 +216,7 @@ public final class PrincipalFactory {
     private ReactiveRedisOperation redis() {
         var operation = redis.getIfAvailable();
         if (operation == null) {
-            throw new IllegalStateException("Configure Redis to store or verify user sessions");
+            throw new EventException(ComplianceExceptionEnum.SESSION_CONFIGURATION_INVALID, "Configure Redis to store or verify user sessions");
         }
         return operation;
     }

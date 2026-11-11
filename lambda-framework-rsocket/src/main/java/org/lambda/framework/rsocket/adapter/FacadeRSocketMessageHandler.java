@@ -1,7 +1,10 @@
 package org.lambda.framework.rsocket.adapter;
 
+
 import org.lambda.framework.common.annotation.rsocket.RSocketFacade;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.RpcRoutes;
+import org.lambda.framework.enums.RpcExceptionEnum;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.messaging.handler.CompositeMessageCondition;
@@ -33,7 +36,7 @@ final class FacadeRSocketMessageHandler extends RSocketMessageHandler {
         String route = facadeMappings.computeIfAbsent(userType, this::mapFacade)
                 .get(BridgeMethodResolver.findBridgedMethod(method));
         if (super.getMappingForMethod(method, handlerType) != null) {
-            throw new IllegalStateException("Use an ordinary Controller for explicit mappings: " + method);
+            throw new EventException(RpcExceptionEnum.INVALID_FACADE, "Use an ordinary Controller for explicit mappings: " + method);
         }
         return route == null ? null : new CompositeMessageCondition(RSocketFrameTypeMessageCondition.EMPTY_CONDITION,
                 new DestinationPatternsMessageCondition(new String[]{route}, obtainRouteMatcher()));
@@ -46,7 +49,7 @@ final class FacadeRSocketMessageHandler extends RSocketMessageHandler {
             for (String route : destinations.getPatterns()) {
                 var previous = registeredRoutes.putIfAbsent(route, method);
                 if (previous != null) {
-                    throw new IllegalStateException("Duplicate RSocket route " + route + ": "
+                    throw new EventException(RpcExceptionEnum.INVALID_FACADE, "Duplicate RSocket route " + route + ": "
                             + previous.getBean() + " (" + previous + ") and "
                             + method.getBean() + " (" + method + ")");
                 }
@@ -62,7 +65,7 @@ final class FacadeRSocketMessageHandler extends RSocketMessageHandler {
                 .filter(type -> candidates.stream().noneMatch(other -> type != other && type.isAssignableFrom(other)))
                 .toList();
         if (facades.size() != 1) {
-            throw new IllegalStateException(implementation.getName() + " must implement one *Facade interface");
+            throw new EventException(RpcExceptionEnum.INVALID_FACADE, implementation.getName() + " must implement one *Facade interface");
         }
         var routes = new HashMap<Method, String>();
         RpcRoutes.routes(service, facades.getFirst()).forEach((method, route) ->

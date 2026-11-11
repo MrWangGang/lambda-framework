@@ -2,8 +2,11 @@ package org.lambda.framework.mq.config.rabbitmq;
 
 import com.rabbitmq.client.Address;
 import com.rabbitmq.client.ConnectionFactory;
+
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.startup.ComponentCheck;
 import org.lambda.framework.common.startup.DeploymentMode;
+import org.lambda.framework.enums.MqExceptionEnum;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -31,7 +34,7 @@ public class RabbitMqAutoConfiguration {
             Address[] nodes = Address.parseAddresses(addresses);
             long unique = java.util.Arrays.stream(nodes).distinct().count();
             if (mode == DeploymentMode.SINGLE ? unique != 1 : unique < 2) {
-                throw new IllegalArgumentException("RabbitMQ single requires one address; cluster requires multiple addresses");
+                throw new EventException(MqExceptionEnum.CONFIGURATION_INVALID, "RabbitMQ single requires one address; cluster requires multiple addresses");
             }
             return nodes;
         }
@@ -88,10 +91,10 @@ public class RabbitMqAutoConfiguration {
             try (var connection = factory.newConnection(settings.nodes(), "lambda-startup-check");
                  var channel = connection.createChannel()) {
                 if (!channel.isOpen()) {
-                    throw new IllegalStateException("RabbitMQ channel is closed");
+                    throw new EventException(MqExceptionEnum.CONNECTION_FAILED, "RabbitMQ channel is closed");
                 }
             } catch (Exception error) {
-                throw new IllegalStateException("RabbitMQ connection failed", error);
+                throw new EventException(MqExceptionEnum.CONNECTION_FAILED, "RabbitMQ connection failed", error);
             }
         }).subscribeOn(Schedulers.boundedElastic()).then());
     }

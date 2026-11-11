@@ -3,16 +3,20 @@ package org.lambda.framework.gateway.error;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.rsocket.exceptions.ConnectionErrorException;
 import org.lambda.framework.common.enums.GatewayInteraction;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.exception.basic.GlobalException;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.JsonUtil;
 import org.lambda.framework.enums.ExceptionEnumFunction;
 import org.lambda.framework.enums.GatewayExceptionEnum;
+import org.lambda.framework.enums.GatewayHttpExceptionEnum;
+import org.lambda.framework.enums.LoadBalanceExceptionEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.webflux.error.ErrorWebExceptionHandler;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBufferLimitException;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -55,12 +59,19 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
     }
 
     public static ResponseTemplete errorResponse(ServerHttpResponse response, Throwable throwable, boolean arrayData) {
+        var event = throwable instanceof EventException failure ? failure.getError() : null;
         boolean upstreamUnavailable = throwable instanceof ConnectionErrorException || throwable instanceof ConnectException
                 || throwable instanceof UnknownHostException || throwable instanceof ClosedChannelException
-                || throwable instanceof CancellationException && "Pool is exhausted".equals(throwable.getMessage());
+                || throwable instanceof CancellationException && "Pool is exhausted".equals(throwable.getMessage())
+                || event == LoadBalanceExceptionEnum.CONNECTION_UNAVAILABLE;
         if (!response.isCommitted()) {
             if (upstreamUnavailable) {
                 response.setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
+            } else if (event instanceof GatewayHttpExceptionEnum http) {
+                response.setStatusCode(HttpStatus.valueOf(http.getStatus()));
+                if (http == GatewayHttpExceptionEnum.METHOD_NOT_ALLOWED) {
+                    response.getHeaders().setAllow(java.util.Set.of(HttpMethod.POST));
+                }
             } else if (throwable instanceof ErrorResponse error) {
                 response.setStatusCode(error.getStatusCode());
                 response.getHeaders().putAll(error.getHeaders());
@@ -127,7 +138,7 @@ public class GatewayGlobalExceptionHandler implements ErrorWebExceptionHandler {
             }
             return response.writeWith(Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes)));
         } catch (JsonProcessingException error) {
-            return Mono.error(error);
+            return Mono.error(new EventException(UNEXPECTED_FAILURE, null, error));
         }
     }
 }

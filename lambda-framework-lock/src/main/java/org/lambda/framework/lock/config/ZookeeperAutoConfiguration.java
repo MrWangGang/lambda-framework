@@ -3,8 +3,11 @@ package org.lambda.framework.lock.config;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
+
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.startup.ComponentCheck;
 import org.lambda.framework.common.startup.DeploymentMode;
+import org.lambda.framework.enums.LockExceptionEnum;
 import org.lambda.framework.lock.ReactiveZookeeperBuilder;
 import org.lambda.framework.lock.ZookeeperBuilder;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -31,7 +34,7 @@ public class ZookeeperAutoConfiguration {
         long count = java.util.Arrays.stream(settings.connectString().split(","))
                 .map(String::strip).filter(node -> !node.isEmpty()).distinct().count();
         if (settings.mode() == DeploymentMode.SINGLE ? count != 1 : count < 2) {
-            throw new IllegalArgumentException("ZooKeeper single requires one address; cluster requires multiple addresses");
+            throw new EventException(LockExceptionEnum.CONFIGURATION_INVALID, "ZooKeeper single requires one address; cluster requires multiple addresses");
         }
         return CuratorFrameworkFactory.builder().connectString(settings.connectString())
                 .connectionTimeoutMs(Math.toIntExact(settings.timeout().toMillis()))
@@ -54,7 +57,7 @@ public class ZookeeperAutoConfiguration {
         return new ComponentCheck("ZooKeeper", () -> Mono.fromCallable(() -> {
             if (!client.blockUntilConnected(Math.toIntExact(settings.timeout().toMillis()),
                     java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                throw new IllegalStateException("ZooKeeper connection timed out");
+                throw new EventException(LockExceptionEnum.ZOOKEEPER_MUTEX_UNAVAILABLE, "ZooKeeper connection timed out");
             }
             return client.checkExists().forPath("/");
         }).subscribeOn(Schedulers.boundedElastic()).then());

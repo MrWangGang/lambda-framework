@@ -1,7 +1,10 @@
 package org.lambda.framework.common.util;
 
-import org.lambda.framework.common.enums.ConverterEnum;
 
+
+import org.lambda.framework.common.enums.ConverterEnum;
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.CommonExceptionEnum;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -11,14 +14,14 @@ public final class EnumUtil {
         @Override
         protected Map<String, ConverterEnum> computeValue(Class<?> type) {
             var constants = OptionalUtil.require(type.getEnumConstants(),
-                    () -> new IllegalArgumentException("Expected an enum: " + type.getName()));
+                    () -> new EventException(CommonExceptionEnum.OBJECT_VALIDATION_FAILED, "Expected an enum: " + type.getName()));
             var entries = new HashMap<String, ConverterEnum>();
             for (Object constant : constants) {
                 var item = (ConverterEnum) constant;
                 String key = OptionalUtil.require(item.getValue(),
-                        () -> new IllegalArgumentException("Missing enum key: " + type.getName()));
+                        () -> new EventException(CommonExceptionEnum.OBJECT_VALIDATION_FAILED, "Missing enum key: " + type.getName()));
                 if (entries.putIfAbsent(key, item) != null) {
-                    throw new IllegalArgumentException("Duplicate enum key: " + type.getName() + "." + key);
+                    throw new EventException(CommonExceptionEnum.OBJECT_VALIDATION_FAILED, "Duplicate enum key: " + type.getName() + "." + key);
                 }
             }
             return Map.copyOf(entries);

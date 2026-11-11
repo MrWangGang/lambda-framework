@@ -3,9 +3,10 @@ package org.lambda.framework.rsocket.codec;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
+
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.RSocketExceptionEnum;
 import org.springframework.core.ResolvableType;
-import org.springframework.core.codec.CodecException;
-import org.springframework.core.codec.EncodingException;
 import org.springframework.core.codec.Hints;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
@@ -35,7 +36,7 @@ class RSocketJsonEncoder extends Jackson2JsonEncoder {
         }
         var mapper = selectObjectMapper(type, mimeType);
         if (mapper == null) {
-            throw new IllegalStateException("No ObjectMapper for " + type);
+            throw new EventException(RSocketExceptionEnum.REQUEST_FAILED, "No ObjectMapper for " + type);
         }
         Class<?> view = hints == null ? null : (Class<?>) hints.get(JSON_VIEW_HINT);
         var writer = view == null ? mapper.writer() : mapper.writerWithView(view);
@@ -54,11 +55,11 @@ class RSocketJsonEncoder extends Jackson2JsonEncoder {
             success = true;
             return output;
         } catch (InvalidDefinitionException error) {
-            throw new CodecException("Type definition error: " + error.getType(), error);
+            throw new EventException(RSocketExceptionEnum.REQUEST_FAILED, "Type definition error: " + error.getType(), error);
         } catch (JsonProcessingException error) {
-            throw new EncodingException("JSON encoding error: " + error.getOriginalMessage(), error);
+            throw new EventException(RSocketExceptionEnum.REQUEST_FAILED, "JSON encoding error: " + error.getOriginalMessage(), error);
         } catch (IOException error) {
-            throw new IllegalStateException("Unexpected I/O error while writing to the JSON buffer", error);
+            throw new EventException(RSocketExceptionEnum.REQUEST_FAILED, "Unexpected I/O error while writing to the JSON buffer", error);
         } finally {
             if (!success) {
                 DataBufferUtils.release(output);

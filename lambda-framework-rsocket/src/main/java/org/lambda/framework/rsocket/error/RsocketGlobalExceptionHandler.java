@@ -1,6 +1,7 @@
 package org.lambda.framework.rsocket.error;
 
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import io.rsocket.exceptions.ApplicationErrorException;
 import jakarta.validation.ConstraintViolationException;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.exception.basic.GlobalException;
@@ -24,6 +25,6 @@ public class RsocketGlobalExceptionHandler  {
             globalException = GlobalException.fromSerialized(e.getMessage())
                     .orElseGet(() -> new EventException(REQUEST_FAILED));
         }
-        return new RuntimeException(globalException.getSerializeMessage(), e);
+        return new ApplicationErrorException(globalException.getSerializeMessage(), e);
     }
 }

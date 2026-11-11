@@ -4,14 +4,16 @@ import io.netty.util.ReferenceCountUtil;
 import io.rsocket.Payload;
 import io.rsocket.SocketAcceptor;
 import io.rsocket.exceptions.RejectedException;
-import io.rsocket.exceptions.RejectedSetupException;
 import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.metadata.RoutingMetadata;
 import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.plugins.SocketAcceptorInterceptor;
 import io.rsocket.util.RSocketProxy;
+
 import org.lambda.framework.common.enums.RSocketContract;
 import org.lambda.framework.common.enums.GatewayInteraction;
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.RSocketExceptionEnum;
 import org.reactivestreams.Publisher;
 import org.springframework.util.InvalidMimeTypeException;
 import org.springframework.util.MimeType;
@@ -31,17 +33,17 @@ final class RpcDataMimeInterceptor implements SocketAcceptorInterceptor {
             try {
                 mime = MimeType.valueOf(setup.dataMimeType());
             } catch (InvalidMimeTypeException error) {
-                return Mono.error(new RejectedSetupException("Invalid RSocket data MIME type", error));
+                return Mono.error(new EventException(RSocketExceptionEnum.SETUP_REJECTED, "Invalid RSocket data MIME type", error));
             }
             if (FORY.equalsTypeAndSubtype(mime)) {
                 return acceptor.accept(setup, sender);
             }
             if (!MimeTypeUtils.APPLICATION_JSON.equalsTypeAndSubtype(mime)
                     && !MimeTypeUtils.APPLICATION_OCTET_STREAM.equalsTypeAndSubtype(mime)) {
-                return Mono.error(new RejectedSetupException("Unsupported RSocket data MIME type"));
+                return Mono.error(new EventException(RSocketExceptionEnum.SETUP_REJECTED, "Unsupported RSocket data MIME type"));
             }
             if (!COMPOSITE_MIME.equals(setup.metadataMimeType())) {
-                return Mono.error(new RejectedSetupException("Gateway requests require RSocket composite metadata"));
+                return Mono.error(new EventException(RSocketExceptionEnum.SETUP_REJECTED, "Gateway requests require RSocket composite metadata"));
             }
             return acceptor.accept(setup, sender).map(socket -> new RSocketProxy(socket) {
                 @Override
@@ -115,6 +117,7 @@ final class RpcDataMimeInterceptor implements SocketAcceptorInterceptor {
     }
 
     private static RejectedException rejection() {
-        return new RejectedException("Java RSocket RPC requires application/x-lambda-fory");
+        String message = "Java RSocket RPC requires application/x-lambda-fory";
+        return new RejectedException(message, new EventException(RSocketExceptionEnum.REQUEST_REJECTED, message));
     }
 }

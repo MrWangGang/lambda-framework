@@ -5,6 +5,7 @@ import com.rabbitmq.client.Delivery;
 import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.mq.RabbitMQDeclare;
+import org.lambda.framework.enums.MqExceptionEnum;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.rabbitmq.AcknowledgableDelivery;
@@ -18,7 +19,6 @@ import reactor.rabbitmq.Sender;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 import static org.lambda.framework.enums.MqExceptionEnum.RABBIT_PUBLISH_NOT_CONFIRMED;
 
@@ -36,10 +36,11 @@ public class RabbitMQReactiveOperate {
     public Mono<Void> sendDelay(RabbitMQDeclare declaration, Long delayMillis, String message,
             Map<String, Object> headers) {
         return Mono.defer(() -> {
-            Objects.requireNonNull(declaration, "RabbitMQ declaration");
-            Objects.requireNonNull(message, "RabbitMQ message");
+            if (declaration == null || message == null) {
+                return Mono.error(new EventException(MqExceptionEnum.INVALID_MESSAGE, "RabbitMQ declaration and message are required"));
+            }
             if (delayMillis == null || delayMillis < 0 || delayMillis > 4_294_967_295L) {
-                return Mono.error(new IllegalArgumentException("RabbitMQ delay must be 0..4294967295 milliseconds"));
+                return Mono.error(new EventException(MqExceptionEnum.INVALID_MESSAGE, "RabbitMQ delay must be 0..4294967295 milliseconds"));
             }
             var messageHeaders = new HashMap<>(headers);
             messageHeaders.put("x-delay", delayMillis);

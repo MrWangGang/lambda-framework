@@ -6,13 +6,18 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
+
+
 import org.lambda.framework.common.enums.GatewayInteraction;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.JsonUtil;
 import org.lambda.framework.common.util.OptionalUtil;
 import org.lambda.framework.common.util.ReactiveValues;
+import org.lambda.framework.enums.GatewayExceptionEnum;
+import org.lambda.framework.enums.GatewayHttpExceptionEnum;
 import org.lambda.framework.gateway.error.GatewayGlobalExceptionHandler;
 import org.lambda.framework.gateway.filter.GatewayFilter;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
@@ -24,15 +29,12 @@ import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.StringDecoder;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferUtils;
-import org.springframework.core.io.buffer.DataBufferLimitException;
 import org.springframework.http.*;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
 import org.springframework.web.reactive.socket.server.WebSocketService;
-import org.springframework.web.server.MethodNotAllowedException;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -83,7 +85,7 @@ public class RsocketRequestFactory {
                                  @Value("${lambda.gateway.rsocket.request-timeout:15s}") Duration requestTimeout) {
         if (maxRequestBytes < 1 || maxResponseBytes < ARRAY_START.length + ARRAY_END.length
                 || maxResponseItems < 1 || requestTimeout.isNegative() || requestTimeout.isZero()) {
-            throw new IllegalArgumentException("Invalid HTTP to RSocket bridge limits");
+            throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, "Invalid HTTP to RSocket bridge limits");
         }
         this.loadbalance = loadbalance;
         this.streamRoutes = new RsocketStreamRoutes(loadbalance);
@@ -107,14 +109,14 @@ public class RsocketRequestFactory {
 
     public Mono<Void> executeWebSocket(ServerWebExchange exchange, GatewayFilter.GlobalFilterRoute route) {
         if (!"websocket".equalsIgnoreCase(exchange.getRequest().getHeaders().getUpgrade())) {
-            return Mono.error(new ResponseStatusException(HttpStatus.UPGRADE_REQUIRED, "WebSocket upgrade required"));
+            return Mono.error(new EventException(GatewayHttpExceptionEnum.UPGRADE_REQUIRED, "WebSocket upgrade required"));
         }
         return interaction(route).flatMap(contract -> {
             if (contract.interaction() != GatewayInteraction.REQUEST_CHANNEL) {
-                return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public channel for this path"));
+                return Mono.error(new EventException(GatewayHttpExceptionEnum.NOT_FOUND, "No public channel for this path"));
             }
             var webSocketService = OptionalUtil.require(webSocketServices.getIfAvailable(),
-                    () -> new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "WebSocket service unavailable"));
+                    () -> new EventException(GatewayHttpExceptionEnum.SERVICE_UNAVAILABLE, "WebSocket service unavailable"));
             return Mono.defer(principalStash::setSecurityStash)
                     .switchIfEmpty(Mono.fromSupplier(SecurityStash::new))
                     .flatMap(stash -> webSocketService.handleRequest(exchange,
@@ -140,7 +142,7 @@ public class RsocketRequestFactory {
                     }
                     return timeoutFirstReply(interaction(route).flatMapMany(contract -> {
                         if (contract.interaction() != GatewayInteraction.REQUEST_CHANNEL) {
-                            return Flux.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public channel for this path"));
+                            return Flux.error(new EventException(GatewayHttpExceptionEnum.NOT_FOUND, "No public channel for this path"));
                         }
                         return channelReplies(route, contract, input, sessionPrincipal);
                     })).map(value -> encodeResponse(List.of(value)));
@@ -154,33 +156,33 @@ public class RsocketRequestFactory {
 
     private byte[] readWebSocketFrame(WebSocketMessage message) {
         if (message.getType() != WebSocketMessage.Type.TEXT) {
-            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Send one JSON value per text message");
+            throw new EventException(GatewayHttpExceptionEnum.UNSUPPORTED_MEDIA_TYPE, "Send one JSON value per text message");
         }
         var payload = message.getPayload();
         int size = payload.readableByteCount();
         if (size > maxRequestBytes) {
-            throw new DataBufferLimitException("WebSocket message exceeds limit");
+            throw new EventException(GatewayHttpExceptionEnum.CONTENT_TOO_LARGE, "WebSocket message exceeds limit");
         }
         byte[] bytes = new byte[size];
         payload.read(bytes);
         try {
-            byte[] json = parseJsonValue(bytes);
+            byte[] json = parseJsonValue(bytes, GatewayHttpExceptionEnum.BAD_REQUEST);
             if (json.length != 0) {
                 return json;
             }
         } catch (IOException error) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid WebSocket JSON message", error);
+            throw new EventException(GatewayHttpExceptionEnum.BAD_REQUEST, "Invalid WebSocket JSON message", error);
         }
-        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "WebSocket JSON message must contain a value");
+        throw new EventException(GatewayHttpExceptionEnum.BAD_REQUEST, "WebSocket JSON message must contain a value");
     }
 
     private Mono<Void> forward(ServerWebExchange exchange, GatewayFilter.GlobalFilterRoute route) {
         var request = exchange.getRequest();
         if (request.getMethod() != HttpMethod.POST) {
-            return Mono.error(new MethodNotAllowedException(request.getMethod(), List.of(HttpMethod.POST)));
+            return Mono.error(new EventException(GatewayHttpExceptionEnum.METHOD_NOT_ALLOWED));
         }
         if (!request.getQueryParams().isEmpty()) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Use a request DTO in the POST body"));
+            return Mono.error(new EventException(GatewayHttpExceptionEnum.BAD_REQUEST, "Use a request DTO in the POST body"));
         }
         HttpHeaders headers = request.getHeaders();
         Map<String, Object> metadata = route.metadata();
@@ -194,7 +196,7 @@ public class RsocketRequestFactory {
     private Mono<RsocketStreamRoutes.Route> interaction(GatewayFilter.GlobalFilterRoute route) {
         String path = route.path();
         if (!GatewayInteraction.isPublicPath(path)) {
-            return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public MessageMapping for this path"));
+            return Mono.error(new EventException(GatewayHttpExceptionEnum.NOT_FOUND, "No public MessageMapping for this path"));
         }
         return streamRoutes.resolve(route.host(), path);
     }
@@ -207,7 +209,7 @@ public class RsocketRequestFactory {
         if (interaction == GatewayInteraction.REQUEST_CHANNEL) {
             boolean ndjson = MediaType.APPLICATION_NDJSON.isCompatibleWith(contentType);
             if (!ndjson && !MediaType.APPLICATION_JSON.isCompatibleWith(contentType)) {
-                return Mono.error(new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                return Mono.error(new EventException(GatewayHttpExceptionEnum.UNSUPPORTED_MEDIA_TYPE,
                         "request/channel requires JSON or NDJSON input"));
             }
             Flux<byte[]> decodedFrames = ndjson
@@ -218,17 +220,17 @@ public class RsocketRequestFactory {
                             contentType, Map.of()).map(RsocketRequestFactory::encode);
             Flux<byte[]> frames = decodedFrames.map(bytes -> {
                         if (bytes.length > maxRequestBytes) {
-                            throw new DataBufferLimitException("Channel record exceeds limit");
+                            throw new EventException(GatewayHttpExceptionEnum.CONTENT_TOO_LARGE, "Channel record exceeds limit");
                         }
                         return bytes;
                     })
-                    .switchIfEmpty(Flux.error(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    .switchIfEmpty(Flux.error(() -> new EventException(GatewayHttpExceptionEnum.BAD_REQUEST,
                             "A channel requires a first record")));
             return stream(response, channelReplies(route, contract, frames, principalStash));
         }
         if (!MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
                 && !MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(contentType)) {
-            return Mono.error(new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+            return Mono.error(new EventException(GatewayHttpExceptionEnum.UNSUPPORTED_MEDIA_TYPE,
                     "Use application/json or application/octet-stream"));
         }
         MediaType mimeType = MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
@@ -298,7 +300,7 @@ public class RsocketRequestFactory {
     }
 
     private Mono<Void> writeJsonResponse(ServerHttpResponse response, Mono<byte[]> result) {
-        return result.timeout(requestTimeout, Mono.error(() -> new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT,
+        return result.timeout(requestTimeout, Mono.error(() -> new EventException(GatewayHttpExceptionEnum.GATEWAY_TIMEOUT,
                         "RSocket request timed out"))).flatMap(bytes -> {
             response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
             return response.writeWith(Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes)));
@@ -328,7 +330,7 @@ public class RsocketRequestFactory {
         try {
             connections = Integer.parseInt(configured.toString());
         } catch (NumberFormatException error) {
-            throw new IllegalArgumentException(key + " must be an integer", error);
+            throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, key + " must be an integer", error);
         }
         return loadbalance.buildForGateway(mimeType, route.host(), traffic, Optional.of(connections), contract.endpoints());
     }
@@ -340,7 +342,7 @@ public class RsocketRequestFactory {
 
     private static <T> Mono<T> requireReply(Mono<T> response) {
         return ReactiveValues.require(response,
-                () -> new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Required RSocket response is empty"));
+                () -> new EventException(GatewayHttpExceptionEnum.BAD_GATEWAY, "Required RSocket response is empty"));
     }
 
     private static MediaType resolveContentType(Map<String, Object> metadata, HttpHeaders headers) {
@@ -348,12 +350,12 @@ public class RsocketRequestFactory {
         try {
             contentType = Optional.ofNullable(headers.getContentType());
         } catch (InvalidMediaTypeException error) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid HTTP media type", error);
+            throw new EventException(GatewayHttpExceptionEnum.BAD_REQUEST, "Invalid HTTP media type", error);
         }
         return option(metadata, "rsocketContentType").map(value -> {
             MediaType expected = MediaType.valueOf(value);
             if (contentType.filter(actual -> !expected.includes(actual)).isPresent()) {
-                throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                throw new EventException(GatewayHttpExceptionEnum.UNSUPPORTED_MEDIA_TYPE,
                         "Content-Type does not match the RSocket route");
             }
             return expected;
@@ -365,7 +367,7 @@ public class RsocketRequestFactory {
             if (value instanceof String text && !text.isBlank()) {
                 return text;
             }
-            throw new IllegalArgumentException("Invalid route metadata: " + key);
+            throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, "Invalid route metadata: " + key);
         });
     }
 
@@ -410,32 +412,32 @@ public class RsocketRequestFactory {
             return EMPTY_BODY;
         }
         try {
-            return parseJsonValue(bytes);
+            return parseJsonValue(bytes, GatewayHttpExceptionEnum.BAD_GATEWAY);
         } catch (IOException error) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "RSocket returned invalid UTF-8 JSON", error);
+            throw new EventException(GatewayHttpExceptionEnum.BAD_GATEWAY, "RSocket returned invalid UTF-8 JSON", error);
         }
     }
 
-    private static byte[] parseJsonValue(byte[] bytes) throws IOException {
+    private static byte[] parseJsonValue(byte[] bytes, GatewayHttpExceptionEnum invalidJson) throws IOException {
         // A JSON value embedded in an envelope must be UTF-8 and cannot carry a BOM.
         int start = bytes.length >= 3 && bytes[0] == (byte) 0xef && bytes[1] == (byte) 0xbb
                 && bytes[2] == (byte) 0xbf ? 3 : 0;
         try (var parser = UTF8_JSON.createParser(bytes, start, bytes.length - start)) {
-            if (readJsonRoot(parser) == JsonToken.VALUE_NULL) {
+            if (readJsonRoot(parser, invalidJson) == JsonToken.VALUE_NULL) {
                 return EMPTY_BODY;
             }
             return start == 0 ? bytes : Arrays.copyOfRange(bytes, start, bytes.length);
         }
     }
 
-    private static JsonToken readJsonRoot(JsonParser parser) throws IOException {
+    private static JsonToken readJsonRoot(JsonParser parser, GatewayHttpExceptionEnum invalidJson) throws IOException {
         JsonToken root = parser.nextToken();
         if (root == null) {
-            throw new IOException("Missing JSON value");
+            throw new EventException(invalidJson, "Missing JSON value");
         }
         parser.skipChildren();
         if (parser.nextToken() != null) {
-            throw new IOException("Expected one JSON value");
+            throw new EventException(invalidJson, "Expected one JSON value");
         }
         return root;
     }
@@ -465,7 +467,7 @@ public class RsocketRequestFactory {
             byte[] bytes = Arrays.copyOf(OBJECT_START, (int) total);
             value.read(bytes, OBJECT_START.length, size);
             try (var parser = UTF8_JSON.createParser(bytes, OBJECT_START.length, size)) {
-                if (readJsonRoot(parser) == JsonToken.VALUE_NULL) {
+                if (readJsonRoot(parser, GatewayHttpExceptionEnum.BAD_GATEWAY) == JsonToken.VALUE_NULL) {
                     return null;
                 }
             }
@@ -475,7 +477,7 @@ public class RsocketRequestFactory {
             bytes[bytes.length - 1] = '}';
             return bytes;
         } catch (IOException error) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "RSocket returned invalid UTF-8 JSON", error);
+            throw new EventException(GatewayHttpExceptionEnum.BAD_GATEWAY, "RSocket returned invalid UTF-8 JSON", error);
         } finally {
             DataBufferUtils.release(value);
         }
@@ -493,7 +495,7 @@ public class RsocketRequestFactory {
 
     private <T> Flux<T> timeoutFirstReply(Flux<T> values) {
         return values.timeout(Mono.delay(requestTimeout), value -> Mono.never(),
-                Flux.error(() -> new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, "RSocket first reply timed out")));
+                Flux.error(() -> new EventException(GatewayHttpExceptionEnum.GATEWAY_TIMEOUT, "RSocket first reply timed out")));
     }
 
     private static byte[] line(byte[] json) {
@@ -510,15 +512,15 @@ public class RsocketRequestFactory {
         return bytes;
     }
 
-    private static ResponseStatusException responseLimit() {
-        return new ResponseStatusException(HttpStatus.BAD_GATEWAY, "RSocket reply exceeds the configured response limit");
+    private static EventException responseLimit() {
+        return new EventException(GatewayHttpExceptionEnum.BAD_GATEWAY, "RSocket reply exceeds the configured response limit");
     }
 
     private static byte[] encode(Object value) {
         try {
             return JsonUtil.mapper().writeValueAsBytes(value);
         } catch (JsonProcessingException error) {
-            throw new IllegalStateException("Could not encode the RSocket reply", error);
+            throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, "Could not encode the RSocket reply", error);
         }
     }
 

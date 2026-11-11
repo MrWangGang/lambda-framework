@@ -1,5 +1,8 @@
 package org.lambda.framework.rsocket.codec;
 
+
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.RSocketExceptionEnum;
 import org.lambda.framework.rsocket.adapter.ForyRpcTypes;
 import org.apache.fory.Fory;
 import org.apache.fory.ThreadSafeFory;
@@ -14,8 +17,6 @@ import org.reactivestreams.Publisher;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.AbstractDecoder;
 import org.springframework.core.codec.AbstractEncoder;
-import org.springframework.core.codec.DecodingException;
-import org.springframework.core.codec.EncodingException;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
@@ -69,7 +70,7 @@ final class ForyRpcCodec {
                 try {
                     return encodePayload(value, factory);
                 } catch (RuntimeException error) {
-                    throw new EncodingException("Cannot encode Fory RPC payload", error);
+                    throw new EventException(RSocketExceptionEnum.REQUEST_FAILED, "Cannot encode Fory RPC payload", error);
                 }
             }
 
@@ -113,12 +114,12 @@ final class ForyRpcCodec {
                 try {
                     decoded = decodePayload(input, type.toClass());
                 } catch (RuntimeException error) {
-                    throw new DecodingException("Cannot decode Fory RPC payload", error);
+                    throw new EventException(RSocketExceptionEnum.INVALID_ARGUMENTS, "Cannot decode Fory RPC payload", error);
                 } finally {
                     DataBufferUtils.release(input);
                 }
                 if (decoded == null || !ClassUtils.isAssignableValue(type.toClass(), decoded)) {
-                    throw new DecodingException("Fory RPC payload does not match " + type);
+                    throw new EventException(RSocketExceptionEnum.INVALID_ARGUMENTS, "Fory RPC payload does not match " + type);
                 }
                 return decoded;
             }

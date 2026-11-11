@@ -2,7 +2,8 @@ package org.lambda.framework.common.util;
 
 import reactor.core.publisher.Mono;
 
-import org.lambda.framework.common.exception.RequiredValueException;
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.CommonExceptionEnum;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -15,7 +16,7 @@ public final class ReactiveValues {
     }
 
     public static <T> Mono<T> require(Mono<T> source) {
-        return require(source, RequiredValueException::new);
+        return require(source, () -> new EventException(CommonExceptionEnum.REQUIRED_VALUE_MISSING));
     }
 
     public static <T> Mono<T> require(Mono<T> source, Supplier<? extends RuntimeException> missing) {

@@ -1,10 +1,12 @@
 package org.lambda.framework.loadbalance.factory;
 
 import io.rsocket.RSocket;
-import io.rsocket.exceptions.ConnectionErrorException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.ServiceInstanceSource.Endpoint;
+import org.lambda.framework.enums.LoadBalanceExceptionEnum;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import reactor.core.Disposable;
 import reactor.core.Disposables;
@@ -109,7 +111,7 @@ final class AdaptiveRSocketPool implements AutoCloseable {
         return Mono.defer(() -> {
             var selected = select(eligible);
             if (selected.isPresent()) {
-                return Mono.just(selected.orElseThrow());
+                return Mono.just(selected.orElseThrow(this::unavailable));
             }
             if (eligible != null) {
                 return readyChanges.asFlux().startWith(true)
@@ -123,8 +125,8 @@ final class AdaptiveRSocketPool implements AutoCloseable {
         });
     }
 
-    private ConnectionErrorException unavailable() {
-        return new ConnectionErrorException("No ready RSocket connection for " + service);
+    private EventException unavailable() {
+        return new EventException(LoadBalanceExceptionEnum.CONNECTION_UNAVAILABLE, "No ready RSocket connection for " + service);
     }
 
     private Optional<Destination> select(Set<Endpoint> eligible) {
@@ -160,7 +162,7 @@ final class AdaptiveRSocketPool implements AutoCloseable {
         if (best != null) {
             var connection = best.nextConnection();
             if (connection.isPresent()) {
-                return Optional.of(new Destination(best, connection.orElseThrow()));
+                return Optional.of(new Destination(best, connection.orElseThrow(this::unavailable)));
             }
         }
         return roundRobin(candidates, offset, eligible);

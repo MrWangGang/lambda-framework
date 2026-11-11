@@ -5,10 +5,12 @@ import io.qdrant.client.grpc.Points.QueryPoints;
 import io.qdrant.client.grpc.Points.ScoredPoint;
 import io.qdrant.client.grpc.Points.UpdateResult;
 import io.qdrant.client.grpc.Points.UpsertPoints;
+
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.QdrantExceptionEnum;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Objects;
 import java.util.function.Function;
 
 /** Binds a business repository to one collection and maps its search results. */
@@ -19,11 +21,14 @@ public abstract class ReactiveQdrantRepository<T> {
 
     protected ReactiveQdrantRepository(ReactiveQdrantOperations operations, String collection,
                                        Function<ScoredPoint, T> mapper) {
-        this.operations = Objects.requireNonNull(operations);
-        this.collection = Objects.requireNonNull(collection);
-        this.mapper = Objects.requireNonNull(mapper);
+        if (operations == null || collection == null || mapper == null) {
+            throw new EventException(QdrantExceptionEnum.CONFIGURATION_INVALID, "Qdrant operations, collection and mapper are required");
+        }
+        this.operations = operations;
+        this.collection = collection;
+        this.mapper = mapper;
         if (collection.isBlank()) {
-            throw new IllegalArgumentException("Qdrant collection name must not be blank");
+            throw new EventException(QdrantExceptionEnum.CONFIGURATION_INVALID, "Qdrant collection name must not be blank");
         }
     }
 

@@ -1,7 +1,10 @@
 package org.lambda.framework.lock.config;
 
+
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.startup.ComponentCheck;
 import org.lambda.framework.common.startup.DeploymentMode;
+import org.lambda.framework.enums.LockExceptionEnum;
 import org.lambda.framework.lock.ReactiveRedissonBuilder;
 import org.lambda.framework.lock.RedissonBuilder;
 import org.redisson.Redisson;
@@ -47,13 +50,13 @@ public class RedissonAutoConfiguration {
         String password = StringUtils.hasText(settings.password()) ? settings.password() : null;
         if (settings.mode() == DeploymentMode.SINGLE) {
             if (nodes.size() != 1 || settings.database() < 0) {
-                throw new IllegalArgumentException("Redisson single requires one node and a valid database");
+                throw new EventException(LockExceptionEnum.CONFIGURATION_INVALID, "Redisson single requires one node and a valid database");
             }
             config.useSingleServer().setAddress(nodes.getFirst()).setDatabase(settings.database())
                     .setUsername(username).setPassword(password);
         } else {
             if (nodes.size() < 2 || settings.database() != 0) {
-                throw new IllegalArgumentException("Redisson cluster requires multiple nodes and database 0");
+                throw new EventException(LockExceptionEnum.CONFIGURATION_INVALID, "Redisson cluster requires multiple nodes and database 0");
             }
             config.useClusterServers().addNodeAddress(nodes.toArray(String[]::new))
                     .setUsername(username).setPassword(password);

@@ -4,10 +4,10 @@ import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.po.UnifyPO;
 import org.lambda.framework.compliance.service.IDefaultBasicService;
+import org.lambda.framework.enums.ComplianceExceptionEnum;
 import org.lambda.framework.repository.operation.*;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.*;
 import org.springframework.data.repository.query.ReactiveQueryByExampleExecutor;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
@@ -61,7 +61,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
     private PO requireVersion(PO po) {
         if (po == null) throw new EventException(CONTEXT_INVALID);
         if (po.getVersion() == null) {
-            throw new OptimisticLockingFailureException("Updating an entity requires its persisted version");
+            throw new EventException(ComplianceExceptionEnum.VERSION_REQUIRED, "Updating an entity requires its persisted version");
         }
         return po;
     }

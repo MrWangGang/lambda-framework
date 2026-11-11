@@ -1,5 +1,8 @@
 package org.lambda.framework.httpclient;
 
+
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.HttpClientExceptionEnum;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -32,7 +35,7 @@ public final class Tc3Authorization {
             return ALGORITHM + " Credential=" + secretId + "/" + scope + ", SignedHeaders=" + SIGNED_HEADERS
                     + ", Signature=" + HEX.formatHex(hmac(signingKey, input));
         } catch (GeneralSecurityException failure) {
-            throw new IllegalStateException("Unable to sign Tencent Cloud request", failure);
+            throw new EventException(HttpClientExceptionEnum.REQUEST_SIGNING_FAILED, "Unable to sign Tencent Cloud request", failure);
         }
     }
 

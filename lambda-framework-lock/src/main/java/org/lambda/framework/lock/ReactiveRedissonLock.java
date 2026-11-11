@@ -1,5 +1,8 @@
 package org.lambda.framework.lock;
 
+
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.LockExceptionEnum;
 import org.redisson.api.RLockReactive;
 import org.redisson.api.RedissonReactiveClient;
 import reactor.core.publisher.Mono;
@@ -37,7 +40,7 @@ public final class ReactiveRedissonLock {
             long owner = OWNERS.incrementAndGet();
             var acquired = lock.tryLock(wait.toMillis(), lease.toMillis(), TimeUnit.MILLISECONDS, owner)
                     .flatMap(success -> success ? Mono.just(owner)
-                            : Mono.error(new IllegalStateException("Redisson lock acquisition timed out")));
+                            : Mono.error(new EventException(LockExceptionEnum.REDIS_LOCK_ACQUIRE_FAILED, "Redisson lock acquisition timed out")));
             return Mono.usingWhen(acquired, ignored -> Mono.defer(action).timeout(lease), lock::unlock);
         });
     }

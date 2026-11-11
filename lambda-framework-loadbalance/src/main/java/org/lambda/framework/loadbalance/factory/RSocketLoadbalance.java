@@ -2,20 +2,22 @@ package org.lambda.framework.loadbalance.factory;
 
 import io.rsocket.DuplexConnection;
 import io.rsocket.RSocket;
-import io.rsocket.exceptions.ConnectionErrorException;
 import io.rsocket.loadbalance.LoadbalanceTarget;
 import io.rsocket.loadbalance.RoundRobinLoadbalanceStrategy;
 import io.rsocket.transport.ClientTransport;
 import io.rsocket.transport.netty.client.TcpClientTransport;
 import io.rsocket.util.RSocketProxy;
 import jakarta.annotation.PreDestroy;
+
 import org.lambda.framework.common.exception.Assert;
 import org.lambda.framework.common.enums.RSocketContract;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.GatewayRouteContract;
 import org.lambda.framework.common.support.PrincipalStash;
 import org.lambda.framework.common.support.ServiceInstanceSource;
 import org.lambda.framework.common.support.ServiceInstanceSource.Endpoint;
 import org.lambda.framework.common.util.OptionalUtil;
+import org.lambda.framework.enums.LoadBalanceExceptionEnum;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -235,20 +237,20 @@ public class RSocketLoadbalance {
 
     private ProcessResponse requester(RequesterKey key) {
         if (closed) {
-            throw new ConnectionErrorException("RSocket client is closed");
+            throw new EventException(LoadBalanceExceptionEnum.CONNECTION_UNAVAILABLE, "RSocket client is closed");
         }
         ProcessResponse response = requesters.computeIfAbsent(key, this::createRequester);
         if (closed) {
             requesters.remove(key, response);
             response.close();
-            throw new ConnectionErrorException("RSocket client is closed");
+            throw new EventException(LoadBalanceExceptionEnum.CONNECTION_UNAVAILABLE, "RSocket client is closed");
         }
         return response;
     }
 
     private static int validatedConnections(int connections) {
         if (connections < 1 || connections > 8) {
-            throw new IllegalArgumentException("RSocket connections per instance must be between 1 and 8");
+            throw new EventException(LoadBalanceExceptionEnum.CONFIGURATION_INVALID, "RSocket connections per instance must be between 1 and 8");
         }
         return connections;
     }

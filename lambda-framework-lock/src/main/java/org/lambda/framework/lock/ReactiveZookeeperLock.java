@@ -1,5 +1,8 @@
 package org.lambda.framework.lock;
 
+
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.LockExceptionEnum;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex;
 import reactor.core.publisher.Mono;
@@ -22,7 +25,7 @@ public final class ReactiveZookeeperLock {
         Mono<InterProcessSemaphoreMutex> acquire = Mono.fromCallable(() -> {
             var lock = new InterProcessSemaphoreMutex(client, path);
             if (!lock.acquire(wait.toMillis(), TimeUnit.MILLISECONDS)) {
-                throw new IllegalStateException("ZooKeeper lock acquisition timed out");
+                throw new EventException(LockExceptionEnum.ZOOKEEPER_LOCK_ACQUIRE_FAILED, "ZooKeeper lock acquisition timed out");
             }
             return lock;
         }).subscribeOn(Schedulers.boundedElastic());

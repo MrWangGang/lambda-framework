@@ -3,6 +3,7 @@ package org.lambda.framework.gateway.filter;
 import jakarta.annotation.Resource;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.util.OptionalUtil;
+import org.lambda.framework.enums.GatewayHttpExceptionEnum;
 import org.lambda.framework.gateway.forward.RsocketRequestFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -10,8 +11,6 @@ import org.springframework.cloud.gateway.filter.RouteToRequestUrlFilter;
 import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.core.Ordered;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -44,12 +43,12 @@ public class GatewayFilter implements GlobalFilter,Ordered{
         URI targetRoute = OptionalUtil.require(route.getUri());
         boolean webSocket = WS_SCHEME.equals(targetRoute.getScheme());
         if (!RB_SCHEME.equals(targetRoute.getScheme()) && !webSocket) {
-            return Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND, "No public MessageMapping for this route"));
+            return Mono.error(new EventException(GatewayHttpExceptionEnum.NOT_FOUND, "No public MessageMapping for this route"));
         }
         String service = OptionalUtil.require(targetRoute.getHost(),
-                () -> new ResponseStatusException(HttpStatus.BAD_GATEWAY, "RSocket route has no service name"));
+                () -> new EventException(GatewayHttpExceptionEnum.BAD_GATEWAY, "RSocket route has no service name"));
         if (webSocket && (targetRoute.getPort() != -1 || targetRoute.getUserInfo() != null)) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Use ws://service-name for this route"));
+            return Mono.error(new EventException(GatewayHttpExceptionEnum.BAD_GATEWAY, "Use ws://service-name for this route"));
         }
         URI targetUri = OptionalUtil.require(exchange.<URI>getAttribute(ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR));
         GlobalFilterRoute mapping = new GlobalFilterRoute() {

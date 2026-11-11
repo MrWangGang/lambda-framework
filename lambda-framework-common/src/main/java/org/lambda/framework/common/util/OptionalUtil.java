@@ -2,7 +2,8 @@ package org.lambda.framework.common.util;
 
 import java.util.List;
 import java.util.Map;
-import org.lambda.framework.common.exception.RequiredValueException;
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.CommonExceptionEnum;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -11,7 +12,7 @@ public final class OptionalUtil {
     private OptionalUtil() {}
 
     public static <T> T require(T value) {
-        return require(value, RequiredValueException::new);
+        return require(value, () -> new EventException(CommonExceptionEnum.REQUIRED_VALUE_MISSING));
     }
 
     public static <T> T require(T value, Supplier<? extends RuntimeException> missing) {

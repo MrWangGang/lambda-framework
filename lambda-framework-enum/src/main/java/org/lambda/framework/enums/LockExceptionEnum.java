@@ -5,6 +5,7 @@ import lombok.Getter;
 @Getter
 public enum LockExceptionEnum implements ExceptionEnumFunction {
     LOCK_NAME_REQUIRED("S0900000", "操作繁忙，请稍后重试"),
+    CONFIGURATION_INVALID("S0900001", "锁组件配置不正确"),
     REDIS_MUTEX_UNAVAILABLE("S0910010", "操作繁忙，请稍后重试"),
     REDIS_READ_WRITE_LOCK_UNAVAILABLE("S0910011", "操作繁忙，请稍后重试"),
     REDIS_LOCK_ACQUIRE_FAILED("S0910017", "操作繁忙，请稍后重试"),

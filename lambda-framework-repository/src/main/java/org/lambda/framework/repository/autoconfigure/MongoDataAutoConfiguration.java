@@ -2,9 +2,12 @@ package org.lambda.framework.repository.autoconfigure;
 
 import com.mongodb.ConnectionString;
 import org.bson.types.ObjectId;
+
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.po.UnifyPO;
 import org.lambda.framework.common.startup.ComponentCheck;
 import org.lambda.framework.common.startup.DeploymentMode;
+import org.lambda.framework.enums.RepositoryExceptionEnum;
 import org.lambda.framework.repository.config.converter.EnumReadConverter;
 import org.lambda.framework.repository.config.converter.EnumWriteConverter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -52,17 +55,17 @@ public class MongoDataAutoConfiguration {
     MongoConnectionDetails lambdaMongoConnectionDetails(Settings settings) {
         var uri = new ConnectionString(settings.uri());
         if (uri.getDatabase() == null || uri.getRequiredReplicaSetName() == null) {
-            throw new IllegalArgumentException("MongoDB URI must include the database and replicaSet in both modes");
+            throw new EventException(RepositoryExceptionEnum.CONFIGURATION_INVALID, "MongoDB URI must include the database and replicaSet in both modes");
         }
         var writeConcern = uri.getWriteConcern();
         if (writeConcern != null && !writeConcern.isAcknowledged()) {
-            throw new IllegalArgumentException("MongoDB versioned entities require acknowledged writes");
+            throw new EventException(RepositoryExceptionEnum.CONFIGURATION_INVALID, "MongoDB versioned entities require acknowledged writes");
         }
         boolean srv = settings.uri().startsWith("mongodb+srv://");
         if (settings.mode() == DeploymentMode.SINGLE && (srv || uri.getHosts().size() != 1)
                 || settings.mode() == DeploymentMode.CLUSTER
                     && ((!srv && uri.getHosts().size() < 2) || Boolean.TRUE.equals(uri.isDirectConnection()))) {
-            throw new IllegalArgumentException("MongoDB single requires one seed; cluster requires multiple seeds or SRV");
+            throw new EventException(RepositoryExceptionEnum.CONFIGURATION_INVALID, "MongoDB single requires one seed; cluster requires multiple seeds or SRV");
         }
         return () -> uri;
     }
@@ -92,7 +95,7 @@ public class MongoDataAutoConfiguration {
             boolean valid = reply.getString("setName") != null
                     && (settings.mode() == DeploymentMode.SINGLE ? hosts.size() == 1 : hosts.size() > 1);
             if (!valid) {
-                return reactor.core.publisher.Mono.error(new IllegalStateException("MongoDB replica topology does not match mode"));
+                return reactor.core.publisher.Mono.error(new EventException(RepositoryExceptionEnum.CONFIGURATION_INVALID, "MongoDB replica topology does not match mode"));
             }
             var resolver = new MongoPersistentEntityIndexResolver(mapping);
             return Flux.fromIterable(mapping.getPersistentEntities())
@@ -109,7 +112,7 @@ public class MongoDataAutoConfiguration {
         var id = entity.getIdProperty();
         if (!UnifyPO.class.isAssignableFrom(entity.getType()) || id == null
                 || id.getType() != ObjectId.class || !entity.hasVersionProperty()) {
-            throw new IllegalStateException(entity.getType().getName()
+            throw new EventException(RepositoryExceptionEnum.CONFIGURATION_INVALID, entity.getType().getName()
                     + " must extend UnifyPO<ObjectId> with the inherited MongoDB ID and version");
         }
     }

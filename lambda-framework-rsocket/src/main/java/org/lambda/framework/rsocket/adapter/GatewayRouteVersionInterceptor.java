@@ -2,11 +2,13 @@ package org.lambda.framework.rsocket.adapter;
 
 import io.rsocket.ConnectionSetupPayload;
 import io.rsocket.SocketAcceptor;
-import io.rsocket.exceptions.RejectedSetupException;
 import io.rsocket.metadata.CompositeMetadata;
 import io.rsocket.metadata.WellKnownMimeType;
 import io.rsocket.plugins.SocketAcceptorInterceptor;
+
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.GatewayRouteContract;
+import org.lambda.framework.enums.RSocketExceptionEnum;
 import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Mono;
 
@@ -23,7 +25,7 @@ final class GatewayRouteVersionInterceptor implements SocketAcceptorInterceptor 
     public SocketAcceptor apply(SocketAcceptor acceptor) {
         return (setup, sender) -> {
             if (!matches(setup)) {
-                return Mono.error(new RejectedSetupException("RSocket gateway route contract changed"));
+                return Mono.error(new EventException(RSocketExceptionEnum.SETUP_REJECTED, "RSocket gateway route contract changed"));
             }
             return acceptor.accept(setup, sender);
         };

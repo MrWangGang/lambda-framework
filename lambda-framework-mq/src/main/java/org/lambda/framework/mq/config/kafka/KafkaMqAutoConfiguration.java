@@ -4,8 +4,11 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.startup.ComponentCheck;
 import org.lambda.framework.common.startup.DeploymentMode;
+import org.lambda.framework.enums.MqExceptionEnum;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -32,7 +35,7 @@ public class KafkaMqAutoConfiguration {
             long count = java.util.Arrays.stream(bootstrapServers.split(","))
                     .map(String::strip).filter(server -> !server.isEmpty()).distinct().count();
             if (mode == DeploymentMode.SINGLE ? count != 1 : count < 2) {
-                throw new IllegalArgumentException("Kafka single requires one address; cluster requires multiple addresses");
+                throw new EventException(MqExceptionEnum.CONFIGURATION_INVALID, "Kafka single requires one address; cluster requires multiple addresses");
             }
         }
     }
@@ -53,12 +56,12 @@ public class KafkaMqAutoConfiguration {
                 if (error == null) {
                     sink.success(nodes.size());
                 } else {
-                    sink.error(error);
+                    sink.error(new EventException(MqExceptionEnum.CONNECTION_FAILED, null, error));
                 }
             });
             sink.onCancel(() -> admin.close(java.time.Duration.ZERO));
         }).flatMap(nodes -> nodes >= (settings.mode() == DeploymentMode.CLUSTER ? 2 : 1)
-                ? Mono.empty() : Mono.error(new IllegalStateException("Kafka broker topology does not match mode"))));
+                ? Mono.empty() : Mono.error(new EventException(MqExceptionEnum.CONFIGURATION_INVALID, "Kafka broker topology does not match mode"))));
     }
 
     @Bean

@@ -31,7 +31,7 @@ public final class ReactiveQdrantOperations implements AutoCloseable {
 
     public ReactiveQdrantOperations(List<QdrantClient> clients) {
         if (clients.isEmpty()) {
-            throw new IllegalArgumentException("At least one Qdrant client is required");
+            throw new EventException(QdrantExceptionEnum.CONFIGURATION_INVALID, "At least one Qdrant client is required");
         }
         this.clients = List.copyOf(clients);
     }
@@ -85,7 +85,7 @@ public final class ReactiveQdrantOperations implements AutoCloseable {
 
                 @Override
                 public void onFailure(Throwable error) {
-                    sink.error(error);
+                    sink.error(new EventException(QdrantExceptionEnum.REQUEST_FAILED, null, error));
                 }
             }, MoreExecutors.directExecutor());
         });

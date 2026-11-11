@@ -9,6 +9,7 @@ import org.lambda.framework.common.util.OptionalUtil;
 import org.lambda.framework.common.util.ReactiveValues;
 import org.lambda.framework.common.support.BiFlux;
 import org.lambda.framework.common.support.UiFlux;
+import org.lambda.framework.enums.RpcExceptionEnum;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance.Traffic;
 import org.reactivestreams.Publisher;
@@ -94,7 +95,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
         var returnType = (ParameterizedType) method.getGenericReturnType();
         var resultType = returnType.getRawType();
         if (resultType != BiFlux.class && data instanceof Publisher<?> && !(data instanceof Mono<?>)) {
-            throw new IllegalArgumentException("A streaming request requires BiFlux<O> return: " + method);
+            throw new EventException(RpcExceptionEnum.INVALID_FACADE, "A streaming request requires BiFlux<O> return: " + method);
         }
         var bodyType = ParameterizedTypeReference.forType(returnType.getActualTypeArguments()[0]);
         var traffic = resultType == Mono.class ? Traffic.UNARY : resultType == BiFlux.class ? Traffic.CHANNEL : Traffic.STREAM;

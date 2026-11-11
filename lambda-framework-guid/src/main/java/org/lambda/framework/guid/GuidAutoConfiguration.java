@@ -1,6 +1,9 @@
 package org.lambda.framework.guid;
 
+
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.startup.DeploymentMode;
+import org.lambda.framework.enums.GuidExceptionEnum;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -22,7 +25,7 @@ public class GuidAutoConfiguration {
         if (worker == null && settings.mode() == DeploymentMode.CLUSTER) {
             worker = environment.getProperty("LAMBDA_INSTANCE_INDEX", Integer.class);
             if (worker == null) {
-                throw new IllegalArgumentException("Cluster Snowflake requires lambda.guid.worker or LAMBDA_INSTANCE_INDEX");
+                throw new EventException(GuidExceptionEnum.CONFIGURATION_INVALID, "Cluster Snowflake requires lambda.guid.worker or LAMBDA_INSTANCE_INDEX");
             }
         }
         return new GuidFactory(worker == null ? 0 : worker);

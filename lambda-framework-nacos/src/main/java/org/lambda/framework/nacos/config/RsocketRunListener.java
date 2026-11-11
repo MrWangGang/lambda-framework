@@ -37,9 +37,7 @@ public class RsocketRunListener {
                         instance.getMetadata().put(GatewayRouteContract.METADATA_KEY, contract.version()));
                 registration.start();
             } catch (RuntimeException error) {
-                var failure = new EventException(NacosExceptionEnum.REGISTRATION_FAILED);
-                failure.initCause(error);
-                throw failure;
+                throw new EventException(NacosExceptionEnum.REGISTRATION_FAILED, null, error);
             }
         }
     }

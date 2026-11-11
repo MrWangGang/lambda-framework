@@ -11,7 +11,8 @@ public enum RepositoryExceptionEnum implements ExceptionEnumFunction {
     INVALID_PAGING("S0500100", "分页参数不正确"),
     PAGING_REQUIRED("S0500103", "缺少分页参数"),
     UNKNOWN_ENUM_VALUE("S0500106", "无法识别数据状态"),
-    UNKNOWN_CHANGE_OPERATION("S0500107", "无法读取数据变更");
+    UNKNOWN_CHANGE_OPERATION("S0500107", "无法读取数据变更"),
+    CONFIGURATION_INVALID("S0500108", "数据组件配置不正确");
 
     private final String code;
     private final String message;

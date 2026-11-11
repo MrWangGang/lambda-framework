@@ -1,5 +1,8 @@
 package org.lambda.framework.loadbalance.factory;
 
+
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.enums.LoadBalanceExceptionEnum;
 import reactor.core.publisher.Mono;
 import reactor.netty.resources.LoopResources;
 
@@ -29,7 +32,7 @@ public final class RSocketClientResources implements AutoCloseable {
 
     private static void requireValid(int workers) {
         if (workers < 1 || workers > 64) {
-            throw new IllegalArgumentException("RSocket I/O workers per traffic class must be between 1 and 64");
+            throw new EventException(LoadBalanceExceptionEnum.CONFIGURATION_INVALID, "RSocket I/O workers per traffic class must be between 1 and 64");
         }
     }
 

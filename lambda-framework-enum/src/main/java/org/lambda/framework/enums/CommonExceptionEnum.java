@@ -34,7 +34,9 @@ public enum CommonExceptionEnum implements ExceptionEnumFunction {
     ERROR_CODE_REQUIRED("S0000033", "信息处理失败"),
     ERROR_MESSAGE_REQUIRED("S0000034", "缺少提示信息"),
     OBJECT_SERIALIZATION_FAILED("S0000035", "信息处理失败"),
-    REQUIRED_VALUE_MISSING("S0000036", "未找到所需信息");
+    REQUIRED_VALUE_MISSING("S0000036", "未找到所需信息"),
+    INVALID_BUSINESS_ERROR("S0000037", "业务错误定义不正确"),
+    STARTUP_CHECK_FAILED("S0000038", "组件启动检查失败");
 
     private final String code;
     private final String message;

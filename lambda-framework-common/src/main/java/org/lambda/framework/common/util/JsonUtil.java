@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
-import org.lambda.framework.common.exception.RequiredValueException;
+import org.lambda.framework.enums.CommonExceptionEnum;
 
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -75,7 +75,7 @@ public final class JsonUtil {
     }
 
     public static <T> T readRequired(String json, Class<T> type) {
-        return readRequired(json, type, RequiredValueException::new);
+        return readRequired(json, type, () -> new EventException(CommonExceptionEnum.REQUIRED_VALUE_MISSING));
     }
 
     public static <T> T readRequired(String json, Class<T> type, Supplier<? extends RuntimeException> missing) {

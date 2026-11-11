@@ -4,6 +4,10 @@
  */
 package org.lambda.framework.common.util.algorithm;
 
+import org.lambda.framework.enums.CommonExceptionEnum;
+
+import org.lambda.framework.common.exception.EventException;
+
 /**
  * Created by WangGang on 2017/6/22 0022.
  * E-mail userbean@outlook.com
@@ -112,7 +116,7 @@ public class Base64AlgorithmUtil {
         int sLen = s.length();
         int numGroups = sLen / 4;
         if (4 * numGroups != sLen) {
-            throw new IllegalArgumentException("String length must be a multiple of four.");
+            throw new EventException(CommonExceptionEnum.OBJECT_VALIDATION_FAILED, "String length must be a multiple of four.");
         }
         int missingBytesInLastGroup = 0;
         int numFullGroups = numGroups;
@@ -164,7 +168,7 @@ public class Base64AlgorithmUtil {
     private static int base64toInt(char c, byte[] alphaToInt) {
         int result = alphaToInt[c];
         if (result < 0) {
-            throw new IllegalArgumentException("Illegal character " + c);
+            throw new EventException(CommonExceptionEnum.OBJECT_VALIDATION_FAILED, "Illegal character " + c);
         }
         return result;
     }

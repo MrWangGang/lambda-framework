@@ -5,7 +5,6 @@ import org.lambda.framework.enums.GuidExceptionEnum;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.Objects;
 
 public final class GuidFactory {
     private static final long EPOCH = Instant.parse("2024-01-01T00:00:00Z").toEpochMilli();
@@ -24,10 +23,13 @@ public final class GuidFactory {
 
     GuidFactory(int worker, Clock clock) {
         if (worker < 0 || worker > MAX_WORKER) {
-            throw new IllegalArgumentException("Snowflake worker must be 0..1023");
+            throw new EventException(GuidExceptionEnum.CONFIGURATION_INVALID, "Snowflake worker must be 0..1023");
+        }
+        if (clock == null) {
+            throw new EventException(GuidExceptionEnum.CONFIGURATION_INVALID, "Snowflake clock is required");
         }
         this.worker = worker;
-        this.clock = Objects.requireNonNull(clock);
+        this.clock = clock;
     }
 
     public String nextId() {
