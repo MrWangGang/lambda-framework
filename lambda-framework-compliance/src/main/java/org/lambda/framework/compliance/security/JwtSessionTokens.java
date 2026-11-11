@@ -9,6 +9,7 @@ import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier;
 import java.io.IOException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -43,17 +44,21 @@ final class JwtSessionTokens {
     private static final Pattern USER_ID = Pattern.compile("[0-9a-f]{24}");
     private static final Pattern SESSION_ID = Pattern.compile("[0-9a-f]{32}");
     private static final String TYPE = "lambda-session+jwt";
+    private static final Duration MAX_APP_LIFETIME = Duration.ofDays(30);
     private final JwtSessionSettings settings;
+    private final Duration appLifetime;
     private final JwtDecoder decoder;
     private final JwtEncoder encoder;
     private final Map<String, RSAPublicKey> publicKeys;
 
     JwtSessionTokens(JwtSessionSettings settings) {
         this.settings = settings;
+        appLifetime = settings.appLifetime() == null ? settings.lifetime() : settings.appLifetime();
         if (blank(settings.issuer()) || blank(settings.appAudience()) || blank(settings.adminAudience())
                 || settings.appAudience().equals(settings.adminAudience()) || settings.publicKeys() == null
                 || settings.publicKeys().isEmpty() || settings.lifetime().getSeconds() < 60
-                || settings.lifetime().toSeconds() > 3600 || !settings.redisPrefix().matches("[a-zA-Z0-9:_-]+")) {
+                || settings.lifetime().toSeconds() > 3600 || appLifetime.getSeconds() < 60
+                || appLifetime.compareTo(MAX_APP_LIFETIME) > 0 || !settings.redisPrefix().matches("[a-zA-Z0-9:_-]+")) {
             throw new IllegalArgumentException("Invalid JWT session configuration");
         }
         publicKeys = settings.publicKeys().entrySet().stream().collect(Collectors.toUnmodifiableMap(
@@ -76,13 +81,14 @@ final class JwtSessionTokens {
         var key = key(user);
         var sessionId = IdUtil.compactUuid();
         var now = Instant.ofEpochSecond(Instant.now().getEpochSecond());
-        var expiresAt = now.plus(settings.lifetime());
+        var lifetime = user.getRealm() == Realm.APP ? appLifetime : settings.lifetime();
+        var expiresAt = now.plus(lifetime);
         var claims = JwtClaimsSet.builder().issuer(settings.issuer()).subject(user.getId())
                 .audience(List.of(audience(user.getRealm()))).issuedAt(now).expiresAt(expiresAt)
                 .id(sessionId).claim("realm", user.getRealm().name()).claim("terminal", user.getTerminal().code()).build();
         var headers = JwsHeader.with(SignatureAlgorithm.RS256).keyId(settings.signingKeyId()).type(TYPE).build();
         var token = encoder.encode(JwtEncoderParameters.from(headers, claims)).getTokenValue();
-        return new Issued(token, new SessionRef(key, sessionId), settings.lifetime().getSeconds(), expiresAt);
+        return new Issued(token, new SessionRef(key, sessionId), lifetime.getSeconds(), expiresAt);
     }
 
     SessionRef verify(String token) {

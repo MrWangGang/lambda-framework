@@ -13,6 +13,7 @@ record JwtSessionSettings(
         String adminAudience,
         @DefaultValue("lambda:auth:session") String redisPrefix,
         @DefaultValue("15m") Duration lifetime,
+        Duration appLifetime,
         Map<String, Resource> publicKeys,
         String signingKeyId,
         Resource privateKey) {}
