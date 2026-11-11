@@ -46,6 +46,8 @@ public final class PrincipalFactory {
             if not stored or cjson.decode(stored).token ~= cjson.decode(ARGV[1]) then return 0 end
             return redis.call('DEL', unpack(KEYS))
             """, Long.class);
+    private static final RedisScript<Long> REVOKE_SUBJECT = RedisScript.of(
+            "return redis.call('DEL', unpack(KEYS))", Long.class);
     private final ObjectProvider<ReactiveRedisOperation> redis;
     private final ObjectProvider<JwtSessionTokens> jwt;
 
@@ -161,6 +163,10 @@ public final class PrincipalFactory {
             keys.addFirst(current.key());
             return redis().execute(REVOKE_ALL, keys, List.of(current.suffix())).then();
         });
+    }
+
+    public Mono<Void> revokePrincipalsFor(ScopedLoginUser subject) {
+        return Mono.defer(() -> redis().execute(REVOKE_SUBJECT, jwtTokens().keys(subject), List.of()).then());
     }
 
     private Mono<Void> storeSession(String key, String id, SecurityLoginUser<?> user, long ttl) {
