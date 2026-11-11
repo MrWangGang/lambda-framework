@@ -10,6 +10,7 @@ import org.lambda.framework.common.util.ReactiveValues;
 import org.lambda.framework.common.support.BiFlux;
 import org.lambda.framework.common.support.UiFlux;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
+import org.lambda.framework.loadbalance.factory.RSocketLoadbalance.Traffic;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.ObjectProvider;
@@ -69,7 +70,6 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
     private Object createProxy(ProxyKey key) {
         Class<?> facade = key.facade();
         var routes = RpcRoutes.routes(key.service(), facade);
-        var connection = Mono.defer(() -> loadbalance.getObject().build(FORY_MIME_TYPE, key.service()));
         return Proxy.newProxyInstance(facade.getClassLoader(), new Class<?>[]{facade}, (proxy, method, args) -> {
             if (method.getDeclaringClass() == Object.class) {
                 return switch (method.getName()) {
@@ -81,7 +81,7 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
             }
             String route = routes.get(method);
             if (route != null) {
-                return getResult(route, getData(args), method, connection);
+                return getResult(key.service(), route, getData(args), method);
             }
             if (method.isDefault()) {
                 return InvocationHandler.invokeDefault(proxy, method, args);
@@ -90,14 +90,15 @@ public class RsocketRpcProxyBeanFactoryPostProcessor implements BeanPostProcesso
         });
     }
 
-    private Object getResult(String route, Object data, Method method,
-                             Mono<RSocketLoadbalance.ProcessResponse> requester) {
+    private Object getResult(String service, String route, Object data, Method method) {
         var returnType = (ParameterizedType) method.getGenericReturnType();
         var resultType = returnType.getRawType();
         if (resultType != BiFlux.class && data instanceof Publisher<?> && !(data instanceof Mono<?>)) {
             throw new IllegalArgumentException("A streaming request requires BiFlux<O> return: " + method);
         }
         var bodyType = ParameterizedTypeReference.forType(returnType.getActualTypeArguments()[0]);
+        var traffic = resultType == Mono.class ? Traffic.UNARY : resultType == BiFlux.class ? Traffic.CHANNEL : Traffic.STREAM;
+        var requester = Mono.defer(() -> loadbalance.getObject().buildForService(FORY_MIME_TYPE, service, traffic));
         var connection = ReactiveValues.require(requester, () -> new EventException(CONNECTION_UNAVAILABLE));
         if (resultType == Mono.class) {
             var result = connection.flatMap(rpc -> rpc.retrieveMono(principalStash, route, data, bodyType));

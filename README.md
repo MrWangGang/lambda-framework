@@ -61,6 +61,18 @@ public interface UserFacade {
 
 返回 `Mono` 生成一次响应，`Flux` 可聚合成 JSON 数组，`UiFlux` 用于单向 NDJSON，`Flux<I> → BiFlux<O>` 用于双向流。前端 WSS 路由使用 `ws://服务名`，网关用 RSocket Channel 转发。示例仓库展示完整链路和认证配置。 [示例仓库](https://github.com/MrWangGang/lambda-framework-example)
 
+RSocket 出站连接按普通请求、单向流和双向流使用独立的 Netty I/O 线程组和连接池。每个应用的 Nacos Data ID 可覆盖以下默认值：
+
+```properties
+lambda.rsocket.client.io-workers.unary=2
+lambda.rsocket.client.io-workers.stream=2
+lambda.rsocket.client.io-workers.channel=2
+lambda.rsocket.client.connections-per-instance=2
+```
+
+线程数是每种交互在一个 JVM 内的 I/O 工作线程数。连接数是每个下游实例、每种交互和编码各自的 TCP 连接数。网关可用路由元数据 `rsocketConnectionsPerInstance`、`rsocketStreamConnectionsPerInstance` 或 `rsocketChannelConnectionsPerInstance` 覆盖连接数。单条连接支持多个并行请求或流；连接数不限制业务并发数。修改线程数后重启对应应用。
+
+
 所有 MongoDB 集合实体放在 `po` 包并以 `PO` 结尾，继承 `UnifyPO<ObjectId>`。Spring Data 审计自动维护 `createdAt`、`updatedAt` 和 `@Version`。手写更新和已有数据迁移见 [数据访问与分页](#数据访问与分页)。
 
 Controller 负责绑定和转发。业务逻辑与校验放在 `*ServiceImpl`，Repository 负责数据读写。

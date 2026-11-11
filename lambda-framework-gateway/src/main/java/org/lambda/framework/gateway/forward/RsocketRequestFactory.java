@@ -14,6 +14,7 @@ import org.lambda.framework.common.util.ReactiveValues;
 import org.lambda.framework.gateway.error.GatewayGlobalExceptionHandler;
 import org.lambda.framework.gateway.filter.GatewayFilter;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
+import org.lambda.framework.loadbalance.factory.RSocketLoadbalance.Traffic;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -234,10 +235,10 @@ public class RsocketRequestFactory {
                 .or(() -> Optional.ofNullable(request.getHeaders().getFirst(RSOCKET_ECHO))).orElse("");
         Class<?> responseType = RSOCKET_ECHO_CHAR.equals(binaryEcho) ? String.class : Object.class;
         if (interaction.isNdjson()) {
-            return stream(response, body.flatMapMany(bytes -> requester(mimeType, route, true)
+            return stream(response, body.flatMapMany(bytes -> requester(mimeType, route, Traffic.STREAM)
                     .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, responseType))));
         }
-        Mono<byte[]> result = body.flatMap(bytes -> requester(mimeType, route, requestStream).flatMap(rpc -> {
+        Mono<byte[]> result = body.flatMap(bytes -> requester(mimeType, route, requestStream ? Traffic.STREAM : Traffic.UNARY).flatMap(rpc -> {
             if (requestStream) {
                 Flux<byte[]> encoded = json
                         ? rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, byte[].class)
@@ -266,18 +267,22 @@ public class RsocketRequestFactory {
     }
 
     private Flux<Object> channelReplies(GatewayFilter.GlobalFilterRoute route, Flux<byte[]> frames, PrincipalStash principal) {
-        return requester(MediaType.APPLICATION_JSON, route, false)
+        return requester(MediaType.APPLICATION_JSON, route, Traffic.CHANNEL)
                 .flatMapMany(rpc -> rpc.retrieveChannel(principal, route.path(), frames, Object.class));
     }
 
     private Mono<RSocketLoadbalance.ProcessResponse> requester(MediaType mimeType,
-            GatewayFilter.GlobalFilterRoute route, boolean requestStream) {
+            GatewayFilter.GlobalFilterRoute route, Traffic traffic) {
         Map<String, Object> metadata = route.metadata();
-        String key = requestStream && metadata.containsKey("rsocketStreamConnectionsPerInstance")
-                ? "rsocketStreamConnectionsPerInstance" : "rsocketConnectionsPerInstance";
+        String specific = switch (traffic) {
+            case UNARY -> "rsocketConnectionsPerInstance";
+            case STREAM -> "rsocketStreamConnectionsPerInstance";
+            case CHANNEL -> "rsocketChannelConnectionsPerInstance";
+        };
+        String key = metadata.containsKey(specific) ? specific : "rsocketConnectionsPerInstance";
         Object configured = metadata.get(key);
         if (configured == null) {
-            return loadbalance.build(mimeType, route.host());
+            return loadbalance.buildForService(mimeType, route.host(), traffic);
         }
         int connections;
         try {
@@ -285,7 +290,7 @@ public class RsocketRequestFactory {
         } catch (NumberFormatException error) {
             throw new IllegalArgumentException(key + " must be an integer", error);
         }
-        return loadbalance.buildForService(mimeType, route.host(), connections);
+        return loadbalance.buildForService(mimeType, route.host(), connections, traffic);
     }
 
     private static <T> Mono<T> requireReply(Mono<T> response) {
@@ -399,6 +404,7 @@ public class RsocketRequestFactory {
 
     private Mono<Void> stream(ServerHttpResponse response, Flux<?> values) {
         response.getHeaders().setContentType(MediaType.APPLICATION_NDJSON);
+        response.getHeaders().set("X-Accel-Buffering", "no");
         var lines = timeoutFirstReply(values).map(value -> line(encodeResponse(List.of(value))))
                 .defaultIfEmpty(EMPTY_STREAM_LINE)
                 .onErrorResume(error -> Mono.fromSupplier(() ->

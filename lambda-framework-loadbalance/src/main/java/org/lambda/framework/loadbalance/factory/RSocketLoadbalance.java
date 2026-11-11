@@ -16,7 +16,6 @@ import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.messaging.rsocket.RSocketRequester;
@@ -28,6 +27,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
 import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
+import reactor.netty.tcp.TcpClient;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
@@ -46,18 +46,25 @@ public class RSocketLoadbalance {
     private final DiscoveryClient discoveryClient;
     private final ObjectProvider<RSocketRequester.Builder> builders;
     private final RSocketStrategies strategies;
+    private final RSocketClientResources resources;
     private final int maxInboundPayloadBytes;
+    private final int connectionsPerInstance;
     private final ConcurrentHashMap<RequesterKey, ProcessResponse> requesters = new ConcurrentHashMap<>();
 
-    private record RequesterKey(String target, Integer port, MimeType dataMimeType, int connectionsPerInstance) {}
+    public enum Traffic { UNARY, STREAM, CHANNEL }
+
+    private record RequesterKey(String target, Integer port, MimeType dataMimeType,
+                                int connectionsPerInstance, Traffic traffic) {}
 
     public RSocketLoadbalance(DiscoveryClient discoveryClient, ObjectProvider<RSocketRequester.Builder> builders,
-                              RSocketStrategies strategies,
-                              @Value("${lambda.rsocket.client.max-inbound-payload-bytes:16777216}") int maxInboundPayloadBytes) {
+                              RSocketStrategies strategies, RSocketClientResources resources,
+                              int maxInboundPayloadBytes, int connectionsPerInstance) {
         this.discoveryClient = discoveryClient;
         this.builders = builders;
         this.strategies = strategies;
+        this.resources = resources;
         this.maxInboundPayloadBytes = maxInboundPayloadBytes;
+        this.connectionsPerInstance = validatedConnections(connectionsPerInstance);
     }
 
     public static final class ProcessResponse {
@@ -107,21 +114,38 @@ public class RSocketLoadbalance {
     public Mono<ProcessResponse> build(MimeType mimeType, String ip, Integer port) {
         Assert.verify(ip, HOST_REQUIRED);
         Assert.verify(port, PORT_REQUIRED);
-        RequesterKey key = new RequesterKey(ip, port, mimeType, 1);
+        RequesterKey key = new RequesterKey(ip, port, mimeType, 1, Traffic.UNARY);
         return Mono.fromSupplier(() -> requesters.computeIfAbsent(key, this::createRequester));
     }
 
     public Mono<ProcessResponse> build(MimeType mimeType, String serviceName) {
-        return buildForService(mimeType, serviceName, 1);
+        return buildForService(mimeType, serviceName, Traffic.UNARY);
     }
 
-    public Mono<ProcessResponse> buildForService(MimeType mimeType, String serviceName, int connectionsPerInstance) {
+    public Mono<ProcessResponse> buildForService(MimeType mimeType, String serviceName, Traffic traffic) {
+        return buildForService(mimeType, serviceName, connectionsPerInstance, traffic);
+    }
+
+    public Mono<ProcessResponse> buildForService(MimeType mimeType, String serviceName, int connections) {
+        return buildForService(mimeType, serviceName, connections, Traffic.UNARY);
+    }
+
+    public Mono<ProcessResponse> buildForService(MimeType mimeType, String serviceName,
+                                                 int connections, Traffic traffic) {
         Assert.verify(serviceName, SERVICE_NAME_REQUIRED);
-        if (connectionsPerInstance < 1 || connectionsPerInstance > 8) {
+        var key = new RequesterKey(serviceName, null, mimeType, validatedConnections(connections), traffic);
+        return Mono.fromSupplier(() -> requesters.computeIfAbsent(key, this::createRequester));
+    }
+
+    private static int validatedConnections(int connections) {
+        if (connections < 1 || connections > 8) {
             throw new IllegalArgumentException("RSocket connections per instance must be between 1 and 8");
         }
-        RequesterKey key = new RequesterKey(serviceName, null, mimeType, connectionsPerInstance);
-        return Mono.fromSupplier(() -> requesters.computeIfAbsent(key, this::createRequester));
+        return connections;
+    }
+
+    private TcpClientTransport tcpTransport(String host, int port, Traffic traffic) {
+        return TcpClientTransport.create(TcpClient.create().host(host).port(port).runOn(resources.forTraffic(traffic)));
     }
 
     private ProcessResponse createRequester(RequesterKey key) {
@@ -149,7 +173,7 @@ public class RSocketLoadbalance {
                 requester = builder.transports(targets, new RoundRobinLoadbalanceStrategy());
             } else {
                 builder.rsocketConnector(connector -> connector.maxInboundPayloadSize(maxInboundPayloadBytes));
-                requester = builder.transport(TcpClientTransport.create(key.target(), key.port()));
+                requester = builder.transport(tcpTransport(key.target(), key.port(), key.traffic()));
             }
         }
         return new ProcessResponse(requester);
@@ -160,7 +184,7 @@ public class RSocketLoadbalance {
                         .flatMap(instance -> {
                             String address = instance.getHost() + ":" + instance.getPort();
                             var transport = new RecoveringTransport(
-                                    TcpClientTransport.create(instance.getHost(), instance.getPort()), reconnect);
+                                    tcpTransport(instance.getHost(), instance.getPort(), key.traffic()), reconnect);
                             return IntStream.range(0, key.connectionsPerInstance()).mapToObj(index ->
                                     LoadbalanceTarget.from(index == 0 ? address : address + "#" + index, transport));
                         })
