@@ -8,6 +8,8 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectReader;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 
 
 import org.lambda.framework.common.enums.GatewayInteraction;
@@ -18,6 +20,7 @@ import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.JsonUtil;
 import org.lambda.framework.common.util.OptionalUtil;
 import org.lambda.framework.common.util.ReactiveValues;
+import org.lambda.framework.common.support.ServiceInstanceSource.Endpoint;
 import org.lambda.framework.enums.GatewayExceptionEnum;
 import org.lambda.framework.enums.GatewayHttpExceptionEnum;
 import org.lambda.framework.gateway.error.GatewayGlobalExceptionHandler;
@@ -27,10 +30,14 @@ import org.lambda.framework.loadbalance.factory.RSocketLoadbalance.Traffic;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.route.Route;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.StringDecoder;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.core.io.buffer.NettyDataBuffer;
+import org.springframework.core.io.buffer.NettyDataBufferFactory;
 import org.springframework.http.*;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -47,14 +54,20 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO;
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO_CHAR;
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO_VOID;
+import static org.lambda.framework.gateway.enums.GatewayContract.WS_SCHEME;
 
 public class RsocketRequestFactory {
     private static final byte[] EMPTY_BODY = new byte[0];
@@ -63,8 +76,16 @@ public class RsocketRequestFactory {
     private static final String DATA_START = new String(EMPTY_RESPONSE, StandardCharsets.UTF_8)
             .replaceFirst("}$", "") + ",\"data\":";
     private static final byte[] OBJECT_START = DATA_START.getBytes(StandardCharsets.UTF_8);
+    private static final byte[] OBJECT_END = {'}'};
     private static final byte[] ARRAY_START = (DATA_START + "[").getBytes(StandardCharsets.UTF_8);
     private static final byte[] ARRAY_END = {']', '}'};
+    private static final byte[] ARRAY_LINE_END = {']', '}', '\n'};
+    private static final int DIRECT_REPLY_MIN_BYTES = 4 * 1024;
+    private static final int DIRECT_STREAM_MIN_BYTES = 64 * 1024;
+    private static final ByteBuf DIRECT_OBJECT_START = directConstant(OBJECT_START);
+    private static final ByteBuf DIRECT_OBJECT_END = directConstant(OBJECT_END);
+    private static final ByteBuf DIRECT_ARRAY_START = directConstant(ARRAY_START);
+    private static final ByteBuf DIRECT_ARRAY_LINE_END = directConstant(ARRAY_LINE_END);
     private static final JsonFactory UTF8_JSON = JsonUtil.mapper().getFactory().copy()
             .disable(JsonFactory.Feature.CHARSET_DETECTION);
     private static final ObjectReader STREAM_JSON = JsonUtil.mapper()
@@ -230,7 +251,7 @@ public class RsocketRequestFactory {
                     })
                     .switchIfEmpty(Flux.error(() -> new EventException(GatewayHttpExceptionEnum.BAD_REQUEST,
                             "A channel requires a first record")));
-            return stream(response, streamEnvelopes(channelReplies(route, contract, frames, principalStash), true));
+            return streamJson(response, channelReplies(route, contract, frames, principalStash).map(OwnedBuffer::new));
         }
         if (!MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
                 && !MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(contentType)) {
@@ -244,6 +265,13 @@ public class RsocketRequestFactory {
         if (json && interaction == GatewayInteraction.REQUEST_RESPONSE) {
             return forwardJsonRequest(response, requestBody, mimeType, route, contract);
         }
+        if (json && interaction == GatewayInteraction.REQUEST_STREAM) {
+            return streamJson(response, jsonStream(requestBody, route, contract));
+        }
+        if (json && interaction == GatewayInteraction.REQUEST_ARRAY
+                && response.bufferFactory() instanceof NettyDataBufferFactory factory) {
+            return writeJsonBuffer(response, collectJsonBuffers(jsonStream(requestBody, route, contract), factory));
+        }
         Mono<byte[]> body = requestBody
                 .map(RsocketRequestFactory::readAndRelease)
                 .defaultIfEmpty(EMPTY_BODY);
@@ -252,11 +280,6 @@ public class RsocketRequestFactory {
                 .or(() -> Optional.ofNullable(request.getHeaders().getFirst(RSOCKET_ECHO))).orElse("");
         Class<?> responseType = RSOCKET_ECHO_CHAR.equals(binaryEcho) ? String.class : Object.class;
         if (interaction.isNdjson()) {
-            if (json) {
-                var replies = body.flatMapMany(bytes -> requester(mimeType, route, contract, Traffic.STREAM)
-                        .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, DataBuffer.class)));
-                return stream(response, streamEnvelopes(replies, true));
-            }
             return stream(response, body.flatMapMany(bytes -> requester(mimeType, route, contract, Traffic.STREAM)
                     .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, responseType)))
                     .map(value -> line(encodeResponse(List.of(value)))));
@@ -281,26 +304,39 @@ public class RsocketRequestFactory {
 
     private Mono<Void> forwardJsonRequest(ServerHttpResponse response, Mono<DataBuffer> requestBody, MediaType mimeType,
                                           GatewayFilter.GlobalFilterRoute route, RsocketStreamRoutes.Route contract) {
-        var buffered = requestBody.map(BufferedRequest::new)
-                .switchIfEmpty(Mono.fromSupplier(() -> new BufferedRequest(null)));
-        var result = Mono.usingWhen(buffered, body -> requester(mimeType, route, contract, Traffic.UNARY)
+        var result = Mono.usingWhen(bufferedRequest(requestBody), body -> requester(mimeType, route, contract, Traffic.UNARY)
                         .flatMap(rpc -> rpc.retrieveMono(principalStash, mimeType, route.path(),
                                         Mono.fromSupplier(body::transfer), DataBuffer.class)
-                                .mapNotNull(this::jsonEnvelope)),
-                body -> Mono.fromRunnable(body::release))
-                .doOnDiscard(BufferedRequest.class, BufferedRequest::release);
-        return writeJsonResponse(response, requireReply(result));
+                                .mapNotNull(value -> unaryReply(value, response.bufferFactory()))
+                                .map(OwnedBuffer::new)),
+                body -> Mono.fromRunnable(body::release));
+        return writeJsonBuffer(response, requireReply(result));
     }
 
-    private static final class BufferedRequest {
+    private Flux<OwnedBuffer> jsonStream(Mono<DataBuffer> requestBody, GatewayFilter.GlobalFilterRoute route,
+                                        RsocketStreamRoutes.Route contract) {
+        return Flux.usingWhen(bufferedRequest(requestBody),
+                        body -> requester(MediaType.APPLICATION_JSON, route, contract, Traffic.STREAM)
+                                .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, MediaType.APPLICATION_JSON,
+                                        route.path(), Mono.fromSupplier(body::transfer), DataBuffer.class)
+                                        .map(OwnedBuffer::new)),
+                        body -> Mono.fromRunnable(body::release));
+    }
+
+    private static Mono<OwnedBuffer> bufferedRequest(Mono<DataBuffer> requestBody) {
+        return requestBody.map(OwnedBuffer::new)
+                .switchIfEmpty(Mono.fromSupplier(() -> new OwnedBuffer(null)));
+    }
+
+    private static final class OwnedBuffer {
         private final AtomicReference<DataBuffer> buffer;
 
-        private BufferedRequest(DataBuffer buffer) {
+        private OwnedBuffer(DataBuffer buffer) {
             this.buffer = new AtomicReference<>(buffer);
         }
 
         private DataBuffer transfer() {
-            // RSocket owns the buffer once its request publisher takes it.
+            // The subscriber takes ownership once it receives the buffer.
             return buffer.getAndSet(null);
         }
 
@@ -310,11 +346,23 @@ public class RsocketRequestFactory {
     }
 
     private Mono<Void> writeJsonResponse(ServerHttpResponse response, Mono<byte[]> result) {
-        return result.timeout(requestTimeout, Mono.error(() -> new EventException(GatewayHttpExceptionEnum.GATEWAY_TIMEOUT,
-                        "RSocket request timed out"))).flatMap(bytes -> {
+        return responseDeadline(result).flatMap(bytes -> {
             response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
             return response.writeWith(Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes)));
         });
+    }
+
+    private Mono<Void> writeJsonBuffer(ServerHttpResponse response, Mono<OwnedBuffer> result) {
+        return responseDeadline(result).flatMap(buffer ->
+                Mono.using(() -> buffer, body -> {
+                    response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+                    return response.writeWith(Mono.fromSupplier(body::transfer));
+                }, OwnedBuffer::release)).doOnDiscard(OwnedBuffer.class, OwnedBuffer::release);
+    }
+
+    private <T> Mono<T> responseDeadline(Mono<T> result) {
+        return result.timeout(requestTimeout, Mono.error(() -> new EventException(GatewayHttpExceptionEnum.GATEWAY_TIMEOUT,
+                "RSocket request timed out")));
     }
 
     private Flux<DataBuffer> channelReplies(GatewayFilter.GlobalFilterRoute route, RsocketStreamRoutes.Route contract,
@@ -325,7 +373,11 @@ public class RsocketRequestFactory {
 
     private Mono<RSocketLoadbalance.ProcessResponse> requester(MediaType mimeType,
             GatewayFilter.GlobalFilterRoute route, RsocketStreamRoutes.Route contract, Traffic traffic) {
-        Map<String, Object> metadata = route.metadata();
+        return requester(mimeType, route.host(), route.metadata(), contract.endpoints(), traffic);
+    }
+
+    private Mono<RSocketLoadbalance.ProcessResponse> requester(MediaType mimeType, String service,
+            Map<String, Object> metadata, Set<Endpoint> endpoints, Traffic traffic) {
         String specific = switch (traffic) {
             case UNARY -> "rsocketConnectionsPerInstance";
             case STREAM -> "rsocketStreamConnectionsPerInstance";
@@ -334,7 +386,7 @@ public class RsocketRequestFactory {
         String key = metadata.containsKey(specific) ? specific : "rsocketConnectionsPerInstance";
         Object configured = metadata.get(key);
         if (configured == null) {
-            return loadbalance.buildForGateway(mimeType, route.host(), traffic, Optional.empty(), contract.endpoints());
+            return loadbalance.buildForGateway(mimeType, service, traffic, Optional.empty(), endpoints);
         }
         int connections;
         try {
@@ -342,7 +394,31 @@ public class RsocketRequestFactory {
         } catch (NumberFormatException error) {
             throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, key + " must be an integer", error);
         }
-        return loadbalance.buildForGateway(mimeType, route.host(), traffic, Optional.of(connections), contract.endpoints());
+        return loadbalance.buildForGateway(mimeType, service, traffic, Optional.of(connections), endpoints);
+    }
+
+    Mono<Void> warmRoute(Route route) {
+        String service = route.getUri().getHost();
+        boolean websocket = WS_SCHEME.equals(route.getUri().getScheme());
+        var contentType = websocket ? MediaType.APPLICATION_JSON : resolveContentType(route.getMetadata(), HttpHeaders.EMPTY);
+        var mimeType = MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(contentType)
+                ? MediaType.APPLICATION_OCTET_STREAM : MediaType.APPLICATION_JSON;
+        return streamRoutes.warm(service).flatMapMany(routes -> {
+            var endpoints = new EnumMap<Traffic, Set<Endpoint>>(Traffic.class);
+            for (var contract : routes.values()) {
+                var interaction = contract.interaction();
+                if (websocket && interaction != GatewayInteraction.REQUEST_CHANNEL
+                        || interaction == GatewayInteraction.REQUEST_CHANNEL && !MediaType.APPLICATION_JSON.equals(mimeType)) {
+                    continue;
+                }
+                var traffic = interaction.isUnary() ? Traffic.UNARY
+                        : interaction == GatewayInteraction.REQUEST_CHANNEL ? Traffic.CHANNEL : Traffic.STREAM;
+                endpoints.computeIfAbsent(traffic, ignored -> new HashSet<>()).addAll(contract.endpoints());
+            }
+            return Flux.fromIterable(endpoints.entrySet())
+                    .flatMap(pool -> requester(mimeType, service, route.getMetadata(), Set.copyOf(pool.getValue()), pool.getKey())
+                            .flatMap(RSocketLoadbalance.ProcessResponse::awaitReady));
+        }).then();
     }
 
     @PreDestroy
@@ -383,6 +459,89 @@ public class RsocketRequestFactory {
 
     private Mono<byte[]> collectArray(Flux<byte[]> values) {
         return values.collect(JsonArray::new, JsonArray::append).map(JsonArray::finish);
+    }
+
+    private Mono<OwnedBuffer> collectJsonBuffers(Flux<OwnedBuffer> values, NettyDataBufferFactory factory) {
+        return Mono.using(() -> new JsonBufferArray(factory),
+                array -> values.collect(() -> array, (reply, value) -> reply.append(value.transfer()))
+                        .map(reply -> new OwnedBuffer(reply.finish())),
+                JsonBufferArray::release);
+    }
+
+    private final class JsonBufferArray {
+        private final NettyDataBufferFactory factory;
+        private final List<DataBuffer> items = new ArrayList<>();
+        private int length = ARRAY_START.length + ARRAY_END.length;
+        private boolean closed;
+
+        private JsonBufferArray(NettyDataBufferFactory factory) {
+            this.factory = factory;
+        }
+
+        private synchronized void append(DataBuffer value) {
+            boolean retained = false;
+            try {
+                if (closed || value.readableByteCount() == 0) {
+                    return;
+                }
+                if (value.readableByteCount() > maxResponseBytes) {
+                    throw responseLimit();
+                }
+                int start = skipBom(value);
+                int size = value.readableByteCount();
+                if (readBufferedJson(value, start) == JsonToken.VALUE_NULL) {
+                    return;
+                }
+                long nextLength = (long) length + size + (items.isEmpty() ? 0 : 1);
+                if (items.size() >= maxResponseItems || nextLength > maxResponseBytes) {
+                    throw responseLimit();
+                }
+                items.add(value);
+                retained = true;
+                length = (int) nextLength;
+            } finally {
+                if (!retained) {
+                    DataBufferUtils.release(value);
+                }
+            }
+        }
+
+        private synchronized DataBuffer finish() {
+            var output = factory.getByteBufAllocator().directBuffer(length);
+            boolean complete = false;
+            try {
+                output.writeBytes(ARRAY_START);
+                for (int index = 0; index < items.size(); index++) {
+                    if (index != 0) {
+                        output.writeByte(',');
+                    }
+                    var item = items.get(index);
+                    if (item instanceof NettyDataBuffer netty && netty.getNativeBuffer().nioBufferCount() == 1) {
+                        output.writeBytes(netty.getNativeBuffer(), item.readPosition(), item.readableByteCount());
+                    } else {
+                        try (var buffers = item.readableByteBuffers()) {
+                            while (buffers.hasNext()) {
+                                output.writeBytes(buffers.next());
+                            }
+                        }
+                    }
+                }
+                output.writeBytes(ARRAY_END);
+                var result = factory.wrap(output);
+                complete = true;
+                return result;
+            } finally {
+                if (!complete) {
+                    output.release();
+                }
+            }
+        }
+
+        private synchronized void release() {
+            closed = true;
+            items.forEach(DataBufferUtils::release);
+            items.clear();
+        }
     }
 
     private final class JsonArray {
@@ -450,6 +609,65 @@ public class RsocketRequestFactory {
             throw new EventException(invalidJson, "Expected one JSON value");
         }
         return root;
+    }
+
+    private DataBuffer unaryReply(DataBuffer value, DataBufferFactory factory) {
+        if (!(factory instanceof NettyDataBufferFactory nettyFactory)
+                || !(value instanceof NettyDataBuffer netty) || !netty.getNativeBuffer().isDirect()
+                || value.readableByteCount() < DIRECT_REPLY_MIN_BYTES) {
+            byte[] bytes = jsonEnvelope(value);
+            return bytes == null ? null : factory.wrap(bytes);
+        }
+        boolean transferred = false;
+        try {
+            if (value.readableByteCount() > maxResponseBytes) {
+                throw responseLimit();
+            }
+            int start = skipBom(value);
+            long size = (long) OBJECT_START.length + value.readableByteCount() + OBJECT_END.length;
+            if (readBufferedJson(value, start) == JsonToken.VALUE_NULL) {
+                return null;
+            }
+            if (size > maxResponseBytes) {
+                throw responseLimit();
+            }
+            // An all-direct composite avoids consolidation into a temporary heap buffer on Netty's NIO path.
+            var response = directEnvelope(nettyFactory, DIRECT_OBJECT_START, value, DIRECT_OBJECT_END);
+            transferred = true;
+            return response;
+        } finally {
+            if (!transferred) {
+                DataBufferUtils.release(value);
+            }
+        }
+    }
+
+    private static DataBuffer directEnvelope(NettyDataBufferFactory factory, ByteBuf prefix, DataBuffer body, ByteBuf suffix) {
+        return factory.join(List.of(factory.wrap(prefix.duplicate()), body, factory.wrap(suffix.duplicate())));
+    }
+
+    private static ByteBuf directConstant(byte[] bytes) {
+        return Unpooled.unreleasableBuffer(Unpooled.directBuffer(bytes.length).writeBytes(bytes).asReadOnly());
+    }
+
+    private static int skipBom(DataBuffer value) {
+        int start = value.readPosition();
+        if (value.readableByteCount() >= 3 && value.getByte(start) == (byte) 0xef
+                && value.getByte(start + 1) == (byte) 0xbb && value.getByte(start + 2) == (byte) 0xbf) {
+            start += 3;
+            value.readPosition(start);
+        }
+        return start;
+    }
+
+    private static JsonToken readBufferedJson(DataBuffer value, int start) {
+        try (var parser = UTF8_JSON.createParser(value.asInputStream())) {
+            return readJsonRoot(parser, GatewayHttpExceptionEnum.BAD_GATEWAY);
+        } catch (IOException error) {
+            throw new EventException(GatewayHttpExceptionEnum.BAD_GATEWAY, "RSocket returned invalid UTF-8 JSON", error);
+        } finally {
+            value.readPosition(start);
+        }
     }
 
     private byte[] jsonEnvelope(DataBuffer value) {
@@ -556,13 +774,90 @@ public class RsocketRequestFactory {
     }
 
     private Mono<Void> stream(ServerHttpResponse response, Flux<byte[]> replies) {
+        return writeStream(response, replies.map(bytes -> Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes))));
+    }
+
+    private Mono<Void> streamJson(ServerHttpResponse response, Flux<OwnedBuffer> replies) {
+        if (!(response.bufferFactory() instanceof NettyDataBufferFactory factory)) {
+            return stream(response, replies.map(value -> streamEnvelope(value.transfer(), true)))
+                    .doOnDiscard(OwnedBuffer.class, OwnedBuffer::release);
+        }
+        return Mono.using(StreamBuffers::new, buffers -> writeStream(response,
+                replies.map(value -> streamGroup(value.transfer(), factory, buffers))), StreamBuffers::release)
+                .doOnDiscard(OwnedBuffer.class, OwnedBuffer::release);
+    }
+
+    private Mono<DataBuffer> streamGroup(DataBuffer value, NettyDataBufferFactory factory, StreamBuffers buffers) {
+        boolean transferred = false;
+        try {
+            int original = value.readPosition();
+            if (value instanceof NettyDataBuffer netty && netty.getNativeBuffer().isDirect()
+                    && value.readableByteCount() >= DIRECT_STREAM_MIN_BYTES) {
+                int start = skipBom(value);
+                long size = (long) ARRAY_START.length + value.readableByteCount() + ARRAY_END.length;
+                if (size <= maxResponseBytes && isSingleLine(value, start)) {
+                    var reply = directEnvelope(factory, DIRECT_ARRAY_START, value, DIRECT_ARRAY_LINE_END);
+                    transferred = true;
+                    return buffers.enqueue(reply);
+                }
+                value.readPosition(original);
+            }
+            transferred = true;
+            byte[] bytes = streamEnvelope(value, true);
+            return Mono.fromSupplier(() -> factory.wrap(bytes));
+        } finally {
+            if (!transferred) {
+                DataBufferUtils.release(value);
+            }
+        }
+    }
+
+    private static boolean isSingleLine(DataBuffer value, int start) {
+        try (var parser = UTF8_JSON.createParser(value.asInputStream())) {
+            validateStreamValue(parser);
+            return parser.currentLocation().getLineNr() == 1;
+        } catch (IOException error) {
+            throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, "RSocket returned invalid stream JSON", error);
+        } finally {
+            value.readPosition(start);
+        }
+    }
+
+    // Netty can queue flush groups before subscribing to each group's buffer.
+    private static final class StreamBuffers {
+        private final Set<DataBuffer> pending = Collections.newSetFromMap(new IdentityHashMap<>());
+        private boolean closed;
+
+        private synchronized Mono<DataBuffer> enqueue(DataBuffer buffer) {
+            if (closed) {
+                DataBufferUtils.release(buffer);
+                return Mono.empty();
+            }
+            pending.add(buffer);
+            return Mono.fromSupplier(() -> transfer(buffer)).doOnDiscard(DataBuffer.class, DataBufferUtils::release);
+        }
+
+        private synchronized DataBuffer transfer(DataBuffer buffer) {
+            return pending.remove(buffer) ? buffer : null;
+        }
+
+        private synchronized void release() {
+            closed = true;
+            pending.forEach(DataBufferUtils::release);
+            pending.clear();
+        }
+    }
+
+    private Mono<Void> writeStream(ServerHttpResponse response, Flux<Mono<DataBuffer>> replies) {
         response.getHeaders().setContentType(MediaType.APPLICATION_NDJSON);
         response.getHeaders().set("X-Accel-Buffering", "no");
         var lines = timeoutFirstReply(replies)
-                .defaultIfEmpty(EMPTY_STREAM_LINE)
-                .onErrorResume(error -> Mono.fromSupplier(() ->
-                        line(encode(GatewayGlobalExceptionHandler.errorResponse(response, error, true)))));
-        return response.writeAndFlushWith(lines.map(bytes -> Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes))));
+                .defaultIfEmpty(Mono.fromSupplier(() -> response.bufferFactory().wrap(EMPTY_STREAM_LINE)))
+                .onErrorResume(error -> Mono.fromSupplier(() -> {
+                    byte[] bytes = line(encode(GatewayGlobalExceptionHandler.errorResponse(response, error, true)));
+                    return Mono.fromSupplier(() -> response.bufferFactory().wrap(bytes));
+                }));
+        return response.writeAndFlushWith(lines);
     }
 
     private <T> Flux<T> timeoutFirstReply(Flux<T> values) {

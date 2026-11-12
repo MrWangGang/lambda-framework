@@ -43,6 +43,13 @@ final class RsocketStreamRoutes implements AutoCloseable {
         return Mono.defer(() -> byService.computeIfAbsent(service, this::watch).resolve(path));
     }
 
+    Mono<Map<String, Route>> warm(String service) {
+        return Mono.defer(() -> byService.computeIfAbsent(service, this::watch).updates
+                .filter(snapshot -> snapshot.hasInstances() && !snapshot.pending())
+                .next()
+                .map(Snapshot::routes));
+    }
+
     private ServiceRoutes watch(String service) {
         var contracts = new ConcurrentHashMap<ContractKey, Map<String, GatewayInteraction>>();
         return new ServiceRoutes(loadbalance.watchService(service)

@@ -107,6 +107,10 @@ final class AdaptiveRSocketPool implements AutoCloseable {
         return destination(eligible).flatMapMany(destination -> action.apply(destination.connection().requester()));
     }
 
+    Mono<Void> awaitReady(Set<Endpoint> eligible) {
+        return destination(eligible).then();
+    }
+
     private Mono<Destination> destination(Set<Endpoint> eligible) {
         return Mono.defer(() -> {
             var selected = select(eligible);

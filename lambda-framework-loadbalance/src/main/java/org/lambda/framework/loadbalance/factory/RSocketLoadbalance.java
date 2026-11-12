@@ -125,6 +125,10 @@ public class RSocketLoadbalance {
             return new ProcessResponse(adaptive, identityMime, endpoints);
         }
 
+        public Mono<Void> awaitReady() {
+            return adaptive == null ? requester.rsocketClient().source().then() : adaptive.awaitReady(eligible);
+        }
+
         private static MimeType identityMime(MimeType dataMimeType) {
             return FORY.equalsTypeAndSubtype(dataMimeType) ? FORY : MimeTypeUtils.APPLICATION_JSON;
         }

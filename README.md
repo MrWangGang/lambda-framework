@@ -77,6 +77,8 @@ lambda.rsocket.client.adaptive-load-balancing=true
 
 接入 Nacos 时，连接池和网关订阅实例变更。服务注册时公布路由清单的版本，网关首次看到该版本时从对应实例读取并校验完整清单。后续请求直接查本地快照，清单没有固定到期时间。滚动发布时，新增路径只发给声明该路径的实例。相同路径如果同时声明不同交互类型，网关返回 503，等到版本一致后恢复。没有路由版本的旧提供方按实例加载清单，升级提供方后才能识别地址未变的路由变更。未使用 Nacos 时，实例发现仍使用通用轮询。
 
+常用的 `rb://` 和 `ws://` 路由可设置 `spring.cloud.gateway.server.webflux.routes[0].metadata.rsocketWarmup=true`。网关就绪后在后台加载该服务的路由清单，按声明的交互类型准备连接。预热不调用业务接口，首次请求在预热完成后可直接使用已准备好的连接。
+
 
 所有 MongoDB 集合实体放在 `po` 包并以 `PO` 结尾，继承 `UnifyPO<ObjectId>`。Spring Data 审计自动维护 `createdAt`、`updatedAt` 和 `@Version`。手写更新和已有数据迁移见 [数据访问与分页](#数据访问与分页)。
 
