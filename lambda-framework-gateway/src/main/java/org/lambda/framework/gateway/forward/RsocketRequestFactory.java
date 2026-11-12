@@ -5,7 +5,9 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectReader;
 
 
 import org.lambda.framework.common.enums.GatewayInteraction;
@@ -65,6 +67,8 @@ public class RsocketRequestFactory {
     private static final byte[] ARRAY_END = {']', '}'};
     private static final JsonFactory UTF8_JSON = JsonUtil.mapper().getFactory().copy()
             .disable(JsonFactory.Feature.CHARSET_DETECTION);
+    private static final ObjectReader STREAM_JSON = JsonUtil.mapper()
+            .readerFor(Object.class).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
     private final RSocketLoadbalance loadbalance;
     private final RsocketStreamRoutes streamRoutes;
@@ -144,8 +148,8 @@ public class RsocketRequestFactory {
                         if (contract.interaction() != GatewayInteraction.REQUEST_CHANNEL) {
                             return Flux.error(new EventException(GatewayHttpExceptionEnum.NOT_FOUND, "No public channel for this path"));
                         }
-                        return channelReplies(route, contract, input, sessionPrincipal);
-                    })).map(value -> encodeResponse(List.of(value)));
+                        return streamEnvelopes(channelReplies(route, contract, input, sessionPrincipal), false);
+                    }));
                 })
                 .onErrorResume(error -> Mono.fromSupplier(() ->
                         encode(GatewayGlobalExceptionHandler.errorResponse(response, error, true))));
@@ -226,7 +230,7 @@ public class RsocketRequestFactory {
                     })
                     .switchIfEmpty(Flux.error(() -> new EventException(GatewayHttpExceptionEnum.BAD_REQUEST,
                             "A channel requires a first record")));
-            return stream(response, channelReplies(route, contract, frames, principalStash));
+            return stream(response, streamEnvelopes(channelReplies(route, contract, frames, principalStash), true));
         }
         if (!MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
                 && !MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(contentType)) {
@@ -248,8 +252,14 @@ public class RsocketRequestFactory {
                 .or(() -> Optional.ofNullable(request.getHeaders().getFirst(RSOCKET_ECHO))).orElse("");
         Class<?> responseType = RSOCKET_ECHO_CHAR.equals(binaryEcho) ? String.class : Object.class;
         if (interaction.isNdjson()) {
+            if (json) {
+                var replies = body.flatMapMany(bytes -> requester(mimeType, route, contract, Traffic.STREAM)
+                        .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, DataBuffer.class)));
+                return stream(response, streamEnvelopes(replies, true));
+            }
             return stream(response, body.flatMapMany(bytes -> requester(mimeType, route, contract, Traffic.STREAM)
-                    .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, responseType))));
+                    .flatMapMany(rpc -> rpc.retrieveFlux(principalStash, mimeType, route.path(), bytes, responseType)))
+                    .map(value -> line(encodeResponse(List.of(value)))));
         }
         Mono<byte[]> result = body.flatMap(bytes -> requester(mimeType, route, contract, requestStream ? Traffic.STREAM : Traffic.UNARY).flatMap(rpc -> {
             if (requestStream) {
@@ -307,10 +317,10 @@ public class RsocketRequestFactory {
         });
     }
 
-    private Flux<Object> channelReplies(GatewayFilter.GlobalFilterRoute route, RsocketStreamRoutes.Route contract,
-                                        Flux<byte[]> frames, PrincipalStash principal) {
+    private Flux<DataBuffer> channelReplies(GatewayFilter.GlobalFilterRoute route, RsocketStreamRoutes.Route contract,
+                                            Flux<byte[]> frames, PrincipalStash principal) {
         return requester(MediaType.APPLICATION_JSON, route, contract, Traffic.CHANNEL)
-                .flatMapMany(rpc -> rpc.retrieveChannel(principal, route.path(), frames, Object.class));
+                .flatMapMany(rpc -> rpc.retrieveChannel(principal, route.path(), frames, DataBuffer.class));
     }
 
     private Mono<RSocketLoadbalance.ProcessResponse> requester(MediaType mimeType,
@@ -483,10 +493,72 @@ public class RsocketRequestFactory {
         }
     }
 
-    private Mono<Void> stream(ServerHttpResponse response, Flux<?> values) {
+    private Flux<byte[]> streamEnvelopes(Flux<DataBuffer> values, boolean ndjson) {
+        return values.map(value -> streamEnvelope(value, ndjson))
+                .doOnDiscard(DataBuffer.class, DataBufferUtils::release);
+    }
+
+    private byte[] streamEnvelope(DataBuffer value, boolean ndjson) {
+        try {
+            int size = value.readableByteCount();
+            int start = value.readPosition();
+            if (size >= 3 && value.getByte(start) == (byte) 0xef && value.getByte(start + 1) == (byte) 0xbb
+                    && value.getByte(start + 2) == (byte) 0xbf) {
+                value.readPosition(start + 3);
+                size -= 3;
+            }
+            long total = (long) ARRAY_START.length + size + ARRAY_END.length;
+            if (total > maxResponseBytes || total + (ndjson ? 1 : 0) > Integer.MAX_VALUE) {
+                return encodeStreamValue(STREAM_JSON.readValue(value.asInputStream()), ndjson);
+            }
+            byte[] bytes = Arrays.copyOf(ARRAY_START, (int) total + (ndjson ? 1 : 0));
+            value.read(bytes, ARRAY_START.length, size);
+            try (var parser = UTF8_JSON.createParser(bytes, ARRAY_START.length, size)) {
+                validateStreamValue(parser);
+                if (ndjson && parser.currentLocation().getLineNr() > 1) {
+                    // Compact formatted JSON so a reply still occupies exactly one NDJSON line.
+                    return encodeStreamValue(STREAM_JSON.readValue(bytes, ARRAY_START.length, size), true);
+                }
+            }
+            System.arraycopy(ARRAY_END, 0, bytes, ARRAY_START.length + size, ARRAY_END.length);
+            if (ndjson) {
+                bytes[bytes.length - 1] = '\n';
+            }
+            return bytes;
+        } catch (IOException error) {
+            throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, "RSocket returned invalid stream JSON", error);
+        } finally {
+            DataBufferUtils.release(value);
+        }
+    }
+
+    private static void validateStreamValue(JsonParser parser) throws IOException {
+        var root = parser.nextToken();
+        if (root == null || root == JsonToken.VALUE_NULL) {
+            throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, "Missing RSocket stream value");
+        }
+        parser.finishToken();
+        while (!parser.getParsingContext().inRoot()) {
+            parser.nextToken();
+            parser.finishToken();
+        }
+        if (parser.nextToken() != null) {
+            throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, "Expected one RSocket stream value");
+        }
+    }
+
+    private byte[] encodeStreamValue(Object value, boolean ndjson) {
+        if (value == null) {
+            throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, "Missing RSocket stream value");
+        }
+        var encoded = encodeResponse(List.of(value));
+        return ndjson ? line(encoded) : encoded;
+    }
+
+    private Mono<Void> stream(ServerHttpResponse response, Flux<byte[]> replies) {
         response.getHeaders().setContentType(MediaType.APPLICATION_NDJSON);
         response.getHeaders().set("X-Accel-Buffering", "no");
-        var lines = timeoutFirstReply(values).map(value -> line(encodeResponse(List.of(value))))
+        var lines = timeoutFirstReply(replies)
                 .defaultIfEmpty(EMPTY_STREAM_LINE)
                 .onErrorResume(error -> Mono.fromSupplier(() ->
                         line(encode(GatewayGlobalExceptionHandler.errorResponse(response, error, true)))));

@@ -29,7 +29,7 @@ final class RsocketStreamRoutes implements AutoCloseable {
     private static final Duration LOOKUP_TIMEOUT = Duration.ofMillis(500);
     private static final ParameterizedTypeReference<Map<String, GatewayInteraction>> INTERACTIONS =
             new ParameterizedTypeReference<>() {};
-    private final ConcurrentHashMap<String, Flux<Snapshot>> byService = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, ServiceRoutes> byService = new ConcurrentHashMap<>();
     private final Disposable.Composite subscriptions = Disposables.composite();
     private final RSocketLoadbalance loadbalance;
 
@@ -40,19 +40,42 @@ final class RsocketStreamRoutes implements AutoCloseable {
     }
 
     Mono<Route> resolve(String service, String path) {
-        return Mono.defer(() -> byService.computeIfAbsent(service, this::watch)
-                .filter(snapshot -> snapshot.knows(path) || !snapshot.pending())
-                .next()
-                .timeout(LOOKUP_TIMEOUT, Mono.error(RsocketStreamRoutes::unavailable))
-                .switchIfEmpty(Mono.error(RsocketStreamRoutes::unavailable))
-                .map(snapshot -> snapshot.resolve(path)));
+        return Mono.defer(() -> byService.computeIfAbsent(service, this::watch).resolve(path));
     }
 
-    private Flux<Snapshot> watch(String service) {
+    private ServiceRoutes watch(String service) {
         var contracts = new ConcurrentHashMap<ContractKey, Map<String, GatewayInteraction>>();
-        return loadbalance.watchService(service)
-                .switchMap(endpoints -> snapshots(endpoints, contracts))
-                .replay(1).autoConnect(1, subscriptions::add);
+        return new ServiceRoutes(loadbalance.watchService(service)
+                .switchMap(endpoints -> snapshots(endpoints, contracts)));
+    }
+
+    private final class ServiceRoutes {
+        private final Flux<Snapshot> updates;
+        private volatile Snapshot latest;
+
+        private ServiceRoutes(Flux<Snapshot> snapshots) {
+            updates = snapshots.doOnNext(snapshot -> latest = snapshot)
+                    .replay(1).autoConnect(1, subscriptions::add);
+        }
+
+        private Mono<Route> resolve(String path) {
+            var snapshot = latest;
+            if (snapshot != null) {
+                var route = snapshot.routes().get(path);
+                if (route != null) {
+                    return Mono.just(route);
+                }
+                if (!snapshot.pending() || snapshot.conflicts().contains(path)) {
+                    return Mono.just(snapshot.resolve(path));
+                }
+            }
+            return updates.map(ignored -> latest)
+                    .filter(candidate -> candidate.knows(path) || !candidate.pending())
+                    .next()
+                    .timeout(LOOKUP_TIMEOUT, Mono.error(RsocketStreamRoutes::unavailable))
+                    .switchIfEmpty(Mono.error(RsocketStreamRoutes::unavailable))
+                    .map(candidate -> candidate.resolve(path));
+        }
     }
 
     private Flux<Snapshot> snapshots(Set<Endpoint> endpoints,
