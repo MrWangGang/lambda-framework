@@ -49,7 +49,7 @@ public final class RsocketRouteWarmup {
         var uri = route.getUri();
         return uri.getHost() != null
                 && (RB_SCHEME.equals(uri.getScheme()) || WS_SCHEME.equals(uri.getScheme()))
-                && Boolean.parseBoolean(String.valueOf(route.getMetadata().get("rsocketWarmup")));
+                && Boolean.parseBoolean(String.valueOf(route.getMetadata().getOrDefault("rsocketWarmup", true)));
     }
 
     @PreDestroy
