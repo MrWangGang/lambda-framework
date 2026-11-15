@@ -10,6 +10,7 @@ import org.lambda.framework.common.startup.DeploymentMode;
 import org.lambda.framework.enums.RepositoryExceptionEnum;
 import org.lambda.framework.repository.config.converter.EnumReadConverter;
 import org.lambda.framework.repository.config.converter.EnumWriteConverter;
+import org.lambda.framework.repository.operation.MongoDocumentSchemas;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -18,6 +19,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.boot.mongodb.autoconfigure.MongoConnectionDetails;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
 import org.springframework.data.mongodb.ReactiveMongoTransactionManager;
 import org.springframework.data.auditing.DateTimeProvider;
@@ -86,6 +88,14 @@ public class MongoDataAutoConfiguration {
     @ConditionalOnMissingBean
     TransactionalOperator mongoTransactions(ReactiveMongoTransactionManager manager) {
         return TransactionalOperator.create(manager);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "mongoDocumentSchemaCheck")
+    @ConditionalOnProperty(name = "lambda.repository.mongo.install-document-schemas", havingValue = "true")
+    ComponentCheck mongoDocumentSchemaCheck(ReactiveMongoTemplate mongo) {
+        return new ComponentCheck("MongoDB document schemas",
+                () -> MongoDocumentSchemas.install(mongo, new ClassPathResource("mongo-document-schemas.json")));
     }
 
     @Bean
