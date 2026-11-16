@@ -26,7 +26,10 @@ import org.lambda.framework.enums.GatewayHttpExceptionEnum;
 import org.lambda.framework.gateway.error.GatewayGlobalExceptionHandler;
 import org.lambda.framework.gateway.filter.GatewayFilter;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance;
+import org.lambda.framework.loadbalance.factory.RSocketLoadbalance.GatewayPoolKey;
 import org.lambda.framework.loadbalance.factory.RSocketLoadbalance.Traffic;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -64,12 +67,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.lambda.framework.gateway.enums.GatewayContract.RB_SCHEME;
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO;
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO_CHAR;
 import static org.lambda.framework.gateway.enums.GatewayContract.RSOCKET_ECHO_VOID;
 import static org.lambda.framework.gateway.enums.GatewayContract.WS_SCHEME;
 
 public class RsocketRequestFactory {
+    private static final Logger log = LoggerFactory.getLogger(RsocketRequestFactory.class);
     private static final byte[] EMPTY_BODY = new byte[0];
     private static final byte[] EMPTY_RESPONSE = encode(new ResponseTemplete());
     private static final byte[] EMPTY_STREAM_LINE = line(encode(new ResponseTemplete(List.of())));
@@ -258,8 +263,7 @@ public class RsocketRequestFactory {
             return Mono.error(new EventException(GatewayHttpExceptionEnum.UNSUPPORTED_MEDIA_TYPE,
                     "Use application/json or application/octet-stream"));
         }
-        MediaType mimeType = MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
-                ? MediaType.APPLICATION_JSON : MediaType.APPLICATION_OCTET_STREAM;
+        MediaType mimeType = unaryOrStreamMimeType(contentType);
         Mono<DataBuffer> requestBody = DataBufferUtils.join(request.getBody(), maxRequestBytes);
         boolean json = MediaType.APPLICATION_JSON.equals(mimeType);
         if (json && interaction == GatewayInteraction.REQUEST_RESPONSE) {
@@ -378,6 +382,10 @@ public class RsocketRequestFactory {
 
     private Mono<RSocketLoadbalance.ProcessResponse> requester(MediaType mimeType, String service,
             Map<String, Object> metadata, Set<Endpoint> endpoints, Traffic traffic) {
+        return loadbalance.buildForGateway(mimeType, service, traffic, configuredConnections(metadata, traffic), endpoints);
+    }
+
+    private static Optional<Integer> configuredConnections(Map<String, Object> metadata, Traffic traffic) {
         String specific = switch (traffic) {
             case UNARY -> "rsocketConnectionsPerInstance";
             case STREAM -> "rsocketStreamConnectionsPerInstance";
@@ -386,15 +394,59 @@ public class RsocketRequestFactory {
         String key = metadata.containsKey(specific) ? specific : "rsocketConnectionsPerInstance";
         Object configured = metadata.get(key);
         if (configured == null) {
-            return loadbalance.buildForGateway(mimeType, service, traffic, Optional.empty(), endpoints);
+            return Optional.empty();
         }
-        int connections;
         try {
-            connections = Integer.parseInt(configured.toString());
+            return Optional.of(Integer.parseInt(configured.toString()));
         } catch (NumberFormatException error) {
             throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, key + " must be an integer", error);
         }
-        return loadbalance.buildForGateway(mimeType, service, traffic, Optional.of(connections), endpoints);
+    }
+
+    void retainRoutePools(List<Route> routes) {
+        var keys = new HashSet<GatewayPoolKey>();
+        for (Route route : routes) {
+            var uri = route.getUri();
+            if (uri.getHost() == null) {
+                continue;
+            }
+            if (WS_SCHEME.equals(uri.getScheme()) && uri.getPort() == -1 && uri.getUserInfo() == null) {
+                addRoutePool(keys, route, MediaType.APPLICATION_JSON, Traffic.CHANNEL);
+            }
+            if (!RB_SCHEME.equals(uri.getScheme())) {
+                continue;
+            }
+            List<MediaType> contentTypes;
+            try {
+                contentTypes = option(route.getMetadata(), "rsocketContentType").map(MediaType::valueOf).map(List::of)
+                        .orElse(List.of(MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM));
+            } catch (EventException | InvalidMediaTypeException error) {
+                log.warn("Invalid RSocket content type on gateway route {}", route.getId(), error);
+                continue;
+            }
+            for (MediaType contentType : contentTypes) {
+                if (MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
+                        || MediaType.APPLICATION_NDJSON.isCompatibleWith(contentType)) {
+                    addRoutePool(keys, route, MediaType.APPLICATION_JSON, Traffic.CHANNEL);
+                }
+                if (MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
+                        || MediaType.APPLICATION_OCTET_STREAM.isCompatibleWith(contentType)) {
+                    MediaType mimeType = unaryOrStreamMimeType(contentType);
+                    addRoutePool(keys, route, mimeType, Traffic.UNARY);
+                    addRoutePool(keys, route, mimeType, Traffic.STREAM);
+                }
+            }
+        }
+        loadbalance.retainGatewayPools(keys);
+    }
+
+    private void addRoutePool(Set<GatewayPoolKey> keys, Route route, MediaType mimeType, Traffic traffic) {
+        try {
+            keys.add(loadbalance.gatewayPoolKey(mimeType, route.getUri().getHost(), traffic,
+                    configuredConnections(route.getMetadata(), traffic)));
+        } catch (EventException error) {
+            log.warn("Invalid RSocket {} connection count on gateway route {}", traffic, route.getId(), error);
+        }
     }
 
     Mono<Void> warmRoute(Route route) {
@@ -446,6 +498,11 @@ public class RsocketRequestFactory {
             }
             return expected;
         }).orElseGet(() -> contentType.orElse(MediaType.APPLICATION_JSON));
+    }
+
+    private static MediaType unaryOrStreamMimeType(MediaType contentType) {
+        return MediaType.APPLICATION_JSON.isCompatibleWith(contentType)
+                ? MediaType.APPLICATION_JSON : MediaType.APPLICATION_OCTET_STREAM;
     }
 
     private static Optional<String> option(Map<String, Object> metadata, String key) {

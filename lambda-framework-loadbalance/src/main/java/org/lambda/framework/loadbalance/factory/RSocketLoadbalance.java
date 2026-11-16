@@ -66,12 +66,22 @@ public class RSocketLoadbalance {
     private final Optional<ServiceInstanceSource> instanceSource;
     private final ConcurrentHashMap<String, Flux<Set<Endpoint>>> serviceInstances = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<RequesterKey, ProcessResponse> requesters = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<GatewayPoolKey, GatewayPool> gatewayPools = new ConcurrentHashMap<>();
+    private volatile Optional<Set<GatewayPoolKey>> retainedGatewayPools = Optional.empty();
     private volatile boolean closed;
 
     public enum Traffic { UNARY, STREAM, CHANNEL }
 
+    public record GatewayPoolKey(MimeType mimeType, String service, Traffic traffic, int connections) {}
+
     private record RequesterKey(String target, Integer port, MimeType dataMimeType,
-                                int connectionsPerInstance, Traffic traffic, boolean gateway) {}
+                                int connectionsPerInstance, Traffic traffic) {}
+
+    private record GatewayPoolReference(RSocketLoadbalance owner, GatewayPoolKey key) {
+        GatewayPool acquire() {
+            return owner.acquireGatewayPool(key);
+        }
+    }
 
     public RSocketLoadbalance(DiscoveryClient discoveryClient, ObjectProvider<RSocketRequester.Builder> builders,
                               RSocketStrategies strategies, RSocketClientResources resources,
@@ -106,12 +116,14 @@ public class RSocketLoadbalance {
         private final AdaptiveRSocketPool adaptive;
         private final MimeType identityMime;
         private final Set<Endpoint> eligible;
+        private final GatewayPoolReference gateway;
 
         private ProcessResponse(RSocketRequester requester) {
             this.requester = requester;
             this.adaptive = null;
             this.eligible = null;
             this.identityMime = identityMime(requester.dataMimeType());
+            this.gateway = null;
         }
 
         private ProcessResponse(AdaptiveRSocketPool adaptive, MimeType identityMime, Set<Endpoint> eligible) {
@@ -119,13 +131,21 @@ public class RSocketLoadbalance {
             this.adaptive = adaptive;
             this.identityMime = identityMime;
             this.eligible = eligible;
+            this.gateway = null;
         }
 
-        private ProcessResponse restrict(Set<Endpoint> endpoints) {
-            return new ProcessResponse(adaptive, identityMime, endpoints);
+        private ProcessResponse(GatewayPoolReference gateway, Set<Endpoint> eligible) {
+            this.requester = null;
+            this.adaptive = null;
+            this.identityMime = identityMime(gateway.key().mimeType());
+            this.eligible = eligible;
+            this.gateway = gateway;
         }
 
         public Mono<Void> awaitReady() {
+            if (gateway != null) {
+                return Mono.using(gateway::acquire, pool -> pool.adaptive.awaitReady(eligible), GatewayPool::release, false);
+            }
             return adaptive == null ? requester.rsocketClient().source().then() : adaptive.awaitReady(eligible);
         }
 
@@ -164,10 +184,16 @@ public class RSocketLoadbalance {
         }
 
         private <T> Mono<T> unary(Function<RSocketRequester, Mono<T>> action) {
+            if (gateway != null) {
+                return Mono.using(gateway::acquire, pool -> pool.adaptive.request(action, eligible), GatewayPool::release, false);
+            }
             return adaptive == null ? action.apply(requester) : adaptive.request(action, eligible);
         }
 
         private <T> Flux<T> stream(Function<RSocketRequester, Flux<T>> action) {
+            if (gateway != null) {
+                return Flux.using(gateway::acquire, pool -> pool.adaptive.stream(action, eligible), GatewayPool::release, false);
+            }
             return adaptive == null ? action.apply(requester) : adaptive.stream(action, eligible);
         }
 
@@ -191,7 +217,7 @@ public class RSocketLoadbalance {
     public Mono<ProcessResponse> build(MimeType mimeType, String ip, Integer port) {
         Assert.verify(ip, HOST_REQUIRED);
         Assert.verify(port, PORT_REQUIRED);
-        RequesterKey key = new RequesterKey(ip, port, mimeType, 1, Traffic.UNARY, false);
+        RequesterKey key = new RequesterKey(ip, port, mimeType, 1, Traffic.UNARY);
         return Mono.fromSupplier(() -> requester(key));
     }
 
@@ -210,16 +236,100 @@ public class RSocketLoadbalance {
     public Mono<ProcessResponse> buildForService(MimeType mimeType, String serviceName,
                                                  int connections, Traffic traffic) {
         Assert.verify(serviceName, SERVICE_NAME_REQUIRED);
-        var key = new RequesterKey(serviceName, null, mimeType, validatedConnections(connections), traffic, false);
+        var key = new RequesterKey(serviceName, null, mimeType, validatedConnections(connections), traffic);
         return Mono.fromSupplier(() -> requester(key));
     }
 
     public Mono<ProcessResponse> buildForGateway(MimeType mimeType, String service, Traffic traffic,
                                                   Optional<Integer> connections, Set<Endpoint> eligible) {
+        var key = gatewayPoolKey(mimeType, service, traffic, connections);
+        return Mono.just(new ProcessResponse(new GatewayPoolReference(this, key), eligible));
+    }
+
+    public GatewayPoolKey gatewayPoolKey(MimeType mimeType, String service, Traffic traffic,
+                                         Optional<Integer> connections) {
         Assert.verify(service, SERVICE_NAME_REQUIRED);
         int count = connections.map(RSocketLoadbalance::validatedConnections).orElse(connectionsPerInstance);
-        var key = new RequesterKey(service, null, mimeType, count, traffic, true);
-        return Mono.fromSupplier(() -> requester(key).restrict(eligible));
+        return new GatewayPoolKey(mimeType, service, traffic, count);
+    }
+
+    public void retainGatewayPools(Set<GatewayPoolKey> keys) {
+        retainedGatewayPools = Optional.of(Set.copyOf(keys));
+        gatewayPools.values().forEach(GatewayPool::retireIfUnused);
+    }
+
+    private GatewayPool acquireGatewayPool(GatewayPoolKey key) {
+        while (!closed) {
+            GatewayPool pool = gatewayPools.computeIfAbsent(key, GatewayPool::new);
+            if (closed) {
+                closeGatewayPool(key, pool);
+                break;
+            }
+            if (pool.acquire()) {
+                return pool;
+            }
+        }
+        throw new EventException(LoadBalanceExceptionEnum.CONNECTION_UNAVAILABLE, "RSocket client is closed");
+    }
+
+    private void closeGatewayPool(GatewayPoolKey key, GatewayPool pool) {
+        if (gatewayPools.remove(key, pool)) {
+            pool.adaptive.close();
+        }
+    }
+
+    private final class GatewayPool {
+        private final GatewayPoolKey key;
+        private final AdaptiveRSocketPool adaptive;
+        private int inFlight;
+        private boolean retired;
+
+        private GatewayPool(GatewayPoolKey key) {
+            this.key = key;
+            this.adaptive = new AdaptiveRSocketPool(key.service(), key.connections(),
+                    adaptiveLoadBalancing && key.traffic() == Traffic.UNARY, watchService(key.service()),
+                    endpoint -> directRequester(key.mimeType(), endpoint.host(), endpoint.port(), key.traffic(),
+                            endpoint.routeVersion()));
+        }
+
+        private synchronized boolean acquire() {
+            if (retired) {
+                return false;
+            }
+            inFlight++;
+            return true;
+        }
+
+        private void release() {
+            boolean detached;
+            synchronized (this) {
+                inFlight--;
+                detached = detachIfUnused();
+            }
+            if (detached) {
+                adaptive.close();
+            }
+        }
+
+        private void retireIfUnused() {
+            boolean detached;
+            synchronized (this) {
+                detached = detachIfUnused();
+            }
+            if (detached) {
+                adaptive.close();
+            }
+        }
+
+        // Requests that matched the previous route can still acquire this key, but
+        // their pool is removed as soon as the last subscription ends.
+        private boolean detachIfUnused() {
+            if (inFlight != 0 || retainedGatewayPools.map(keys -> keys.contains(key)).orElse(true)) {
+                return false;
+            }
+            retired = true;
+            return gatewayPools.remove(key, this);
+        }
     }
 
     public <T> Mono<T> withEndpoint(MimeType mimeType, Endpoint endpoint,
@@ -285,11 +395,10 @@ public class RSocketLoadbalance {
             return new ProcessResponse(directRequester(key.dataMimeType(), key.target(), key.port(), key.traffic()));
         }
         boolean adaptiveSelection = adaptiveLoadBalancing && key.traffic() == Traffic.UNARY;
-        if (adaptiveSelection || key.gateway()) {
+        if (adaptiveSelection) {
             var adaptive = new AdaptiveRSocketPool(key.target(), key.connectionsPerInstance(), adaptiveSelection,
                     watchService(key.target()),
-                    address -> directRequester(key.dataMimeType(), address.host(), address.port(), key.traffic(),
-                            key.gateway() ? address.routeVersion() : ""));
+                    address -> directRequester(key.dataMimeType(), address.host(), address.port(), key.traffic()));
             return new ProcessResponse(adaptive, ProcessResponse.identityMime(key.dataMimeType()), null);
         }
 
@@ -356,6 +465,7 @@ public class RSocketLoadbalance {
     @PreDestroy
     void close() {
         closed = true;
+        gatewayPools.forEach(this::closeGatewayPool);
         requesters.values().forEach(ProcessResponse::close);
         requesters.clear();
         serviceInstances.clear();
