@@ -10,7 +10,8 @@ import org.lambda.framework.common.startup.DeploymentMode;
 import org.lambda.framework.enums.RepositoryExceptionEnum;
 import org.lambda.framework.repository.config.converter.EnumReadConverter;
 import org.lambda.framework.repository.config.converter.EnumWriteConverter;
-import org.lambda.framework.repository.operation.MongoDocumentSchemas;
+import org.lambda.framework.repository.config.NullWritingMongoMappingContext;
+import org.lambda.framework.repository.config.NullWritingMongoConverter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -19,17 +20,25 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.boot.mongodb.autoconfigure.MongoConnectionDetails;
 import org.springframework.context.annotation.Bean;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
+import org.springframework.data.mongodb.MongoManagedTypes;
 import org.springframework.data.mongodb.ReactiveMongoTransactionManager;
 import org.springframework.data.auditing.DateTimeProvider;
 import org.springframework.data.mongodb.config.EnableReactiveMongoAuditing;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
+import org.springframework.data.mongodb.core.convert.MappingMongoConverter;
+import org.springframework.data.mongodb.core.convert.DefaultDbRefResolver;
+import org.springframework.data.mongodb.core.convert.NoOpDbRefResolver;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
 import org.springframework.data.mongodb.core.index.MongoPersistentEntityIndexResolver;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.data.mongodb.core.mapping.MongoPersistentEntity;
+import org.springframework.boot.data.mongodb.autoconfigure.DataMongoProperties;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.mapping.model.FieldNamingStrategy;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 
@@ -79,6 +88,33 @@ public class MongoDataAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(MongoMappingContext.class)
+    @ConditionalOnProperty(name = "lambda.repository.mongo.write-null-fields", havingValue = "true", matchIfMissing = true)
+    MongoMappingContext mongoMappingContext(MongoCustomConversions conversions, MongoManagedTypes managedTypes,
+                                            DataMongoProperties properties) {
+        var mapping = new NullWritingMongoMappingContext();
+        mapping.setManagedTypes(managedTypes);
+        mapping.setSimpleTypeHolder(conversions.getSimpleTypeHolder());
+        if (properties.isAutoIndexCreation() != null) mapping.setAutoIndexCreation(properties.isAutoIndexCreation());
+        if (properties.getFieldNamingStrategy() != null) {
+            mapping.setFieldNamingStrategy((FieldNamingStrategy) BeanUtils.instantiateClass(properties.getFieldNamingStrategy()));
+        }
+        return mapping;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(MappingMongoConverter.class)
+    @ConditionalOnProperty(name = "lambda.repository.mongo.write-null-fields", havingValue = "true", matchIfMissing = true)
+    MappingMongoConverter mappingMongoConverter(ObjectProvider<MongoDatabaseFactory> databases,
+                                                MongoMappingContext mapping, MongoCustomConversions conversions) {
+        var database = databases.getIfAvailable();
+        var resolver = database == null ? NoOpDbRefResolver.INSTANCE : new DefaultDbRefResolver(database);
+        var converter = new NullWritingMongoConverter(resolver, mapping);
+        converter.setCustomConversions(conversions);
+        return converter;
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     ReactiveMongoTransactionManager mongoTransactionManager(ReactiveMongoDatabaseFactory database) {
         return new ReactiveMongoTransactionManager(database);
@@ -88,14 +124,6 @@ public class MongoDataAutoConfiguration {
     @ConditionalOnMissingBean
     TransactionalOperator mongoTransactions(ReactiveMongoTransactionManager manager) {
         return TransactionalOperator.create(manager);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(name = "mongoDocumentSchemaCheck")
-    @ConditionalOnProperty(name = "lambda.repository.mongo.install-document-schemas", havingValue = "true")
-    ComponentCheck mongoDocumentSchemaCheck(ReactiveMongoTemplate mongo) {
-        return new ComponentCheck("MongoDB document schemas",
-                () -> MongoDocumentSchemas.install(mongo, new ClassPathResource("mongo-document-schemas.json")));
     }
 
     @Bean

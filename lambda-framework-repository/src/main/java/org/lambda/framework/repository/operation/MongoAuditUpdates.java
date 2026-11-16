@@ -1,6 +1,7 @@
 package org.lambda.framework.repository.operation;
 
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.data.mongodb.core.query.Query;
 
 import java.time.Instant;
 
@@ -16,5 +17,9 @@ public final class MongoAuditUpdates {
         return update.setOnInsert("createdAt", createdAt)
                 .setOnInsert("updatedAt", updatedAt)
                 .setOnInsert("version", 0L);
+    }
+
+    public static Update insertOnly(Update update, Instant createdAt, Instant updatedAt, Query query, Class<?> entity) {
+        return MongoInsertDefaults.withNullFields(query, insertOnly(update, createdAt, updatedAt), entity);
     }
 }
