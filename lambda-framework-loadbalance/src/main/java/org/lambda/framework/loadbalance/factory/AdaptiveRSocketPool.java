@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -36,6 +37,7 @@ final class AdaptiveRSocketPool implements AutoCloseable {
     private static final Retry RECONNECT_RETRY = Retry.backoff(Long.MAX_VALUE, RECONNECT_DELAY)
             .maxBackoff(Duration.ofSeconds(10)).transientErrors(true);
     private static final long INITIAL_LATENCY_NANOS = Duration.ofMillis(5).toNanos();
+    private static final long ERROR_PENALTY_NANOS = Duration.ofMillis(200).toNanos();
 
     private final String service;
     private final int connectionsPerInstance;
@@ -97,10 +99,17 @@ final class AdaptiveRSocketPool implements AutoCloseable {
         if (!adaptiveSelection) {
             return destination(eligible).flatMap(destination -> action.apply(destination.connection().requester()));
         }
-        return destination(eligible).flatMap(destination -> Mono.using(destination.instance()::beginRequest,
-                started -> action.apply(destination.connection().requester())
-                        .doOnSuccess(ignored -> destination.instance().recordLatency(System.nanoTime() - started)),
-                ignored -> destination.instance().pending.decrementAndGet()));
+        return destination(eligible).flatMap(destination -> {
+            Instance instance = destination.instance();
+            return Mono.using(instance::beginRequest,
+                    attempt -> action.apply(destination.connection().requester())
+                            .doOnSuccess(ignored -> attempt.finish(instance, false))
+                            .doOnError(ignored -> attempt.finish(instance, true)),
+                    attempt -> {
+                        instance.pending.decrementAndGet();
+                        attempt.finish(instance, true);
+                    });
+        });
     }
 
     <T> Flux<T> stream(Function<RSocketRequester, Flux<T>> action, Set<Endpoint> eligible) {
@@ -139,29 +148,41 @@ final class AdaptiveRSocketPool implements AutoCloseable {
         if (size == 0) {
             return Optional.empty();
         }
-        int offset = Math.floorMod(nextInstance.getAndIncrement(), size);
+        if (size == 1) {
+            var single = candidates.getFirst();
+            if (!single.eligible(eligible)) {
+                return Optional.empty();
+            }
+            return single.nextConnection().map(value -> new Destination(single, value));
+        }
         if (!adaptiveSelection) {
+            int offset = Math.floorMod(nextInstance.getAndIncrement(), size);
             return roundRobin(candidates, offset, eligible);
         }
+        var random = ThreadLocalRandom.current();
+        int idx1 = random.nextInt(size);
         // Keep a small sample from slower instances so that recovery is visible to the selector.
-        if (size > 1 && ThreadLocalRandom.current().nextInt(256) == 0) {
-            var probe = candidates.get(ThreadLocalRandom.current().nextInt(size));
-            var connection = probe.eligible(eligible) ? probe.nextConnection() : Optional.<Connected>empty();
-            if (connection.isPresent()) {
-                return connection.map(value -> new Destination(probe, value));
-            }
-        }
-        Instance best = null;
-        double bestScore = Double.POSITIVE_INFINITY;
-        for (int i = 0; i < size; i++) {
-            var candidate = candidates.get((offset + i) % size);
-            if (candidate.eligible(eligible) && candidate.hasConnection()) {
-                double score = candidate.score();
-                if (score * 1.1 < bestScore) {
-                    best = candidate;
-                    bestScore = score;
+        if (random.nextInt(256) == 0) {
+            var probe = candidates.get(idx1);
+            if (probe.eligible(eligible)) {
+                var connection = probe.nextConnection();
+                if (connection.isPresent()) {
+                    return Optional.of(new Destination(probe, connection.orElseThrow(this::unavailable)));
                 }
             }
+        }
+        int idx2 = (idx1 + 1 + random.nextInt(size - 1)) % size;
+        var first = candidates.get(idx1);
+        var second = candidates.get(idx2);
+        boolean firstOk = first.eligible(eligible) && first.hasConnection();
+        boolean secondOk = second.eligible(eligible) && second.hasConnection();
+        Instance best = null;
+        if (firstOk && secondOk) {
+            best = first.score() <= second.score() ? first : second;
+        } else if (firstOk) {
+            best = first;
+        } else if (secondOk) {
+            best = second;
         }
         if (best != null) {
             var connection = best.nextConnection();
@@ -169,7 +190,7 @@ final class AdaptiveRSocketPool implements AutoCloseable {
                 return Optional.of(new Destination(best, connection.orElseThrow(this::unavailable)));
             }
         }
-        return roundRobin(candidates, offset, eligible);
+        return roundRobin(candidates, idx1, eligible);
     }
 
     private static Optional<Destination> roundRobin(List<Instance> candidates, int offset, Set<Endpoint> eligible) {
@@ -241,7 +262,11 @@ final class AdaptiveRSocketPool implements AutoCloseable {
 
         Optional<Connected> nextConnection() {
             int size = connections.size();
-            int offset = Math.floorMod(cursor.getAndIncrement(), size);
+            if (size == 1) {
+                Connected connection = connections.getFirst().connected;
+                return connection != null && connection.available() ? Optional.of(connection) : Optional.empty();
+            }
+            int offset = ThreadLocalRandom.current().nextInt(size);
             for (int i = 0; i < size; i++) {
                 Connected connection = connections.get((offset + i) % size).connected;
                 if (connection != null && connection.available()) {
@@ -255,13 +280,27 @@ final class AdaptiveRSocketPool implements AutoCloseable {
             return (pending.get() + 1.0) * latency.get();
         }
 
-        long beginRequest() {
+        Attempt beginRequest() {
             pending.incrementAndGet();
-            return System.nanoTime();
+            return new Attempt();
         }
 
         void recordLatency(long elapsedNanos) {
             latency.updateAndGet(previous -> previous + (elapsedNanos - previous) / 8);
+        }
+    }
+
+    private static final class Attempt extends AtomicBoolean {
+        private final long started = System.nanoTime();
+
+        private void finish(Instance instance, boolean failedOrCancelled) {
+            if (compareAndSet(false, true)) {
+                long elapsed = Math.max(1L, System.nanoTime() - started);
+                long sample = failedOrCancelled
+                        ? Math.max(elapsed, Math.max(instance.latency.get() * 4L, ERROR_PENALTY_NANOS))
+                        : elapsed;
+                instance.recordLatency(sample);
+            }
         }
     }
 

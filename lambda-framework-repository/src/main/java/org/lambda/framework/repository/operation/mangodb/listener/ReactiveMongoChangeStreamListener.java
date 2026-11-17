@@ -2,6 +2,7 @@ package org.lambda.framework.repository.operation.mangodb.listener;
 
 import org.apache.commons.lang3.StringUtils;
 import org.bson.BsonType;
+import org.bson.BsonValue;
 import org.bson.Document;
 import org.lambda.framework.common.exception.EventException;
 import org.slf4j.Logger;
@@ -10,8 +11,12 @@ import org.springframework.data.mongodb.core.ChangeStreamEvent;
 import org.springframework.data.mongodb.core.ChangeStreamOptions;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.mongodb.client.model.changestream.OperationType.*;
 import static org.lambda.framework.repository.enums.EnumOpertionType.*;
@@ -26,78 +31,87 @@ public class ReactiveMongoChangeStreamListener {
         this.reactiveMongoTemplate = reactiveMongoTemplate;
     }
 
-    public <T>void listener(ReactiveMongoChangeStreamOperate<T> operate) {
-        try {
-            this.start(operate);
-        } catch (Throwable e){
-            log.error(StringUtils.isNotBlank(e.getMessage())?e.getMessage():"change stream配置错误,启动失败", e);
-            System.exit(1);
+    public <T> void listener(ReactiveMongoChangeStreamOperate<T> operate) {
+        if (operate == null || reactiveMongoTemplate == null || operate.clazz() == null) {
+            throw new EventException(CHANGE_STREAM_CONFIGURATION_INVALID);
         }
-    }
-
-    private <T> void start(ReactiveMongoChangeStreamOperate<T> operate) {
-        if (operate == null) throw new EventException(CHANGE_STREAM_CONFIGURATION_INVALID);
-        if (reactiveMongoTemplate == null) throw new EventException(CHANGE_STREAM_CONFIGURATION_INVALID);
-        if (operate.clazz() == null) throw new EventException(CHANGE_STREAM_CONFIGURATION_INVALID);
-        this.watch(operate.clazz(), reactiveMongoTemplate)
-                .subscribe(event -> {
-                    try {
-                        Long time = event.getRaw().getClusterTime().getValue();
-                        String db = event.getRaw().getNamespaceDocument().getString("db").getValue();
-                        String doc = event.getRaw().getNamespaceDocument().getString("coll").getValue();
-                        BsonType type = event.getRaw().getDocumentKey().get("_id").getBsonType();
-                        String docId;
-                        if (type.equals(BsonType.STRING)) {
-                            // 如果是字符串类型，使用getString方法获取值
-                            docId = event.getRaw().getDocumentKey().get("_id").asString().getValue();
-                            // 后续使用idAsString进行相应操作，比如记录日志、作为参数传递等
-                        } else if (type.equals(BsonType.OBJECT_ID)) {
-                            // 如果是ObjectId类型，使用getObjectId方法获取ObjectId对象后再转换为字符串（通常需要这样处理以便后续使用）
-                            docId = event.getRaw().getDocumentKey().get("_id").asObjectId().getValue().toHexString();
-                            // 后续使用idAsString进行操作
-                        } else {
-                            // 处理其他不符合预期的类型情况，比如抛出异常或者进行默认处理等
-                            throw new EventException(CHANGE_STREAM_ID_TYPE_UNSUPPORTED);
-                        }
-                        String opid = db + "." + doc + "." + docId + "." + time;
-                        if (event.getOperationType().equals(INSERT)) {
-                            operate.afterInsert(ENUM_OPERTION_TYPE_INSERT,opid,event.getBody()).subscribe();
-                        }
-                        if (event.getOperationType().equals(UPDATE) || event.getOperationType().equals(REPLACE) ) {
-                            operate.afterUpdate(ENUM_OPERTION_TYPE_UPDATE,opid, event.getBody()).subscribe();
-                        }
-                        if (event.getOperationType().equals(DELETE)) {
-                            operate.afterDelete(ENUM_OPERTION_TYPE_DELETE,opid, event.getBody()).subscribe();
-                        }
-                    } catch (Throwable e){
-                        log.error(StringUtils.isNotBlank(e.getMessage())?e.getMessage():"change stream配置错误,启动失败", e);
+        String docName = resolveCollectionName(operate.clazz());
+        var resumeToken = new AtomicReference<BsonValue>();
+        Flux.defer(() -> watch(operate.clazz(), docName, reactiveMongoTemplate, resumeToken.get()))
+                .doOnNext(event -> {
+                    if (event.getResumeToken() != null) {
+                        resumeToken.set(event.getResumeToken());
                     }
-                });
+                })
+                .concatMap(event -> dispatch(operate, event)
+                        .onErrorResume(error -> {
+                            log.error("Mongo change stream event handling failed", error);
+                            return Mono.empty();
+                        }))
+                .doOnError(error -> log.error("Mongo change stream disconnected, reconnecting", error))
+                .retryWhen(Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1)).maxBackoff(Duration.ofSeconds(30)))
+                .subscribe(ignored -> {}, error -> log.error("Mongo change stream terminated", error));
     }
 
+    private <T> Mono<Void> dispatch(ReactiveMongoChangeStreamOperate<T> operate, ChangeStreamEvent<T> event) {
+        var raw = event.getRaw();
+        if (raw == null || raw.getClusterTime() == null || raw.getNamespaceDocument() == null
+                || raw.getDocumentKey() == null || raw.getDocumentKey().get("_id") == null
+                || event.getOperationType() == null) {
+            return Mono.empty();
+        }
+        Long time = raw.getClusterTime().getValue();
+        String db = raw.getNamespaceDocument().getString("db").getValue();
+        String doc = raw.getNamespaceDocument().getString("coll").getValue();
+        BsonValue idValue = raw.getDocumentKey().get("_id");
+        BsonType type = idValue.getBsonType();
+        String docId;
+        if (type.equals(BsonType.STRING)) {
+            docId = idValue.asString().getValue();
+        } else if (type.equals(BsonType.OBJECT_ID)) {
+            docId = idValue.asObjectId().getValue().toHexString();
+        } else {
+            return Mono.error(new EventException(CHANGE_STREAM_ID_TYPE_UNSUPPORTED));
+        }
+        String opid = db + "." + doc + "." + docId + "." + time;
+        if (event.getOperationType().equals(INSERT)) {
+            return operate.afterInsert(ENUM_OPERTION_TYPE_INSERT, opid, event.getBody()).then();
+        }
+        if (event.getOperationType().equals(UPDATE) || event.getOperationType().equals(REPLACE)) {
+            return operate.afterUpdate(ENUM_OPERTION_TYPE_UPDATE, opid, event.getBody()).then();
+        }
+        if (event.getOperationType().equals(DELETE)) {
+            return operate.afterDelete(ENUM_OPERTION_TYPE_DELETE, opid, event.getBody()).then();
+        }
+        return Mono.empty();
+    }
 
-    private  <T>Flux<ChangeStreamEvent<T>> watch(Class<T> clazz,ReactiveMongoTemplate reactiveMongoTemplate) {
+    private static String resolveCollectionName(Class<?> clazz) {
         org.springframework.data.mongodb.core.mapping.Document annotation = clazz.getAnnotation(org.springframework.data.mongodb.core.mapping.Document.class);
-        if(annotation == null){
+        if (annotation == null) {
             throw new EventException(COLLECTION_MAPPING_REQUIRED);
         }
         String docName = null;
-        if(StringUtils.isNotBlank(annotation.value())){
+        if (StringUtils.isNotBlank(annotation.value())) {
             docName = annotation.value();
         }
-        if(StringUtils.isNotBlank(annotation.collection())){
+        if (StringUtils.isNotBlank(annotation.collection())) {
             docName = annotation.collection();
         }
-
-        if(StringUtils.isBlank(docName)){
+        if (StringUtils.isBlank(docName)) {
             throw new EventException(COLLECTION_NAME_REQUIRED);
         }
-        // 构建 ChangeStreamOptions，过滤操作类型为 insert 和 update,delete
-        ChangeStreamOptions options = ChangeStreamOptions.builder()
+        return docName;
+    }
+
+    private <T> Flux<ChangeStreamEvent<T>> watch(Class<T> clazz, String docName, ReactiveMongoTemplate reactiveMongoTemplate, BsonValue resumeToken) {
+        ChangeStreamOptions.ChangeStreamOptionsBuilder builder = ChangeStreamOptions.builder()
                 .filter(new Document("$match", new Document("operationType",
-                        new Document("$in", List.of("update","replace","insert", "delete"))))) // 构建过滤条件
-                .returnFullDocumentOnUpdate()  // 对于更新操作返回完整文档
-                .build();
-        return reactiveMongoTemplate.changeStream(docName,options, clazz);
+                        new Document("$in", List.of("update", "replace", "insert", "delete")))))
+                .returnFullDocumentOnUpdate();
+        if (resumeToken != null) {
+            builder.resumeAfter(resumeToken);
+        }
+        return reactiveMongoTemplate.changeStream(docName, builder.build(), clazz);
     }
 }

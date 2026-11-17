@@ -15,17 +15,20 @@ public class ZookeeperLock {
     private InterProcessMutex interProcessMutex;
     private InterProcessReadWriteLock interProcessReadWriteLock;
     public ZookeeperLock(CuratorFramework curatorFramework, String lockName){
-        this.curatorFramework= curatorFramework;
-        this.interProcessMutex = new InterProcessMutex(curatorFramework,lockName);
-        this.interProcessReadWriteLock = new InterProcessReadWriteLock(curatorFramework,lockName);
+        this.curatorFramework = curatorFramework;
+        String path = (lockName == null || lockName.isEmpty()) ? "/" : (lockName.startsWith("/") ? lockName : "/" + lockName);
+        this.interProcessMutex = new InterProcessMutex(curatorFramework, path);
+        this.interProcessReadWriteLock = new InterProcessReadWriteLock(curatorFramework, path);
     }
 
     public Boolean tryLock() {
         try {
             Assert.verify(interProcessMutex,ZOOKEEPER_MUTEX_UNAVAILABLE);
             return interProcessMutex.acquire(1L, TimeUnit.MILLISECONDS);
+        } catch (EventException e) {
+            throw e;
         } catch (Exception e) {
-            throw new EventException(ZOOKEEPER_LOCK_ACQUIRE_FAILED);
+            throw new EventException(ZOOKEEPER_LOCK_ACQUIRE_FAILED, null, e);
         }
     }
 
@@ -33,8 +36,10 @@ public class ZookeeperLock {
         try {
             Assert.verify(interProcessMutex,ZOOKEEPER_MUTEX_UNAVAILABLE);
             interProcessMutex.release();
+        } catch (EventException e) {
+            throw e;
         } catch (Exception e) {
-            throw new EventException(ZOOKEEPER_LOCK_RELEASE_FAILED);
+            throw new EventException(ZOOKEEPER_LOCK_RELEASE_FAILED, null, e);
         }
     }
 
@@ -42,8 +47,10 @@ public class ZookeeperLock {
         try {
             Assert.verify(interProcessReadWriteLock,ZOOKEEPER_READ_WRITE_LOCK_UNAVAILABLE);
             return interProcessReadWriteLock.readLock().acquire(1L, TimeUnit.MILLISECONDS);
+        } catch (EventException e) {
+            throw e;
         } catch (Exception e) {
-            throw new EventException(ZOOKEEPER_LOCK_ACQUIRE_FAILED);
+            throw new EventException(ZOOKEEPER_LOCK_ACQUIRE_FAILED, null, e);
         }
     }
 
@@ -51,8 +58,10 @@ public class ZookeeperLock {
         try {
             Assert.verify(interProcessReadWriteLock,ZOOKEEPER_READ_WRITE_LOCK_UNAVAILABLE);
             interProcessReadWriteLock.readLock().release();
+        } catch (EventException e) {
+            throw e;
         } catch (Exception e) {
-            throw new EventException(ZOOKEEPER_LOCK_RELEASE_FAILED);
+            throw new EventException(ZOOKEEPER_LOCK_RELEASE_FAILED, null, e);
         }
     }
 
@@ -60,8 +69,10 @@ public class ZookeeperLock {
         try {
             Assert.verify(interProcessReadWriteLock,ZOOKEEPER_READ_WRITE_LOCK_UNAVAILABLE);
             return interProcessReadWriteLock.writeLock().acquire(1L, TimeUnit.MILLISECONDS);
+        } catch (EventException e) {
+            throw e;
         } catch (Exception e) {
-            throw new EventException(ZOOKEEPER_LOCK_ACQUIRE_FAILED);
+            throw new EventException(ZOOKEEPER_LOCK_ACQUIRE_FAILED, null, e);
         }
     }
 
@@ -69,8 +80,10 @@ public class ZookeeperLock {
         try {
             Assert.verify(interProcessReadWriteLock,ZOOKEEPER_READ_WRITE_LOCK_UNAVAILABLE);
             interProcessReadWriteLock.writeLock().release();
+        } catch (EventException e) {
+            throw e;
         } catch (Exception e) {
-            throw new EventException(ZOOKEEPER_LOCK_RELEASE_FAILED);
+            throw new EventException(ZOOKEEPER_LOCK_RELEASE_FAILED, null, e);
         }
     }
 }

@@ -14,6 +14,8 @@ import io.qdrant.client.grpc.Points.UpsertPoints;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.util.ReactiveValues;
 import org.lambda.framework.enums.QdrantExceptionEnum;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
@@ -21,11 +23,13 @@ import reactor.util.retry.Retry;
 import java.time.Duration;
 
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 public final class ReactiveQdrantOperations implements AutoCloseable {
+    private static final Logger log = LoggerFactory.getLogger(ReactiveQdrantOperations.class);
     private final List<QdrantClient> clients;
     private final AtomicInteger cursor = new AtomicInteger();
 
@@ -75,7 +79,14 @@ public final class ReactiveQdrantOperations implements AutoCloseable {
 
     private static <T> Mono<T> fromFuture(Supplier<ListenableFuture<T>> request) {
         return Mono.create(sink -> {
-            var future = request.get();
+            final ListenableFuture<T> future;
+            try {
+                future = request.get();
+            } catch (Throwable error) {
+                sink.error(error instanceof EventException ? error
+                        : new EventException(QdrantExceptionEnum.REQUEST_FAILED, null, error));
+                return;
+            }
             sink.onCancel(() -> future.cancel(true));
             Futures.addCallback(future, new FutureCallback<>() {
                 @Override
@@ -85,6 +96,9 @@ public final class ReactiveQdrantOperations implements AutoCloseable {
 
                 @Override
                 public void onFailure(Throwable error) {
+                    if (future.isCancelled() || error instanceof CancellationException) {
+                        return;
+                    }
                     sink.error(new EventException(QdrantExceptionEnum.REQUEST_FAILED, null, error));
                 }
             }, MoreExecutors.directExecutor());
@@ -93,6 +107,12 @@ public final class ReactiveQdrantOperations implements AutoCloseable {
 
     @Override
     public void close() {
-        clients.forEach(QdrantClient::close);
+        for (QdrantClient client : clients) {
+            try {
+                client.close();
+            } catch (Exception ex) {
+                log.warn("Failed closing Qdrant client cleanly", ex);
+            }
+        }
     }
 }

@@ -87,7 +87,7 @@ final class ForyRpcCodec {
         if (!(factory instanceof NettyDataBufferFactory)) {
             return factory.wrap(serializer.serialize(value));
         }
-        DataBuffer output = factory.allocateBuffer();
+        DataBuffer output = factory.allocateBuffer(512);
         boolean success = false;
         try {
             // Fory writes from its reusable serialization buffer without creating a result array.
@@ -151,7 +151,9 @@ final class ForyRpcCodec {
 
     private static boolean decodesWithoutBufferViews(Class<?> type, Set<Class<?>> visiting) {
         // Fory can return views into its input for ByteBuffer and other open types.
-        if (ClassUtils.isPrimitiveOrWrapper(type) || type == String.class || type == ObjectId.class || type.isEnum()) {
+        if (ClassUtils.isPrimitiveOrWrapper(type) || type == String.class || type == ObjectId.class || type.isEnum()
+                || type == java.time.Instant.class || type == java.time.LocalDate.class
+                || type == java.time.LocalDateTime.class || type == java.time.LocalTime.class) {
             return true;
         }
         if (type.isArray()) {

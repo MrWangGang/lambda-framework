@@ -19,11 +19,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
 import org.springframework.security.web.server.savedrequest.NoOpServerRequestCache;
@@ -79,9 +77,7 @@ public class SecurityConfig {
                     }
                     String subject = principal.get();
                     var stash = new SecurityStash(token, subject);
-                    var authentication = UsernamePasswordAuthenticationToken.authenticated(subject, null, List.of());
-                    return chain.filter(exchange).contextWrite(context -> context.put(SecurityStash.class, stash))
-                            .contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+                    return chain.filter(exchange).contextWrite(context -> context.put(SecurityStash.class, stash));
                 });
     }
 

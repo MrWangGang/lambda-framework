@@ -2,7 +2,7 @@ package org.lambda.framework.common.util.sample;
 
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
 
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Created by WangGang on 2017/7/10 0010.
@@ -12,6 +12,6 @@ import java.util.Random;
 public class NanoIdUtil {
 
     public static String get(char[] alphabet, int size) {
-        return NanoIdUtils.randomNanoId(new Random(), alphabet, size);
+        return NanoIdUtils.randomNanoId(ThreadLocalRandom.current(), alphabet, size);
     }
 }

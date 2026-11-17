@@ -28,6 +28,7 @@ import static org.lambda.framework.enums.ComplianceExceptionEnum.*;
 public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,ID,Repository extends ReactiveCrudRepository<PO,ID> & ReactiveSortingRepository<PO, ID> & ReactiveQueryByExampleExecutor<PO> & ReactiveUnifyPagingRepositoryOperation<PO>>  extends DefaultBasicServiceImpl<PO,ID,Repository> implements IDefaultTreeService<PO,ID> {
 
     private Class<PO> clazz;
+    private final boolean stringId;
 
     public DefaultTreeServiceImpl(Repository repository) {
         super(repository);
@@ -36,6 +37,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
             Type[] typeArguments = ((ParameterizedType) genericSuperclass).getActualTypeArguments();
             if (typeArguments.length >= 1 && typeArguments[0] instanceof Class) {
                 this.clazz = (Class<PO>) typeArguments[0];
+                this.stringId = typeArguments.length >= 2 && String.class.equals(typeArguments[1]);
             } else {
                 throw new EventException(CONTEXT_INVALID,"获取节点类型失败");
             }
@@ -44,22 +46,38 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private ID rootParentId() {
+        return stringId ? (ID) ROOT_NODE_DEFAULT : null;
+    }
+
+    private boolean isRootParent(ID parentId) {
+        return parentId == null || ROOT_NODE_DEFAULT.equals(parentId);
+    }
+
+    private boolean isRootTarget(ID targetNodeId) {
+        return ROOT_NODE_DEFAULT.equals(targetNodeId);
+    }
 
     public Mono<List<PO>> findTree(FindTreeDTO<ID> dto) {
         if(dto == null || dto.getOrganizationId() == null)throw new EventException(CONTEXT_INVALID,"节点所属机构ID不能为空");
         PO po = this.instance(clazz);
         po.setOrganizationId(dto.getOrganizationId());
-        return super.find(po).collectList().map(nodes -> process(nodes, (ID) ROOT_NODE_DEFAULT));
+        return super.find(po).collectList().map(this::process);
     }
 
-    private List<PO> process(List<PO> nodes, ID rootId) {
+    private List<PO> process(List<PO> nodes) {
+        List<PO> roots = new ArrayList<>();
         Map<ID, List<PO>> childrenByParent = new HashMap<>();
         for (PO node : nodes) {
-            childrenByParent.computeIfAbsent(node.getParentId(), ignored -> new ArrayList<>()).add(node);
+            if (isRootParent(node.getParentId())) {
+                roots.add(node);
+            } else {
+                childrenByParent.computeIfAbsent(node.getParentId(), ignored -> new ArrayList<>()).add(node);
+            }
         }
-        List<PO> roots = childrenByParent.remove(rootId);
-        if (roots == null) {
-            return new ArrayList<>();
+        if (roots.isEmpty()) {
+            return roots;
         }
         var pending = new ArrayDeque<>(roots);
         while (!pending.isEmpty()) {
@@ -111,45 +129,49 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
           全部的更新都是用批处理
          */
     public Mono<Void> moveNode(MoveNodeDTO<ID> dto) {
-        if(dto.getTargetNodeId() == null)throw new EventException(CONTEXT_INVALID,"目标节点传入值不符合规范 targetNodeId < -1");
-        if(dto.getCurrentNodeId() == null)throw new EventException(CONTEXT_INVALID,"当前节点不能为空");
-        if(dto.getOrganizationId() == null)throw new EventException(CONTEXT_INVALID,"节点所属机构ID不能为空");
-        PO _currentNode =  instance(clazz);
+        if (dto == null) throw new EventException(CONTEXT_INVALID, "移动参数不能为空");
+        if (dto.getTargetNodeId() == null) throw new EventException(CONTEXT_INVALID, "目标节点传入值不符合规范 targetNodeId < -1");
+        if (dto.getCurrentNodeId() == null) throw new EventException(CONTEXT_INVALID, "当前节点不能为空");
+        if (dto.getOrganizationId() == null) throw new EventException(CONTEXT_INVALID, "节点所属机构ID不能为空");
+        if (dto.getCurrentNodeId().equals(dto.getTargetNodeId())) {
+            return Mono.error(new EventException(CONTEXT_INVALID, "不能将节点移动到自身"));
+        }
+        PO _currentNode = instance(clazz);
         _currentNode.setId(dto.getCurrentNodeId());
         _currentNode.setOrganizationId(dto.getOrganizationId());
         //校验
         return super.get(_currentNode)
                 .switchIfEmpty(Mono.error(new EventException(CONTEXT_INVALID,"当前节点不存在")))
                 .flatMap(e -> {
-                    if (e.getParentId().equals(ROOT_NODE_DEFAULT)) {
+                    if (isRootParent(e.getParentId())) {
                         return Mono.error(new EventException(CONTEXT_INVALID,"不能移动根节点"));
                     }
                     return Mono.just(e);
                 })
                 .flatMap(e -> {
                     //代表着，将当前节点变为root节点
-                    if (dto.getTargetNodeId().equals(ROOT_NODE_DEFAULT)) {
-                        PO _current =  instance(clazz);
+                    if (isRootTarget(dto.getTargetNodeId())) {
+                        PO _current = instance(clazz);
                         _current.setId(e.getParentId());
                         _current.setOrganizationId(dto.getOrganizationId());
                         return super.find(_current).flatMap(root -> {
                             //先记录之前的parentId,用来改变原先的子节点的挂靠
-                            ID oldParentId =  e.getParentId();
+                            ID oldParentId = e.getParentId();
                             //将当前节点变成根节点
-                            e.setParentId((ID) ROOT_NODE_DEFAULT);
+                            e.setParentId(rootParentId());
                             //查出当前变动节点的子孙节点
                             PO _children = instance(clazz);
                             _children.setParentId(e.getId());
                             _children.setOrganizationId(dto.getOrganizationId());
                             Flux<PO> currentChildren = super.find(_children)
                                     .flatMap(x->{
-                                        x.setParentId((ID) oldParentId);
+                                        x.setParentId(oldParentId);
                                         return Flux.just(x);
                                     });
                             Flux<PO> currentChildrenUpdate = super.update(currentChildren);
                             Mono<Void> currentSelfUpdate = super.update(e).then();
                             root.setParentId(e.getId());
-                            Mono<Void> rootSelfUpdate =  super.update(root).then();
+                            Mono<Void> rootSelfUpdate = super.update(root).then();
                             //concat用于顺序执行流，不会造成脏读
                             return Flux.concat(currentChildrenUpdate, rootSelfUpdate, currentSelfUpdate).then();
                         }).then();
@@ -188,7 +210,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
         return super.find(po).hasElements().flatMap(e->{
                     if(e)return Mono.error(new EventException(CONTEXT_INVALID,"此机构已经创建了树模型，无法创建根"));
                     //设置项
-                    dto.getNode().setParentId((ID) ROOT_NODE_DEFAULT);
+                    dto.getNode().setParentId(rootParentId());
                     dto.getNode().setOrganizationId(dto.getOrganizationId());
                     return super.insert(dto.getNode());
                 }).then();
@@ -254,7 +276,7 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
                 .switchIfEmpty(Mono.error(new EventException(CONTEXT_INVALID,"目标节点不存在")))
                 .flatMap(e->{
                     //存在则判断是否为根节点
-                    if(ROOT_NODE_DEFAULT.equals(e.getParentId())){
+                    if(isRootParent(e.getParentId())){
                      //根节点要先判断他有无子节点，才能删除
                         PO _rootChildren = instance(clazz);
                         _rootChildren.setParentId(e.getId());
@@ -263,16 +285,10 @@ public class DefaultTreeServiceImpl<PO extends UnifyPO<ID> & IFlattenTreePO<ID>,
                             //有子节点，不让删除
                             if(hasChildren)return Mono.error(new EventException(CONTEXT_INVALID,"此根节点拥有子树，不允许删除"));
                             //没有可以删除
-                            PO _rootDelete = instance(clazz);
-                            _rootDelete.setId(e.getId());
-                            _rootDelete.setOrganizationId(e.getOrganizationId());
-                            return super.deleteBy(_rootDelete);
+                            return super.deleteBy(e);
                         });
                     }
-                    PO _childrenDelete = instance(clazz);
-                    _childrenDelete.setId(e.getId());
-                    _childrenDelete.setOrganizationId(e.getOrganizationId());
-                    Mono<Void> deleteSelf = super.deleteBy(_childrenDelete);
+                    Mono<Void> deleteSelf = super.deleteBy(e);
 
                     //删除当前节点,并将他们的子节点向前移动，挂靠在之前的parentId上
                     PO _childrenUpdate = instance(clazz);

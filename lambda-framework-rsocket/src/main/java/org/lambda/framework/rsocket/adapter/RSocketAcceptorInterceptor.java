@@ -25,6 +25,7 @@ import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -60,8 +61,28 @@ public class RSocketAcceptorInterceptor implements SocketAcceptorInterceptor {
         SecurityStash stash = null;
         try {
             for (var entry : new CompositeMetadata(payload.metadata(), false)) {
-                boolean binary = RSocketContract.FORY_MIME_TYPE.equals(entry.getMimeType());
-                if (!binary && !MimeTypeUtils.APPLICATION_JSON_VALUE.equals(entry.getMimeType())) {
+                String entryMime = entry.getMimeType();
+                if (RSocketContract.IDENTITY_MIME_TYPE.equals(entryMime)) {
+                    var content = entry.getContent();
+                    int readable = content.readableBytes();
+                    if (stash != null || rpc || readable < 2 || readable > MAX_IDENTITY_BYTES) {
+                        throw new EventException(INVALID_IDENTITY);
+                    }
+                    int readerIndex = content.readerIndex();
+                    int tokenLen = content.getUnsignedShort(readerIndex);
+                    if (2 + tokenLen > readable) {
+                        throw new EventException(INVALID_IDENTITY);
+                    }
+                    String token = tokenLen == 0 ? null
+                            : content.toString(readerIndex + 2, tokenLen, StandardCharsets.UTF_8);
+                    int principalLen = readable - 2 - tokenLen;
+                    String principal = principalLen == 0 ? null
+                            : content.toString(readerIndex + 2 + tokenLen, principalLen, StandardCharsets.UTF_8);
+                    stash = new SecurityStash(token, principal);
+                    continue;
+                }
+                boolean binary = RSocketContract.FORY_MIME_TYPE.equals(entryMime);
+                if (!binary && !MimeTypeUtils.APPLICATION_JSON_VALUE.equals(entryMime)) {
                     continue;
                 }
                 var content = entry.getContent();

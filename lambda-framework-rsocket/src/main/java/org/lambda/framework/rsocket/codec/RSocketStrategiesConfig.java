@@ -1,5 +1,9 @@
 package org.lambda.framework.rsocket.codec;
 
+import org.lambda.framework.common.enums.RSocketContract;
+import org.lambda.framework.common.exception.EventException;
+import org.lambda.framework.common.support.SecurityStash;
+import org.lambda.framework.enums.RSocketExceptionEnum;
 import org.lambda.framework.rsocket.adapter.ForyRpcTypes;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -16,7 +20,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.rsocket.autoconfigure.RSocketStrategiesAutoConfiguration;
 import org.springframework.core.ResolvableType;
 import org.springframework.core.codec.AbstractDecoder;
+import org.springframework.core.codec.AbstractEncoder;
 import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.messaging.rsocket.RSocketStrategies;
@@ -67,9 +73,114 @@ public class RSocketStrategiesConfig implements BeanFactoryAware {
                 .decoders(decoders -> decoders.addFirst(new JsonStringDecoder(
                         mapper.readerFor(String.class).with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS))));
         var codec = new ForyRpcCodec(foryTypes, () -> beans == null ? Set.of() : ForyRpcContracts.discover(beans));
-        builder.encoders(encoders -> encoders.addFirst(codec.encoder()))
-                .decoders(decoders -> decoders.addFirst(codec.decoder()));
+        builder.encoders(encoders -> {
+                    encoders.addFirst(new IdentityStashEncoder());
+                    encoders.addFirst(codec.encoder());
+                })
+                .decoders(decoders -> {
+                    decoders.addFirst(new IdentityStashDecoder());
+                    decoders.addFirst(codec.decoder());
+                });
         return builder.build();
+    }
+
+    private static final class IdentityStashEncoder extends AbstractEncoder<SecurityStash> {
+        private static final MimeType IDENTITY_MIME = MimeType.valueOf(RSocketContract.IDENTITY_MIME_TYPE);
+        private static final byte[] EMPTY = new byte[0];
+
+        private IdentityStashEncoder() {
+            super(IDENTITY_MIME);
+        }
+
+        @Override
+        public boolean canEncode(ResolvableType elementType, MimeType mimeType) {
+            return mimeType != null && IDENTITY_MIME.equalsTypeAndSubtype(mimeType)
+                    && SecurityStash.class.isAssignableFrom(elementType.toClass());
+        }
+
+        @Override
+        public DataBuffer encodeValue(SecurityStash value, DataBufferFactory factory, ResolvableType valueType,
+                                      MimeType mimeType, Map<String, Object> hints) {
+            byte[] token = value != null && value.getAuthToken() != null
+                    ? value.getAuthToken().getBytes(StandardCharsets.UTF_8) : EMPTY;
+            if (token.length > 65535) {
+                throw new EventException(RSocketExceptionEnum.INVALID_IDENTITY, "Auth token exceeds binary header limit");
+            }
+            byte[] principal = value != null && value.getPrincipal() != null
+                    ? value.getPrincipal().getBytes(StandardCharsets.UTF_8) : EMPTY;
+            DataBuffer buffer = factory.allocateBuffer(2 + token.length + principal.length);
+            boolean success = false;
+            try {
+                buffer.write((byte) (token.length >>> 8));
+                buffer.write((byte) token.length);
+                if (token.length > 0) {
+                    buffer.write(token);
+                }
+                if (principal.length > 0) {
+                    buffer.write(principal);
+                }
+                success = true;
+                return buffer;
+            } finally {
+                if (!success) {
+                    DataBufferUtils.release(buffer);
+                }
+            }
+        }
+
+        @Override
+        public Flux<DataBuffer> encode(Publisher<? extends SecurityStash> inputStream, DataBufferFactory bufferFactory,
+                                       ResolvableType elementType, MimeType mimeType, Map<String, Object> hints) {
+            return Flux.from(inputStream).map(item -> encodeValue(item, bufferFactory, elementType, mimeType, hints));
+        }
+    }
+
+    private static final class IdentityStashDecoder extends AbstractDecoder<SecurityStash> {
+        private static final MimeType IDENTITY_MIME = MimeType.valueOf(RSocketContract.IDENTITY_MIME_TYPE);
+
+        private IdentityStashDecoder() {
+            super(IDENTITY_MIME);
+        }
+
+        @Override
+        public boolean canDecode(ResolvableType elementType, MimeType mimeType) {
+            return mimeType != null && IDENTITY_MIME.equalsTypeAndSubtype(mimeType)
+                    && elementType.toClass().isAssignableFrom(SecurityStash.class);
+        }
+
+        @Override
+        public SecurityStash decode(DataBuffer buffer, ResolvableType targetType, MimeType mimeType,
+                                    Map<String, Object> hints) {
+            try {
+                int readable = buffer.readableByteCount();
+                if (readable < 2) {
+                    throw new EventException(RSocketExceptionEnum.INVALID_IDENTITY);
+                }
+                int tokenLen = ((buffer.read() & 0xFF) << 8) | (buffer.read() & 0xFF);
+                if (tokenLen > readable - 2) {
+                    throw new EventException(RSocketExceptionEnum.INVALID_IDENTITY);
+                }
+                String token = tokenLen == 0 ? null : readString(buffer, tokenLen);
+                int principalLen = readable - 2 - tokenLen;
+                String principal = principalLen == 0 ? null : readString(buffer, principalLen);
+                return new SecurityStash(token, principal);
+            } finally {
+                DataBufferUtils.release(buffer);
+            }
+        }
+
+        private static String readString(DataBuffer buffer, int length) {
+            byte[] bytes = new byte[length];
+            buffer.read(bytes);
+            return new String(bytes, StandardCharsets.UTF_8);
+        }
+
+        @Override
+        public Flux<SecurityStash> decode(Publisher<DataBuffer> inputStream, ResolvableType elementType,
+                                          MimeType mimeType, Map<String, Object> hints) {
+            return Flux.from(inputStream).map(buf -> decode(buf, elementType, mimeType, hints))
+                    .doOnDiscard(DataBuffer.class, DataBufferUtils::release);
+        }
     }
 
     private static final class JsonStringDecoder extends AbstractDecoder<String> {

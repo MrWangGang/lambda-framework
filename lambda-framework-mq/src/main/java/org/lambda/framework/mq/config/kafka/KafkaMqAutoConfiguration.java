@@ -16,6 +16,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.context.annotation.Bean;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverOptions;
 import reactor.kafka.sender.KafkaSender;
@@ -24,6 +25,7 @@ import reactor.kafka.sender.SenderOptions;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @AutoConfiguration
 @ConditionalOnProperty("lambda.mq.kafka.bootstrap-servers")
@@ -51,15 +53,21 @@ public class KafkaMqAutoConfiguration {
         return new ComponentCheck("Kafka", () -> Mono.<Integer>create(sink -> {
             var admin = org.apache.kafka.clients.admin.Admin.create(Map.of(
                     ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, settings.bootstrapServers()));
+            var closed = new AtomicBoolean(false);
+            Runnable closeAdmin = () -> {
+                if (closed.compareAndSet(false, true)) {
+                    Schedulers.boundedElastic().schedule(() -> admin.close(java.time.Duration.ZERO));
+                }
+            };
             admin.describeCluster().nodes().whenComplete((nodes, error) -> {
-                admin.close(java.time.Duration.ZERO);
+                closeAdmin.run();
                 if (error == null) {
                     sink.success(nodes.size());
                 } else {
                     sink.error(new EventException(MqExceptionEnum.CONNECTION_FAILED, null, error));
                 }
             });
-            sink.onCancel(() -> admin.close(java.time.Duration.ZERO));
+            sink.onCancel(closeAdmin::run);
         }).flatMap(nodes -> nodes >= (settings.mode() == DeploymentMode.CLUSTER ? 2 : 1)
                 ? Mono.empty() : Mono.error(new EventException(MqExceptionEnum.CONFIGURATION_INVALID, "Kafka broker topology does not match mode"))));
     }
@@ -75,6 +83,7 @@ public class KafkaMqAutoConfiguration {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, settings.bootstrapServers());
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        props.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 5000);
         SenderOptions<String, String> options = SenderOptions.create(props);
         return KafkaSender.create(options);
     }

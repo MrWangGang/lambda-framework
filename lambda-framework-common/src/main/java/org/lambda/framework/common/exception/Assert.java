@@ -4,12 +4,23 @@ import org.apache.commons.lang3.StringUtils;
 import org.lambda.framework.enums.ExceptionEnumFunction;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
 import static org.lambda.framework.enums.CommonExceptionEnum.*;
 
 public class Assert {
+    private static final ClassValue<Field[]> INSTANCE_FIELDS = new ClassValue<>() {
+        @Override
+        protected Field[] computeValue(Class<?> type) {
+            return Arrays.stream(type.getDeclaredFields())
+                    .filter(field -> !Modifier.isStatic(field.getModifiers()) && !field.isSynthetic())
+                    .toArray(Field[]::new);
+        }
+    };
+
     public static <E extends Enum<E> & ExceptionEnumFunction> void verify(Object object,E exceptionEnumFunction){
         if(!verify(object)){
             throw new EventException(exceptionEnumFunction);
@@ -93,14 +104,13 @@ public class Assert {
     public static boolean check(Object obj) {
         if(obj == null)return false;
 
-        Class<?> clazz = obj.getClass();
-        Field[] fields = clazz.getDeclaredFields();
+        Field[] fields = INSTANCE_FIELDS.get(obj.getClass());
 
         for (Field field : fields) {
             field.setAccessible(true);
             try {
                 Object object = field.get(obj);
-                if (field.get(obj) != null) {
+                if (object != null) {
                     if(object instanceof String){
                         if(StringUtils.isBlank((String) object)){
                             return false;
@@ -108,25 +118,19 @@ public class Assert {
                     }
 
                     if(object instanceof List){
-                        if(object == null){
+                        if(((List<?>)object).size() == 0){
                             return false;
                         }
-                        if(((List)object).size() == 0){
-                            return false;
-                        }
-                        if(((List)object).get(0) ==  null){
+                        if(((List<?>)object).get(0) ==  null){
                             return false;
                         }
                     }
                     if (object instanceof Set) {
-                        if (object == null) {
-                            return false;
-                        }
                         Set<?> set = (Set<?>) object;
                         if (set.isEmpty()) {
                             return false;
                         }
-                        if (set.iterator().hasNext() && set.iterator().next() == null) {
+                        if (set.iterator().next() == null) {
                             return false;
                         }
                     }
@@ -135,8 +139,7 @@ public class Assert {
                     return false;
                 }
             } catch (IllegalAccessException e) {
-                // 处理异常，如果有需要
-                throw new EventException(FIELD_ACCESS_FAILED);
+                throw new EventException(FIELD_ACCESS_FAILED, null, e);
             }
         }
 
@@ -148,7 +151,7 @@ public class Assert {
             return false;
         }
 
-        Field[] fields = obj.getClass().getDeclaredFields();
+        Field[] fields = INSTANCE_FIELDS.get(obj.getClass());
 
         try {
             for (Field field : fields) {
@@ -156,17 +159,17 @@ public class Assert {
                 Object value = field.get(obj);
 
                 if (value instanceof String) {
-                    if (value != null && !((String) value).isEmpty()) {
+                    if (!((String) value).isEmpty()) {
                         return true;
                     }
                 } else if (value instanceof List) {
                     List<?> list = (List<?>) value;
-                    if (list != null && !list.isEmpty() && list.get(0) != null) {
+                    if (!list.isEmpty() && list.get(0) != null) {
                         return true;
                     }
                 }  else if (value instanceof Set) {
                     Set<?> sets = (Set<?>) value;
-                    if (sets != null && !sets.isEmpty() && !sets.iterator().hasNext()  && sets.iterator().next() != null) {
+                    if (!sets.isEmpty() && sets.iterator().next() != null) {
                         return true;
                     }
                 } else {
@@ -176,7 +179,7 @@ public class Assert {
                 }
             }
         } catch (IllegalAccessException e) {
-            throw new EventException(FIELD_ACCESS_FAILED);
+            throw new EventException(FIELD_ACCESS_FAILED, null, e);
         }
 
         return false;

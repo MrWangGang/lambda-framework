@@ -106,10 +106,17 @@ public class MongoDataAutoConfiguration {
     @ConditionalOnMissingBean(MappingMongoConverter.class)
     @ConditionalOnProperty(name = "lambda.repository.mongo.write-null-fields", havingValue = "true", matchIfMissing = true)
     MappingMongoConverter mappingMongoConverter(ObjectProvider<MongoDatabaseFactory> databases,
+                                                ObjectProvider<ReactiveMongoDatabaseFactory> reactiveDatabases,
                                                 MongoMappingContext mapping, MongoCustomConversions conversions) {
         var database = databases.getIfAvailable();
         var resolver = database == null ? NoOpDbRefResolver.INSTANCE : new DefaultDbRefResolver(database);
         var converter = new NullWritingMongoConverter(resolver, mapping);
+        if (database == null) {
+            var reactiveDb = reactiveDatabases.getIfAvailable();
+            if (reactiveDb != null) {
+                converter.setCodecRegistryProvider(reactiveDb);
+            }
+        }
         converter.setCustomConversions(conversions);
         return converter;
     }
@@ -130,8 +137,11 @@ public class MongoDataAutoConfiguration {
     ComponentCheck mongoReplicaCheck(ReactiveMongoTemplate mongo, MongoMappingContext mapping, Settings settings) {
         return new ComponentCheck("MongoDB", () -> mongo.executeCommand("{hello:1}").flatMap(reply -> {
             var hosts = reply.getList("hosts", String.class, List.of());
+            var passives = reply.getList("passives", String.class, List.of());
+            var arbiters = reply.getList("arbiters", String.class, List.of());
+            int members = hosts.size() + passives.size() + arbiters.size();
             boolean valid = reply.getString("setName") != null
-                    && (settings.mode() == DeploymentMode.SINGLE ? hosts.size() == 1 : hosts.size() > 1);
+                    && (settings.mode() == DeploymentMode.SINGLE ? members == 1 : members > 1);
             if (!valid) {
                 return reactor.core.publisher.Mono.error(new EventException(RepositoryExceptionEnum.CONFIGURATION_INVALID, "MongoDB replica topology does not match mode"));
             }

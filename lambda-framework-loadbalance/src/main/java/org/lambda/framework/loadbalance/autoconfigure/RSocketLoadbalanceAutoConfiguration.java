@@ -22,10 +22,11 @@ public class RSocketLoadbalanceAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     RSocketClientResources rSocketClientResources(
-            @Value("${lambda.rsocket.client.io-workers.unary:2}") int unaryWorkers,
+            @Value("${lambda.rsocket.client.io-workers.unary:0}") int unaryWorkers,
             @Value("${lambda.rsocket.client.io-workers.stream:2}") int streamWorkers,
             @Value("${lambda.rsocket.client.io-workers.channel:2}") int channelWorkers) {
-        return new RSocketClientResources(unaryWorkers, streamWorkers, channelWorkers);
+        int resolvedUnary = unaryWorkers <= 0 ? Math.min(64, Math.max(4, Runtime.getRuntime().availableProcessors())) : unaryWorkers;
+        return new RSocketClientResources(resolvedUnary, streamWorkers, channelWorkers);
     }
 
     @Bean

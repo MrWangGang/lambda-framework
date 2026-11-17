@@ -3,6 +3,7 @@ package org.lambda.framework.mq.config.kafka;
 import jakarta.annotation.Resource;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.lambda.framework.common.exception.Assert;
+import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.mq.KafkaMQDeclare;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -29,12 +30,21 @@ public class KafkaMQReactiveOperate {
         return this.sendMessage(declare,null,message);
     }
 
-    private Mono<Void> sendMessage(KafkaMQDeclare declare, String key,String message) {
-        Assert.check(declare,KAFKA_DESTINATION_REQUIRED);
-        Assert.verify(message,KAFKA_MESSAGE_REQUIRED);
-        return kafkaSender.send(Mono.just(
-                        SenderRecord.create(declare.getTopic(), null, null, key, message, null)))
-                .then();
+    private Mono<Void> sendMessage(KafkaMQDeclare declare, String key, String message) {
+        return Mono.defer(() -> {
+            if (declare == null || declare.getTopic() == null || declare.getTopic().isBlank()) {
+                return Mono.error(new EventException(KAFKA_DESTINATION_REQUIRED));
+            }
+            if (message == null || message.isBlank()) {
+                return Mono.error(new EventException(KAFKA_MESSAGE_REQUIRED));
+            }
+            return kafkaSender.send(Mono.just(
+                            SenderRecord.create(declare.getTopic(), null, null, key, message, null)))
+                    .single()
+                    .flatMap(result -> result.exception() == null
+                            ? Mono.empty()
+                            : Mono.error(new EventException(CONNECTION_FAILED, null, result.exception())));
+        });
     }
 
     public Flux<ReceiverRecord<String, String>> receiverManual(KafkaMQDeclare declare) {

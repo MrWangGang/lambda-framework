@@ -43,7 +43,7 @@ public class GatewayFilter implements GlobalFilter,Ordered{
         URI targetRoute = OptionalUtil.require(route.getUri());
         boolean webSocket = WS_SCHEME.equals(targetRoute.getScheme());
         if (!RB_SCHEME.equals(targetRoute.getScheme()) && !webSocket) {
-            return Mono.error(new EventException(GatewayHttpExceptionEnum.NOT_FOUND, "No public MessageMapping for this route"));
+            return chain.filter(exchange);
         }
         String service = OptionalUtil.require(targetRoute.getHost(),
                 () -> new EventException(GatewayHttpExceptionEnum.BAD_GATEWAY, "RSocket route has no service name"));

@@ -1,5 +1,7 @@
 package org.lambda.framework.compliance.security;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -51,6 +53,10 @@ final class JwtSessionTokens {
     private final JwtDecoder decoder;
     private final JwtEncoder encoder;
     private final Map<String, RSAPublicKey> publicKeys;
+    private final Cache<String, VerifiedJwt> verifiedCache = CacheBuilder.newBuilder()
+            .maximumSize(16384)
+            .expireAfterWrite(Duration.ofMinutes(5))
+            .build();
 
     JwtSessionTokens(JwtSessionSettings settings) {
         this.settings = settings;
@@ -93,13 +99,24 @@ final class JwtSessionTokens {
     }
 
     SessionRef verify(String token) {
+        if (blank(token)) {
+            throw invalid();
+        }
+        var now = Instant.now();
+        VerifiedJwt cached = verifiedCache.getIfPresent(token);
+        if (cached != null) {
+            if (cached.expiresAt().isAfter(now)) {
+                return cached.ref();
+            }
+            verifiedCache.invalidate(token);
+            throw invalid();
+        }
         try {
             var jwt = decoder.decode(token);
             var realm = Realm.valueOf(jwt.getClaimAsString("realm"));
             String terminalCode = jwt.getClaimAsString("terminal");
             var terminal = Arrays.stream(Terminal.values()).filter(item -> item.code().equals(terminalCode))
                     .findFirst().orElseThrow(JwtSessionTokens::invalid);
-            var now = Instant.now();
             if (!(jwt.getHeaders().get("kid") instanceof String keyId) || !publicKeys.containsKey(keyId)
                     || !List.of(audience(realm)).equals(jwt.getAudience()) || !validId(jwt.getSubject())
                     || jwt.getId() == null || !SESSION_ID.matcher(jwt.getId()).matches()
@@ -108,10 +125,16 @@ final class JwtSessionTokens {
                     || !terminal.supports(realm)) {
                 throw invalid();
             }
-            return new SessionRef(key(new ScopedLoginUser(jwt.getSubject(), realm, terminal)), jwt.getId());
+            var ref = new SessionRef(key(new ScopedLoginUser(jwt.getSubject(), realm, terminal)), jwt.getId());
+            verifiedCache.put(token, new VerifiedJwt(ref, jwt.getExpiresAt()));
+            return ref;
         } catch (JwtException | IllegalArgumentException | NullPointerException failure) {
             throw invalid();
         }
+    }
+
+    String trackingPrefix() {
+        return settings.redisPrefix() + ":";
     }
 
     String key(ScopedLoginUser user) {
@@ -179,6 +202,8 @@ final class JwtSessionTokens {
     private static EventException invalid() {
         return new EventException(SESSION_INVALID, "无效令牌");
     }
+
+    private record VerifiedJwt(SessionRef ref, Instant expiresAt) {}
 
     record SessionRef(String key, String id) {}
 

@@ -36,13 +36,15 @@ public class RabbitMQReactiveOperate {
     public Mono<Void> sendDelay(RabbitMQDeclare declaration, Long delayMillis, String message,
             Map<String, Object> headers) {
         return Mono.defer(() -> {
-            if (declaration == null || message == null) {
+            if (declaration == null || message == null
+                    || declaration.getExchangeName() == null || declaration.getExchangeName().isBlank()
+                    || declaration.getRoutingKey() == null) {
                 return Mono.error(new EventException(MqExceptionEnum.INVALID_MESSAGE, "RabbitMQ declaration and message are required"));
             }
             if (delayMillis == null || delayMillis < 0 || delayMillis > 4_294_967_295L) {
                 return Mono.error(new EventException(MqExceptionEnum.INVALID_MESSAGE, "RabbitMQ delay must be 0..4294967295 milliseconds"));
             }
-            var messageHeaders = new HashMap<>(headers);
+            var messageHeaders = headers == null ? new HashMap<String, Object>() : new HashMap<>(headers);
             messageHeaders.put("x-delay", delayMillis);
             var properties = new AMQP.BasicProperties.Builder().deliveryMode(2).contentType("application/json")
                     .headers(messageHeaders).build();

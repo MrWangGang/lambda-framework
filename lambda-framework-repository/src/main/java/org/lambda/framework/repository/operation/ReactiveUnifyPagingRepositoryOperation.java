@@ -16,13 +16,16 @@ import static org.lambda.framework.enums.RepositoryExceptionEnum.INVALID_PAGING;
 import static org.lambda.framework.enums.RepositoryExceptionEnum.PAGING_REQUIRED;
 
 public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
+    int MAX_PAGE_SIZE = 1000;
+
     default <C> Mono<Paged<Entity>> pageFrom(Paging paging, C condition, Sort sort,
             MappedPageQuery<C, Entity> source) {
-        var request = request(paging, sort);
-        return Mono.defer(() -> source.query(condition, request, request.getSort()))
-                .map(page -> Paged.<Entity>builder().page(page.getNumber() + 1)
-                        .size(page.getSize()).total(page.getTotalElements()).pages(page.getTotalPages())
-                        .records(page.getContent()).build());
+        return Mono.defer(() -> {
+            var request = request(paging, sort);
+            return source.query(condition, request, request.getSort());
+        }).map(page -> Paged.<Entity>builder().page(page.getNumber() + 1)
+                .size(page.getSize()).total(page.getTotalElements()).pages(page.getTotalPages())
+                .records(page.getContent()).build());
     }
 
     default <C,T> Mono<Paged<T>> queryPage(Paging paging, C condition, CountedPageQuery<C,T> source) {
@@ -43,26 +46,30 @@ public interface ReactiveUnifyPagingRepositoryOperation<Entity> {
 
     private static <T> Mono<Paged<T>> collect(Paging paging, Sort sort, Supplier<Mono<Long>> count,
             Function<Pageable, Flux<T>> query) {
-        var request = request(paging, sort);
-        var total = Mono.defer(count).defaultIfEmpty(0L);
-        var records = Flux.defer(() -> query.apply(request)).collectList();
-        // A Mongo session cannot run parallel commands in the same transaction.
-        return TransactionSynchronizationManager.forCurrentTransaction()
-                .map(TransactionSynchronizationManager::isActualTransactionActive)
-                .onErrorReturn(NoTransactionException.class, false)
-                .flatMap(transaction -> transaction
-                        ? total.flatMap(value -> records.map(items -> reactor.util.function.Tuples.of(value, items)))
-                        : Mono.zip(total, records))
-                .map(page -> Paged.<T>builder().page(paging.getPage()).size(paging.getSize())
-                        .total(page.getT1()).pages((int) Math.ceil((double) page.getT1() / paging.getSize()))
-                        .records(page.getT2()).build());
+        return Mono.defer(() -> {
+            var request = request(paging, sort);
+            var total = Mono.defer(count).defaultIfEmpty(0L);
+            var records = Flux.defer(() -> query.apply(request)).collectList();
+            // A Mongo session cannot run parallel commands in the same transaction.
+            return TransactionSynchronizationManager.forCurrentTransaction()
+                    .map(TransactionSynchronizationManager::isActualTransactionActive)
+                    .onErrorReturn(NoTransactionException.class, false)
+                    .flatMap(transaction -> transaction
+                            ? total.flatMap(value -> records.map(items -> reactor.util.function.Tuples.of(value, items)))
+                            : Mono.zip(total, records))
+                    .map(page -> Paged.<T>builder().page(paging.getPage()).size(paging.getSize())
+                            .total(page.getT1())
+                            .pages((int) Math.min(Integer.MAX_VALUE, Math.ceilDiv(page.getT1(), paging.getSize())))
+                            .records(page.getT2()).build());
+        });
     }
 
     private static PageRequest request(Paging paging, Sort sort) {
         if (paging == null) {
             throw new EventException(PAGING_REQUIRED);
         }
-        if (paging.getPage() == null || paging.getSize() == null || paging.getPage() < 1 || paging.getSize() < 1) {
+        if (paging.getPage() == null || paging.getSize() == null
+                || paging.getPage() < 1 || paging.getSize() < 1 || paging.getSize() > MAX_PAGE_SIZE) {
             throw new EventException(INVALID_PAGING);
         }
         return PageRequest.of(paging.getPage() - 1, paging.getSize(), sort == null ? Sort.unsorted() : sort);

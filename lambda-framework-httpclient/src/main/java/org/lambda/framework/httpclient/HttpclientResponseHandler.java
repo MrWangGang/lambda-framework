@@ -21,7 +21,7 @@ public class HttpclientResponseHandler {
                 return response.releaseBody().then(Mono.error(
                         new EventException(UPSTREAM_RESPONSE_FAILED, "[webclient]" + kind + ",状态码:" + status.value())));
             }
-            return response.bodyToMono(String.class).flatMap(body -> {
+            return response.bodyToMono(String.class).defaultIfEmpty("").flatMap(body -> {
                 if (verifier == null) {
                     return Mono.error(new EventException(UPSTREAM_RESPONSE_FAILED, "[webclient]缺少响应校验钩子函数"));
                 }

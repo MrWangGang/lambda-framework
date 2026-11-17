@@ -45,7 +45,7 @@ class RSocketJsonEncoder extends Jackson2JsonEncoder {
             writer = writer.forType(javaType);
         }
         writer = customizeWriter(writer, mimeType, type, hints);
-        DataBuffer output = factory.allocateBuffer();
+        DataBuffer output = factory.allocateBuffer(512);
         boolean success = false;
         try {
             try (var generator = mapper.getFactory().createGenerator(output.asOutputStream(), getJsonEncoding(mimeType))) {

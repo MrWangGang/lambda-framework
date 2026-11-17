@@ -1,5 +1,6 @@
 package org.lambda.framework.loadbalance.factory;
 
+import io.netty.channel.ChannelOption;
 import io.rsocket.DuplexConnection;
 import io.rsocket.RSocket;
 import io.rsocket.loadbalance.LoadbalanceTarget;
@@ -14,6 +15,7 @@ import org.lambda.framework.common.enums.RSocketContract;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.GatewayRouteContract;
 import org.lambda.framework.common.support.PrincipalStash;
+import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.common.support.ServiceInstanceSource;
 import org.lambda.framework.common.support.ServiceInstanceSource.Endpoint;
 import org.lambda.framework.common.util.OptionalUtil;
@@ -25,6 +27,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.ResolvableType;
 import org.springframework.messaging.rsocket.RSocketRequester;
 import org.springframework.messaging.rsocket.RSocketStrategies;
 import org.springframework.util.MimeType;
@@ -45,6 +48,7 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -59,6 +63,7 @@ public class RSocketLoadbalance {
     private final DiscoveryClient discoveryClient;
     private final ObjectProvider<RSocketRequester.Builder> builders;
     private final RSocketStrategies strategies;
+    private final boolean binaryIdentitySupported;
     private final RSocketClientResources resources;
     private final int maxInboundPayloadBytes;
     private final int connectionsPerInstance;
@@ -103,6 +108,9 @@ public class RSocketLoadbalance {
         this.discoveryClient = discoveryClient;
         this.builders = builders;
         this.strategies = strategies;
+        var identityType = ResolvableType.forClass(SecurityStash.class);
+        this.binaryIdentitySupported = strategies != null && strategies.encoders().stream()
+                .anyMatch(encoder -> encoder.canEncode(identityType, ProcessResponse.IDENTITY));
         this.resources = resources;
         this.maxInboundPayloadBytes = maxInboundPayloadBytes;
         this.connectionsPerInstance = validatedConnections(connectionsPerInstance);
@@ -112,17 +120,18 @@ public class RSocketLoadbalance {
 
     public static final class ProcessResponse {
         private static final MimeType FORY = MimeType.valueOf(RSocketContract.FORY_MIME_TYPE);
+        private static final MimeType IDENTITY = MimeType.valueOf(RSocketContract.IDENTITY_MIME_TYPE);
         private final RSocketRequester requester;
         private final AdaptiveRSocketPool adaptive;
         private final MimeType identityMime;
         private final Set<Endpoint> eligible;
         private final GatewayPoolReference gateway;
 
-        private ProcessResponse(RSocketRequester requester) {
+        private ProcessResponse(RSocketRequester requester, boolean binaryIdentitySupported) {
             this.requester = requester;
             this.adaptive = null;
             this.eligible = null;
-            this.identityMime = identityMime(requester.dataMimeType());
+            this.identityMime = identityMime(requester.dataMimeType(), binaryIdentitySupported);
             this.gateway = null;
         }
 
@@ -134,10 +143,10 @@ public class RSocketLoadbalance {
             this.gateway = null;
         }
 
-        private ProcessResponse(GatewayPoolReference gateway, Set<Endpoint> eligible) {
+        private ProcessResponse(GatewayPoolReference gateway, Set<Endpoint> eligible, boolean binaryIdentitySupported) {
             this.requester = null;
             this.adaptive = null;
-            this.identityMime = identityMime(gateway.key().mimeType());
+            this.identityMime = identityMime(gateway.key().mimeType(), binaryIdentitySupported);
             this.eligible = eligible;
             this.gateway = gateway;
         }
@@ -149,8 +158,11 @@ public class RSocketLoadbalance {
             return adaptive == null ? requester.rsocketClient().source().then() : adaptive.awaitReady(eligible);
         }
 
-        private static MimeType identityMime(MimeType dataMimeType) {
-            return FORY.equalsTypeAndSubtype(dataMimeType) ? FORY : MimeTypeUtils.APPLICATION_JSON;
+        private static MimeType identityMime(MimeType dataMimeType, boolean binaryIdentitySupported) {
+            if (FORY.equalsTypeAndSubtype(dataMimeType)) {
+                return FORY;
+            }
+            return binaryIdentitySupported ? IDENTITY : MimeTypeUtils.APPLICATION_JSON;
         }
 
         public <T> Mono<T> retrieveMono(PrincipalStash principalStash, MimeType mimeType, String route,
@@ -243,7 +255,7 @@ public class RSocketLoadbalance {
     public Mono<ProcessResponse> buildForGateway(MimeType mimeType, String service, Traffic traffic,
                                                   Optional<Integer> connections, Set<Endpoint> eligible) {
         var key = gatewayPoolKey(mimeType, service, traffic, connections);
-        return Mono.just(new ProcessResponse(new GatewayPoolReference(this, key), eligible));
+        return Mono.just(new ProcessResponse(new GatewayPoolReference(this, key), eligible, binaryIdentitySupported));
     }
 
     public GatewayPoolKey gatewayPoolKey(MimeType mimeType, String service, Traffic traffic,
@@ -279,10 +291,10 @@ public class RSocketLoadbalance {
     }
 
     private final class GatewayPool {
+        private static final long RETIRED_BIT = 1L << 62;
         private final GatewayPoolKey key;
         private final AdaptiveRSocketPool adaptive;
-        private int inFlight;
-        private boolean retired;
+        private final AtomicLong state = new AtomicLong();
 
         private GatewayPool(GatewayPoolKey key) {
             this.key = key;
@@ -292,49 +304,47 @@ public class RSocketLoadbalance {
                             endpoint.routeVersion()));
         }
 
-        private synchronized boolean acquire() {
-            if (retired) {
-                return false;
-            }
-            inFlight++;
+        private boolean acquire() {
+            long current;
+            do {
+                current = state.get();
+                if ((current & RETIRED_BIT) != 0) {
+                    return false;
+                }
+            } while (!state.compareAndSet(current, current + 1));
             return true;
         }
 
         private void release() {
-            boolean detached;
-            synchronized (this) {
-                inFlight--;
-                detached = detachIfUnused();
-            }
-            if (detached) {
-                adaptive.close();
+            if (state.decrementAndGet() == 0L && shouldRetire()) {
+                tryRetire();
             }
         }
 
         private void retireIfUnused() {
-            boolean detached;
-            synchronized (this) {
-                detached = detachIfUnused();
+            if (state.get() == 0L && shouldRetire()) {
+                tryRetire();
             }
-            if (detached) {
-                adaptive.close();
-            }
+        }
+
+        private boolean shouldRetire() {
+            return retainedGatewayPools.map(keys -> !keys.contains(key)).orElse(false);
         }
 
         // Requests that matched the previous route can still acquire this key, but
         // their pool is removed as soon as the last subscription ends.
-        private boolean detachIfUnused() {
-            if (inFlight != 0 || retainedGatewayPools.map(keys -> keys.contains(key)).orElse(true)) {
-                return false;
+        private void tryRetire() {
+            if (state.compareAndSet(0L, RETIRED_BIT)) {
+                gatewayPools.remove(key, this);
+                adaptive.close();
             }
-            retired = true;
-            return gatewayPools.remove(key, this);
         }
     }
 
     public <T> Mono<T> withEndpoint(MimeType mimeType, Endpoint endpoint,
                                     Function<ProcessResponse, Mono<T>> action) {
-        return Mono.using(() -> new ProcessResponse(directRequester(mimeType, endpoint.host(), endpoint.port(), Traffic.UNARY)),
+        return Mono.using(() -> new ProcessResponse(directRequester(mimeType, endpoint.host(), endpoint.port(), Traffic.UNARY),
+                        binaryIdentitySupported),
                 action, ProcessResponse::close);
     }
 
@@ -370,7 +380,10 @@ public class RSocketLoadbalance {
     }
 
     private TcpClientTransport tcpTransport(String host, int port, Traffic traffic) {
-        return TcpClientTransport.create(TcpClient.create().host(host).port(port).runOn(resources.forTraffic(traffic)));
+        return TcpClientTransport.create(TcpClient.create().host(host).port(port)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2000)
+                .option(ChannelOption.SO_KEEPALIVE, true)
+                .runOn(resources.forTraffic(traffic)));
     }
 
     private RSocketRequester directRequester(MimeType dataMimeType, String host, int port, Traffic traffic) {
@@ -382,7 +395,8 @@ public class RSocketLoadbalance {
         RSocketRequester.Builder builder = builders.getObject();
         synchronized (builder) {
             builder.rsocketStrategies(strategies).dataMimeType(dataMimeType)
-                    .rsocketConnector(connector -> connector.maxInboundPayloadSize(maxInboundPayloadBytes));
+                    .rsocketConnector(connector -> connector.maxInboundPayloadSize(maxInboundPayloadBytes)
+                            .keepAlive(Duration.ofSeconds(10), Duration.ofSeconds(30)));
             if (!routeVersion.isEmpty()) {
                 builder.setupMetadata(routeVersion.getBytes(StandardCharsets.US_ASCII), ROUTE_VERSION_MIME);
             }
@@ -392,14 +406,15 @@ public class RSocketLoadbalance {
 
     private ProcessResponse createRequester(RequesterKey key) {
         if (key.port() != null) {
-            return new ProcessResponse(directRequester(key.dataMimeType(), key.target(), key.port(), key.traffic()));
+            return new ProcessResponse(directRequester(key.dataMimeType(), key.target(), key.port(), key.traffic()),
+                    binaryIdentitySupported);
         }
         boolean adaptiveSelection = adaptiveLoadBalancing && key.traffic() == Traffic.UNARY;
         if (adaptiveSelection) {
             var adaptive = new AdaptiveRSocketPool(key.target(), key.connectionsPerInstance(), adaptiveSelection,
                     watchService(key.target()),
                     address -> directRequester(key.dataMimeType(), address.host(), address.port(), key.traffic()));
-            return new ProcessResponse(adaptive, ProcessResponse.identityMime(key.dataMimeType()), null);
+            return new ProcessResponse(adaptive, ProcessResponse.identityMime(key.dataMimeType(), binaryIdentitySupported), null);
         }
 
         RSocketRequester.Builder builder = builders.getObject();
@@ -409,6 +424,7 @@ public class RSocketLoadbalance {
             Sinks.Many<Boolean> reconnect = Sinks.many().unicast()
                     .onBackpressureBuffer(new ArrayBlockingQueue<>(1));
             builder.rsocketConnector(connector -> connector.maxInboundPayloadSize(maxInboundPayloadBytes)
+                    .keepAlive(Duration.ofSeconds(10), Duration.ofSeconds(30))
                     .interceptors(registry -> registry.forRequester((RSocket socket) -> new RSocketProxy(socket) {
                         @Override
                         public Mono<Void> onClose() {
@@ -421,7 +437,7 @@ public class RSocketLoadbalance {
                     .startWith(0L);
             Flux<List<LoadbalanceTarget>> targets = Flux.combineLatest(loadBalanceTargets(key, reconnect),
                     triggers, (snapshot, ignored) -> snapshot);
-            return new ProcessResponse(builder.transports(targets, new RoundRobinLoadbalanceStrategy()));
+            return new ProcessResponse(builder.transports(targets, new RoundRobinLoadbalanceStrategy()), binaryIdentitySupported);
         }
     }
 

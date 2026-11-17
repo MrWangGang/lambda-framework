@@ -48,14 +48,14 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
     @Override
     public Flux<PO> update(Publisher<PO> pos) {
-        if (pos == null) throw new EventException(CONTEXT_INVALID);
-        return Flux.from(pos).map(this::requireVersion).collectList().flatMapMany(repository::saveAll);
+        if (pos == null) return Flux.error(new EventException(CONTEXT_INVALID));
+        return repository.saveAll(Flux.from(pos).map(this::requireVersion));
     }
 
     @Override
     public Flux<PO> insert(Publisher<PO> pos) {
-        if (pos == null) throw new EventException(CONTEXT_INVALID);
-        return Flux.from(pos).collectList().flatMapMany(repository::saveAll);
+        if (pos == null) return Flux.error(new EventException(CONTEXT_INVALID));
+        return repository.saveAll(Flux.from(pos));
     }
 
     private PO requireVersion(PO po) {
@@ -74,15 +74,13 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
     @Override
     public Flux<PO> sync(Publisher<PO> pos) {
-        if(pos == null) throw new EventException(CONTEXT_INVALID);
-        return Flux.from(pos).collectList().flatMapMany(e->{
-            return repository.saveAll(e);
-        });
+        if (pos == null) return Flux.error(new EventException(CONTEXT_INVALID));
+        return repository.saveAll(Flux.from(pos));
     }
 
     @Override
     public Mono<Void> delete(ID id) {
-        if(id == null)throw new EventException(CONTEXT_INVALID);
+        if (id == null) return Mono.error(new EventException(CONTEXT_INVALID));
         return repository.deleteById(id);
     }
 
@@ -141,13 +139,13 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
     @Override
     public  Mono<Paged<PO>> find(Paging paging, PO po) {
-        if(po == null)throw new EventException(CONTEXT_INVALID);
-        if(paging == null)throw new EventException(CONTEXT_INVALID,"分页参数不能缺失");
+        if(po == null) return Mono.error(new EventException(CONTEXT_INVALID));
+        if(paging == null) return Mono.error(new EventException(CONTEXT_INVALID,"分页参数不能缺失"));
 
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
         return repository.pageFrom(paging,po,Sort.unsorted(),(_condition,_pageable,_sort)->{
-            return repository.findBy(Example.of(_condition),
+            return repository.findBy(Example.of(_condition, matcher),
                     x -> x.sortBy(_sort).page(PageRequest.of(_pageable.getPageNumber(), _pageable.getPageSize())));
         });
     }
@@ -201,6 +199,7 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
     @Override
     public Flux<PO> fuzzy(PO po) {
+        if (po == null) return Flux.error(new EventException(CONTEXT_INVALID));
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreCase()
                 .withStringMatcher(ExampleMatcher.StringMatcher.CONTAINING);
@@ -210,13 +209,13 @@ public class DefaultBasicServiceImpl<PO extends UnifyPO<ID>,ID,Repository extend
 
     @Override
     public Mono<PO> get(ID id) {
-        if(id == null)throw new EventException(CONTEXT_INVALID);
+        if (id == null) return Mono.error(new EventException(CONTEXT_INVALID));
         return repository.findById(id);
     }
 
     @Override
     public Mono<PO> get(PO po) {
-        if(po == null)throw new EventException(CONTEXT_INVALID);
+        if (po == null) return Mono.error(new EventException(CONTEXT_INVALID));
         ExampleMatcher matcher = ExampleMatcher.matching()
                 .withIgnoreNullValues();
 

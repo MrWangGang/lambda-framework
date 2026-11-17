@@ -62,12 +62,18 @@ public final class JsonUtil {
         try {
             return MAPPER.writeValueAsString(value);
         } catch (JsonProcessingException error) {
-            throw new EventException(JSON_WRITE_FAILED);
+            throw new EventException(JSON_WRITE_FAILED, null, error);
         }
     }
 
     public static <T> Optional<T> fromMap(Map<?, ?> data, Class<T> type) {
-        return Optional.ofNullable(data).map(value -> MAPPER.convertValue(value, type));
+        return Optional.ofNullable(data).map(value -> {
+            try {
+                return MAPPER.convertValue(value, type);
+            } catch (IllegalArgumentException error) {
+                throw new EventException(JSON_READ_FAILED, null, error);
+            }
+        });
     }
 
     public static <T> Optional<T> read(String json, Class<T> type) {
@@ -86,7 +92,7 @@ public final class JsonUtil {
         try {
             return MAPPER.readValue(json, type);
         } catch (JsonProcessingException error) {
-            throw new EventException(JSON_READ_FAILED);
+            throw new EventException(JSON_READ_FAILED, null, error);
         }
     }
 }

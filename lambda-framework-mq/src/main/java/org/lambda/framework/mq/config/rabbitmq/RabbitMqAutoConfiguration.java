@@ -16,11 +16,15 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.context.annotation.Bean;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.rabbitmq.ChannelPool;
+import reactor.rabbitmq.ChannelPoolFactory;
+import reactor.rabbitmq.ChannelPoolOptions;
 import reactor.rabbitmq.RabbitFlux;
 import reactor.rabbitmq.Receiver;
 import reactor.rabbitmq.ReceiverOptions;
 import reactor.rabbitmq.Sender;
 import reactor.rabbitmq.SenderOptions;
+import reactor.rabbitmq.Utils;
 
 @AutoConfiguration
 @ConditionalOnProperty("lambda.mq.rabbitmq.addresses")
@@ -63,10 +67,23 @@ public class RabbitMqAutoConfiguration {
 
     @Bean(destroyMethod = "close")
     @ConditionalOnMissingBean
-    Sender rabbitSender(ConnectionFactory factory, Settings settings) {
+    ChannelPool rabbitSenderChannelPool(ConnectionFactory factory, Settings settings) {
+        var nodes = settings.nodes();
+        var connectionMono = Utils.singleConnectionMono(factory, client -> client.newConnection(nodes, "lambda-sender"))
+                .subscribeOn(Schedulers.boundedElastic());
+        var poolOptions = new ChannelPoolOptions()
+                .maxCacheSize(16)
+                .subscriptionScheduler(Schedulers.boundedElastic());
+        return ChannelPoolFactory.createChannelPool(connectionMono, poolOptions);
+    }
+
+    @Bean(destroyMethod = "close")
+    @ConditionalOnMissingBean
+    Sender rabbitSender(ConnectionFactory factory, Settings settings, ChannelPool rabbitSenderChannelPool) {
         var nodes = settings.nodes();
         return RabbitFlux.createSender(new SenderOptions().connectionFactory(factory)
                 .connectionSupplier(client -> client.newConnection(nodes, "lambda-sender"))
+                .channelPool(rabbitSenderChannelPool)
                 .resourceManagementScheduler(Schedulers.boundedElastic()));
     }
 

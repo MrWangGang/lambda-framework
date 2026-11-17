@@ -37,6 +37,7 @@ public class ZookeeperAutoConfiguration {
             throw new EventException(LockExceptionEnum.CONFIGURATION_INVALID, "ZooKeeper single requires one address; cluster requires multiple addresses");
         }
         return CuratorFrameworkFactory.builder().connectString(settings.connectString())
+                .sessionTimeoutMs(15000)
                 .connectionTimeoutMs(Math.toIntExact(settings.timeout().toMillis()))
                 .retryPolicy(new ExponentialBackoffRetry(150, 3))
                 .namespace(settings.namespace()).build();

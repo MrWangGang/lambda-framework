@@ -11,6 +11,7 @@ import java.text.DecimalFormat;
 import java.text.MessageFormat;
 import java.util.*;
 import java.util.Map.Entry;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,7 +23,15 @@ import java.util.regex.Pattern;
  */
 public class StringUtil extends StringUtils {
 
-    public static final DecimalFormat textDf = new DecimalFormat("#0.00");
+    private static final ThreadLocal<DecimalFormat> TEXT_DF = ThreadLocal.withInitial(() -> new DecimalFormat("#0.00"));
+    private static final Pattern MONEY_PATTERN = Pattern.compile("^(([1-9]\\d*)|0)(\\.\\d{0,2})?$");
+    private static final Pattern MOBILE_PATTERN = Pattern.compile("^[1][0-9]{10}$");
+    private static final Pattern NUMERIC_PATTERN = Pattern.compile("[0-9.]*");
+    private static final Pattern POSITIVE_NUMBER_PATTERN = Pattern.compile("[0-9]*");
+
+    public static String formatDecimal(Object value) {
+        return value == null ? "" : TEXT_DF.get().format(value);
+    }
 
     public static String subStr(String value, int beginIndex, int offset) {
         return value.substring(beginIndex, beginIndex + offset);
@@ -57,7 +66,7 @@ public class StringUtil extends StringUtils {
      * @return
      */
     public static boolean isNumeric(String str) {
-        return isPattern(str, "[0-9.]*");
+        return isNotBlank(str) && NUMERIC_PATTERN.matcher(str).matches();
     }
 
     /**
@@ -67,7 +76,7 @@ public class StringUtil extends StringUtils {
      * @return
      */
     public static boolean isPositiveNumber(String str) {
-        return isPattern(str, "[0-9]*");
+        return isNotBlank(str) && POSITIVE_NUMBER_PATTERN.matcher(str).matches();
     }
 
     /**
@@ -77,9 +86,7 @@ public class StringUtil extends StringUtils {
      * @return
      */
     public static boolean isStringMoney(String str) {
-        Pattern pattern = Pattern.compile("^(([1-9]{1}\\d*)|([0]{1}))(\\.(\\d){0,2})?$"); // 判断小数点后一位的数字的正则表达式
-        Matcher match = pattern.matcher(str);
-        return match.matches();
+        return str != null && MONEY_PATTERN.matcher(str).matches();
     }
 
     /**
@@ -454,16 +461,7 @@ public class StringUtil extends StringUtils {
      * @return 验证通过返回true
      */
     public static boolean isMobile(String str) {
-        if (isBlank(str)) {
-            return false;
-        }
-        Pattern p = null;
-        Matcher m = null;
-        boolean b = false;
-        p = Pattern.compile("^[1][0-9]{10}$"); // 验证手机号
-        m = p.matcher(str);
-        b = m.matches();
-        return b;
+        return isNotBlank(str) && MOBILE_PATTERN.matcher(str).matches();
     }
 
     /**
@@ -489,29 +487,23 @@ public class StringUtil extends StringUtils {
      * @param isOnlyLowerCase 是否只有小写
      */
     public static String getRandomCode(int length, boolean isOnlyNumber, boolean isOnlyLowerCase) {
-        String val = "";
-        Random random = new Random();
+        StringBuilder val = new StringBuilder(Math.max(0, length));
+        ThreadLocalRandom random = ThreadLocalRandom.current();
         for (int i = 0; i < length; i++) {
-            String charOrNum = random.nextInt(2) % 2 == 0 ? "char" : "num"; // 输出字母还是数字
-            if (isOnlyNumber) {
-                charOrNum = "num";
-            }
-            if ("char".equalsIgnoreCase(charOrNum)) {// 字符串
-                int choice = random.nextInt(2) % 2 == 0 ? 65 : 97;// 取得大写字母还是小写字母
-                if (isOnlyLowerCase) {
-                    choice = 97;
-                }
+            boolean useChar = !isOnlyNumber && random.nextBoolean();
+            if (useChar) {
+                int choice = (!isOnlyLowerCase && random.nextBoolean()) ? 65 : 97;
                 char v = (char) (choice + random.nextInt(26));
                 if (v != 'l' && v != 'O') {
-                    val += v;
+                    val.append(v);
                 } else {
                     i--;
                 }
-            } else if ("num".equalsIgnoreCase(charOrNum)) {// 数字
-                val += String.valueOf(random.nextInt(10));
+            } else {
+                val.append(random.nextInt(10));
             }
         }
-        return val;
+        return val.toString();
     }
 
     /**
@@ -522,8 +514,8 @@ public class StringUtil extends StringUtils {
      */
     public static String preventXXS(String source) {
         if (isNotBlank(source)) {
-            source = source.replaceAll("&", "&amp").replaceAll("<", "&lt").replaceAll(">", "&gt")
-                    .replaceAll("\"", "&quot");
+            source = source.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    .replace("\"", "&quot;");
         }
         return source;
     }

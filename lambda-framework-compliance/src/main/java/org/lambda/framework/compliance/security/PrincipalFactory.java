@@ -1,5 +1,14 @@
 package org.lambda.framework.compliance.security;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import io.lettuce.core.RedisChannelHandler;
+import io.lettuce.core.RedisClient;
+import io.lettuce.core.RedisConnectionStateListener;
+import io.lettuce.core.TrackingArgs;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.push.PushMessage;
+import io.lettuce.core.codec.StringCodec;
 import org.bson.types.ObjectId;
 import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.po.ScopedLoginUser;
@@ -9,16 +18,26 @@ import org.lambda.framework.common.util.JsonUtil;
 import org.lambda.framework.common.util.IdUtil;
 import org.lambda.framework.enums.ComplianceExceptionEnum;
 import org.lambda.framework.repository.operation.redis.ReactiveRedisOperation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.SmartInitializingSingleton;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.script.RedisScript;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
+import java.net.SocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.regex.Pattern;
 
 import static org.lambda.framework.common.enums.ConmonContract.LAMBDA_SECURITY_AUTH_TOKEN_KEY;
@@ -27,7 +46,9 @@ import static org.lambda.framework.common.enums.ConmonContract.LAMBDA_SECURITY_T
 import static org.lambda.framework.enums.ComplianceExceptionEnum.CONTEXT_INVALID;
 import static org.lambda.framework.enums.ComplianceExceptionEnum.SESSION_INVALID;
 
-public final class PrincipalFactory {
+public final class PrincipalFactory implements SmartInitializingSingleton, DisposableBean {
+    private static final Logger log = LoggerFactory.getLogger(PrincipalFactory.class);
+    private static final int EPOCH_SLOTS = 256;
     private static final Pattern TOKEN_FORMAT = Pattern.compile(LAMBDA_SECURITY_AUTH_TOKEN_REGEX);
     private static final Pattern USER_ID_FORMAT = Pattern.compile("[a-zA-Z0-9]+");
     private static final RedisScript<Long> CHANGE_SESSION = RedisScript.of("""
@@ -50,25 +71,57 @@ public final class PrincipalFactory {
             "return redis.call('DEL', unpack(KEYS))", Long.class);
     private final ObjectProvider<ReactiveRedisOperation> redis;
     private final ObjectProvider<JwtSessionTokens> jwt;
+    private final Cache<String, CachedSession> sessionCache = CacheBuilder.newBuilder()
+            .maximumSize(32768)
+            .expireAfterWrite(Duration.ofSeconds(30))
+            .build();
+    private final AtomicLongArray invalidationEpoch = new AtomicLongArray(EPOCH_SLOTS);
+    private final AtomicBoolean trackingInitAttempted = new AtomicBoolean(false);
+    private volatile StatefulRedisConnection<String, String> trackingConnection;
+    private volatile boolean trackingActive;
+    private volatile boolean disposed;
 
     PrincipalFactory(ObjectProvider<ReactiveRedisOperation> redis, ObjectProvider<JwtSessionTokens> jwt) {
         this.redis = redis;
         this.jwt = jwt;
     }
 
+    @Override
+    public void afterSingletonsInstantiated() {
+        if (!disposed && trackingInitAttempted.compareAndSet(false, true)) {
+            startTrackingSafely();
+        }
+    }
+
+    @Override
+    public void destroy() {
+        disposed = true;
+        trackingActive = false;
+        var conn = trackingConnection;
+        trackingConnection = null;
+        if (conn != null) {
+            try {
+                conn.close();
+            } catch (Exception ex) {
+                log.debug("Failed closing session tracking connection", ex);
+            }
+        }
+        sessionCache.invalidateAll();
+    }
+
     public Mono<String> currentUserId() {
         return currentIdentity().mapNotNull(identity -> {
             String token = identity.getAuthToken();
             if (token == null) {
-                return null;
+                String principal = identity.getPrincipal();
+                return principal == null ? null : readScopedPrincipal(principal).getId();
             }
             if (!token.startsWith(LAMBDA_SECURITY_AUTH_TOKEN_KEY)) {
                 return readScopedPrincipal(identity.getPrincipal()).getId();
             }
             int start = LAMBDA_SECURITY_AUTH_TOKEN_KEY.length();
             int end = token.lastIndexOf('.');
-            return token.startsWith(LAMBDA_SECURITY_AUTH_TOKEN_KEY) && end > start
-                    ? token.substring(start, end) : null;
+            return end > start ? token.substring(start, end) : null;
         });
     }
 
@@ -129,7 +182,7 @@ public final class PrincipalFactory {
             if (!parts.key().equals(keyFor(user))) {
                 return Mono.error(invalidToken());
             }
-            return changeSession(parts.key(), List.of(parts.suffix(), JsonUtil.write(user)));
+            return changeSessionRequired(parts.key(), List.of(parts.suffix(), JsonUtil.write(user)));
         });
     }
 
@@ -161,17 +214,29 @@ public final class PrincipalFactory {
                 return Mono.error(invalidToken());
             }
             keys.addFirst(current.key());
-            return redis().execute(REVOKE_ALL, keys, List.of(current.suffix())).then();
+            return redis().execute(REVOKE_ALL, keys, List.of(current.suffix()))
+                    .doOnSubscribe(ignored -> invalidateLocal(keys))
+                    .doFinally(ignored -> invalidateLocal(keys))
+                    .then();
         });
     }
 
     public Mono<Void> revokePrincipalsFor(ScopedLoginUser subject) {
-        return Mono.defer(() -> redis().execute(REVOKE_SUBJECT, jwtTokens().keys(subject), List.of()).then());
+        return Mono.defer(() -> {
+            var keys = jwtTokens().keys(subject);
+            return redis().execute(REVOKE_SUBJECT, keys, List.of())
+                    .doOnSubscribe(ignored -> invalidateLocal(keys))
+                    .doFinally(ignored -> invalidateLocal(keys))
+                    .then();
+        });
     }
 
     private Mono<Void> storeSession(String key, String id, SecurityLoginUser<?> user, long ttl) {
         var session = new Session(JsonUtil.write(user), id);
-        return redis().set(key, session, ttl).filter(Boolean.TRUE::equals)
+        return redis().set(key, session, ttl)
+                .doOnSubscribe(ignored -> invalidateLocal(key))
+                .doFinally(ignored -> invalidateLocal(key))
+                .filter(Boolean.TRUE::equals)
                 .switchIfEmpty(Mono.error(invalidToken())).then();
     }
 
@@ -201,22 +266,181 @@ public final class PrincipalFactory {
     }
 
     private Mono<String> readSession(TokenParts token) {
-        return redis().<String, Object>get(token.key()).<String>handle((value, sink) -> {
-            if (value instanceof Map<?, ?> fields
-                    && fields.get("token") instanceof String expected
-                    && fields.get("principal") instanceof String principal
-                    && MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8),
-                            token.suffix().getBytes(StandardCharsets.UTF_8))) {
-                sink.next(principal);
-            } else {
-                sink.error(invalidToken());
+        ensureTrackingStarted();
+        if (trackingActive) {
+            CachedSession cached = sessionCache.getIfPresent(token.key());
+            if (cached != null) {
+                if (MessageDigest.isEqual(cached.token().getBytes(StandardCharsets.UTF_8),
+                        token.suffix().getBytes(StandardCharsets.UTF_8))) {
+                    return Mono.just(cached.principal());
+                }
+                return Mono.error(invalidToken());
             }
-        }).switchIfEmpty(Mono.error(invalidToken()));
+        }
+        return Mono.defer(() -> {
+            int slot = slotFor(token.key());
+            long epochBefore = invalidationEpoch.get(slot);
+            return redis().<String, Object>get(token.key()).<String>handle((value, sink) -> {
+                if (value instanceof Map<?, ?> fields
+                        && fields.get("token") instanceof String expected
+                        && fields.get("principal") instanceof String principal) {
+                    if (trackingActive && invalidationEpoch.get(slot) == epochBefore) {
+                        sessionCache.put(token.key(), new CachedSession(expected, principal));
+                    }
+                    if (MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8),
+                            token.suffix().getBytes(StandardCharsets.UTF_8))) {
+                        sink.next(principal);
+                    } else {
+                        sink.error(invalidToken());
+                    }
+                } else {
+                    sink.error(invalidToken());
+                }
+            }).switchIfEmpty(Mono.error(invalidToken()));
+        });
     }
 
     @SuppressWarnings("unchecked")
     private Mono<Void> changeSession(String key, List<String> arguments) {
-        return redis().execute(CHANGE_SESSION, List.of(key), arguments).then();
+        return redis().execute(CHANGE_SESSION, List.of(key), arguments)
+                .doOnSubscribe(ignored -> invalidateLocal(key))
+                .doFinally(ignored -> invalidateLocal(key))
+                .then();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Mono<Void> changeSessionRequired(String key, List<String> arguments) {
+        return redis().execute(CHANGE_SESSION, List.of(key), arguments)
+                .doOnSubscribe(ignored -> invalidateLocal(key))
+                .doFinally(ignored -> invalidateLocal(key))
+                .filter(result -> Long.valueOf(1L).equals(result))
+                .switchIfEmpty(Mono.error(invalidToken()))
+                .then();
+    }
+
+    private void ensureTrackingStarted() {
+        if (trackingActive || disposed || trackingInitAttempted.get()) {
+            return;
+        }
+        if (!trackingInitAttempted.compareAndSet(false, true)) {
+            return;
+        }
+        var operation = redis.getIfAvailable();
+        if (operation == null
+                || !(operation.getConnectionFactory() instanceof LettuceConnectionFactory lettuce)
+                || !(lettuce.getNativeClient() instanceof RedisClient)) {
+            return;
+        }
+        Mono.fromRunnable(this::startTrackingSafely)
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe(ignored -> {}, error -> log.debug("Async session tracking setup failed", error));
+    }
+
+    private void startTrackingSafely() {
+        try {
+            var operation = redis.getIfAvailable();
+            if (operation == null
+                    || !(operation.getConnectionFactory() instanceof LettuceConnectionFactory lettuce)
+                    || !(lettuce.getNativeClient() instanceof RedisClient client)) {
+                return;
+            }
+            var tokens = jwt.getIfAvailable();
+            String[] prefixes = tokens == null
+                    ? new String[]{LAMBDA_SECURITY_AUTH_TOKEN_KEY}
+                    : new String[]{LAMBDA_SECURITY_AUTH_TOKEN_KEY, tokens.trackingPrefix()};
+            var trackingArgs = TrackingArgs.Builder.enabled().bcast().noloop().prefixes(prefixes);
+            var conn = client.connect(StringCodec.UTF8);
+            if (disposed) {
+                conn.close();
+                return;
+            }
+            trackingConnection = conn;
+            conn.addListener((io.lettuce.core.api.push.PushListener) this::handleTrackingPush);
+            conn.addListener(new RedisConnectionStateListener() {
+                @Override
+                public void onRedisConnected(RedisChannelHandler<?, ?> connection, SocketAddress socketAddress) {
+                    if (!disposed) {
+                        enableTracking(conn, trackingArgs);
+                    }
+                }
+
+                @Override
+                public void onRedisDisconnected(RedisChannelHandler<?, ?> connection) {
+                    trackingActive = false;
+                    invalidateAllLocal();
+                }
+            });
+            enableTracking(conn, trackingArgs);
+        } catch (Exception ex) {
+            trackingActive = false;
+            log.debug("Failed to initialize Redis session tracking", ex);
+        }
+    }
+
+    private void enableTracking(StatefulRedisConnection<String, String> conn, TrackingArgs args) {
+        conn.async().clientTracking(args).whenComplete((reply, error) -> {
+            if (disposed || error != null || !"OK".equalsIgnoreCase(reply)) {
+                trackingActive = false;
+                invalidateAllLocal();
+                if (error != null) {
+                    log.debug("Redis CLIENT TRACKING activation failed", error);
+                }
+                return;
+            }
+            invalidateAllLocal();
+            trackingActive = true;
+        });
+    }
+
+    private void handleTrackingPush(PushMessage message) {
+        if (!"invalidate".equals(message.getType())) {
+            return;
+        }
+        var content = message.getContent(buffer -> buffer == null ? null : StringCodec.UTF8.decodeKey(buffer));
+        if (content == null || content.size() < 2) {
+            invalidateAllLocal();
+            return;
+        }
+        Object payload = content.get(1);
+        if (payload instanceof List<?> keys) {
+            for (Object entry : keys) {
+                if (entry == null) {
+                    invalidateAllLocal();
+                    return;
+                }
+                invalidateLocal(entry.toString());
+            }
+        } else {
+            invalidateAllLocal();
+        }
+    }
+
+    private void invalidateLocal(String key) {
+        if (key == null) {
+            return;
+        }
+        invalidationEpoch.incrementAndGet(slotFor(key));
+        sessionCache.invalidate(key);
+    }
+
+    private void invalidateLocal(List<String> keys) {
+        if (keys == null) {
+            return;
+        }
+        for (String key : keys) {
+            invalidateLocal(key);
+        }
+    }
+
+    private void invalidateAllLocal() {
+        for (int i = 0; i < EPOCH_SLOTS; i++) {
+            invalidationEpoch.incrementAndGet(i);
+        }
+        sessionCache.invalidateAll();
+    }
+
+    private static int slotFor(String key) {
+        return (key.hashCode() & 0x7fffffff) & (EPOCH_SLOTS - 1);
     }
 
     private ReactiveRedisOperation redis() {
@@ -248,6 +472,7 @@ public final class PrincipalFactory {
 
     public record IssuedPrincipal(String token, Instant expiresAt) {}
 
+    private record CachedSession(String token, String principal) {}
     private record Session(String principal, String token) {}
     private record TokenParts(String key, String suffix) {}
 }

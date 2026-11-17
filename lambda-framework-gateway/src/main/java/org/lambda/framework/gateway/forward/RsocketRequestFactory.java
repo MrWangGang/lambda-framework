@@ -10,7 +10,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectReader;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-
+import io.netty.util.HashedWheelTimer;
+import io.netty.util.Timeout;
 
 import org.lambda.framework.common.enums.GatewayInteraction;
 import org.lambda.framework.common.exception.EventException;
@@ -31,6 +32,7 @@ import org.lambda.framework.loadbalance.factory.RSocketLoadbalance.Traffic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.route.Route;
@@ -65,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.lambda.framework.gateway.enums.GatewayContract.RB_SCHEME;
@@ -77,7 +80,8 @@ public class RsocketRequestFactory {
     private static final Logger log = LoggerFactory.getLogger(RsocketRequestFactory.class);
     private static final byte[] EMPTY_BODY = new byte[0];
     private static final byte[] EMPTY_RESPONSE = encode(new ResponseTemplete());
-    private static final byte[] EMPTY_STREAM_LINE = line(encode(new ResponseTemplete(List.of())));
+    private static final byte[] EMPTY_ARRAY_RESPONSE = encode(new ResponseTemplete(List.of()));
+    private static final byte[] EMPTY_STREAM_LINE = line(EMPTY_ARRAY_RESPONSE);
     private static final String DATA_START = new String(EMPTY_RESPONSE, StandardCharsets.UTF_8)
             .replaceFirst("}$", "") + ",\"data\":";
     private static final byte[] OBJECT_START = DATA_START.getBytes(StandardCharsets.UTF_8);
@@ -85,11 +89,13 @@ public class RsocketRequestFactory {
     private static final byte[] ARRAY_START = (DATA_START + "[").getBytes(StandardCharsets.UTF_8);
     private static final byte[] ARRAY_END = {']', '}'};
     private static final byte[] ARRAY_LINE_END = {']', '}', '\n'};
-    private static final int DIRECT_REPLY_MIN_BYTES = 4 * 1024;
+    private static final int DIRECT_ARRAY_COMPOSITE_MAX_ITEMS = 64;
     private static final int DIRECT_STREAM_MIN_BYTES = 64 * 1024;
     private static final ByteBuf DIRECT_OBJECT_START = directConstant(OBJECT_START);
     private static final ByteBuf DIRECT_OBJECT_END = directConstant(OBJECT_END);
     private static final ByteBuf DIRECT_ARRAY_START = directConstant(ARRAY_START);
+    private static final ByteBuf DIRECT_ARRAY_END = directConstant(ARRAY_END);
+    private static final ByteBuf DIRECT_COMMA = directConstant(new byte[]{','});
     private static final ByteBuf DIRECT_ARRAY_LINE_END = directConstant(ARRAY_LINE_END);
     private static final JsonFactory UTF8_JSON = JsonUtil.mapper().getFactory().copy()
             .disable(JsonFactory.Feature.CHARSET_DETECTION);
@@ -104,6 +110,8 @@ public class RsocketRequestFactory {
     private final int maxResponseBytes;
     private final int maxResponseItems;
     private final Duration requestTimeout;
+    private final boolean strictJsonValidation;
+    private final HashedWheelTimer wheelTimer;
     private final StringDecoder lineDecoder;
     private final Jackson2JsonDecoder channelJsonDecoder;
 
@@ -113,6 +121,18 @@ public class RsocketRequestFactory {
                                  @Value("${lambda.gateway.rsocket.max-response-bytes:4194304}") int maxResponseBytes,
                                  @Value("${lambda.gateway.rsocket.max-response-items:512}") int maxResponseItems,
                                  @Value("${lambda.gateway.rsocket.request-timeout:15s}") Duration requestTimeout) {
+        this(loadbalance, principalStash, webSocketServices, maxRequestBytes, maxResponseBytes,
+                maxResponseItems, requestTimeout, false);
+    }
+
+    @Autowired
+    public RsocketRequestFactory(RSocketLoadbalance loadbalance, PrincipalStash principalStash,
+                                 ObjectProvider<WebSocketService> webSocketServices,
+                                 @Value("${lambda.gateway.rsocket.max-request-bytes:1048576}") int maxRequestBytes,
+                                 @Value("${lambda.gateway.rsocket.max-response-bytes:4194304}") int maxResponseBytes,
+                                 @Value("${lambda.gateway.rsocket.max-response-items:512}") int maxResponseItems,
+                                 @Value("${lambda.gateway.rsocket.request-timeout:15s}") Duration requestTimeout,
+                                 @Value("${lambda.gateway.rsocket.strict-json-validation:false}") boolean strictJsonValidation) {
         if (maxRequestBytes < 1 || maxResponseBytes < ARRAY_START.length + ARRAY_END.length
                 || maxResponseItems < 1 || requestTimeout.isNegative() || requestTimeout.isZero()) {
             throw new EventException(GatewayExceptionEnum.UNEXPECTED_FAILURE, "Invalid HTTP to RSocket bridge limits");
@@ -125,6 +145,12 @@ public class RsocketRequestFactory {
         this.maxResponseBytes = maxResponseBytes;
         this.maxResponseItems = maxResponseItems;
         this.requestTimeout = requestTimeout;
+        this.strictJsonValidation = strictJsonValidation;
+        this.wheelTimer = new HashedWheelTimer(runnable -> {
+            Thread thread = new Thread(runnable, "lambda-gateway-wheel-timer");
+            thread.setDaemon(true);
+            return thread;
+        }, 50, TimeUnit.MILLISECONDS, 512);
         this.lineDecoder = StringDecoder.allMimeTypes(List.of("\n"), true);
         this.lineDecoder.setMaxInMemorySize(maxRequestBytes);
         this.lineDecoder.setDefaultCharset(StandardCharsets.UTF_8);
@@ -150,12 +176,13 @@ public class RsocketRequestFactory {
             return Mono.defer(principalStash::setSecurityStash)
                     .switchIfEmpty(Mono.fromSupplier(SecurityStash::new))
                     .flatMap(stash -> webSocketService.handleRequest(exchange,
-                            session -> webSocketChannel(exchange.getResponse(), session, route, () -> Mono.just(stash))));
+                            session -> webSocketChannel(exchange.getResponse(), session, route, contract, () -> Mono.just(stash))));
         });
     }
 
     private Mono<Void> webSocketChannel(ServerHttpResponse response, WebSocketSession session,
-                                        GatewayFilter.GlobalFilterRoute route, PrincipalStash sessionPrincipal) {
+                                        GatewayFilter.GlobalFilterRoute route, RsocketStreamRoutes.Route contract,
+                                        PrincipalStash sessionPrincipal) {
         // Keep the socket reader attached until the error reply is flushed, even if the
         // RSocket requester cancels its input subscription before reporting the error.
         Flux<byte[]> frames = session.receive().map(message -> {
@@ -170,12 +197,7 @@ public class RsocketRequestFactory {
                     if (!first.hasValue()) {
                         return input;
                     }
-                    return timeoutFirstReply(interaction(route).flatMapMany(contract -> {
-                        if (contract.interaction() != GatewayInteraction.REQUEST_CHANNEL) {
-                            return Flux.error(new EventException(GatewayHttpExceptionEnum.NOT_FOUND, "No public channel for this path"));
-                        }
-                        return streamEnvelopes(channelReplies(route, contract, input, sessionPrincipal), false);
-                    }));
+                    return timeoutFirstReply(streamEnvelopes(channelReplies(route, contract, input, sessionPrincipal), false));
                 })
                 .onErrorResume(error -> Mono.fromSupplier(() ->
                         encode(GatewayGlobalExceptionHandler.errorResponse(response, error, true))));
@@ -365,8 +387,17 @@ public class RsocketRequestFactory {
     }
 
     private <T> Mono<T> responseDeadline(Mono<T> result) {
-        return result.timeout(requestTimeout, Mono.error(() -> new EventException(GatewayHttpExceptionEnum.GATEWAY_TIMEOUT,
+        return result.timeout(wheelDelay(requestTimeout), Mono.error(() -> new EventException(GatewayHttpExceptionEnum.GATEWAY_TIMEOUT,
                 "RSocket request timed out")));
+    }
+
+    private Mono<Long> wheelDelay(Duration delay) {
+        return Mono.create(sink -> {
+            Timeout timeout = wheelTimer.newTimeout(ignored -> sink.success(0L),
+                    delay.toMillis(), TimeUnit.MILLISECONDS);
+            sink.onCancel(timeout::cancel);
+            sink.onDispose(timeout::cancel);
+        });
     }
 
     private Flux<DataBuffer> channelReplies(GatewayFilter.GlobalFilterRoute route, RsocketStreamRoutes.Route contract,
@@ -476,6 +507,7 @@ public class RsocketRequestFactory {
     @PreDestroy
     void close() {
         streamRoutes.close();
+        wheelTimer.stop();
     }
 
     private static <T> Mono<T> requireReply(Mono<T> response) {
@@ -529,13 +561,13 @@ public class RsocketRequestFactory {
         private final NettyDataBufferFactory factory;
         private final List<DataBuffer> items = new ArrayList<>();
         private int length = ARRAY_START.length + ARRAY_END.length;
-        private boolean closed;
+        private volatile boolean closed;
 
         private JsonBufferArray(NettyDataBufferFactory factory) {
             this.factory = factory;
         }
 
-        private synchronized void append(DataBuffer value) {
+        private void append(DataBuffer value) {
             boolean retained = false;
             try {
                 if (closed || value.readableByteCount() == 0) {
@@ -546,7 +578,9 @@ public class RsocketRequestFactory {
                 }
                 int start = skipBom(value);
                 int size = value.readableByteCount();
-                if (readBufferedJson(value, start) == JsonToken.VALUE_NULL) {
+                if (strictJsonValidation
+                        ? readBufferedJson(value, start) == JsonToken.VALUE_NULL
+                        : isNullOrEmptyJsonValue(value, start)) {
                     return;
                 }
                 long nextLength = (long) length + size + (items.isEmpty() ? 0 : 1);
@@ -563,7 +597,24 @@ public class RsocketRequestFactory {
             }
         }
 
-        private synchronized DataBuffer finish() {
+        private DataBuffer finish() {
+            if (items.isEmpty()) {
+                return factory.wrap(EMPTY_ARRAY_RESPONSE);
+            }
+            if (!strictJsonValidation && items.size() <= DIRECT_ARRAY_COMPOSITE_MAX_ITEMS) {
+                var parts = new ArrayList<DataBuffer>(items.size() * 2 + 1);
+                parts.add(factory.wrap(DIRECT_ARRAY_START.duplicate()));
+                for (int index = 0; index < items.size(); index++) {
+                    if (index != 0) {
+                        parts.add(factory.wrap(DIRECT_COMMA.duplicate()));
+                    }
+                    parts.add(items.get(index));
+                }
+                parts.add(factory.wrap(DIRECT_ARRAY_END.duplicate()));
+                DataBuffer result = factory.join(parts);
+                items.clear();
+                return result;
+            }
             var output = factory.getByteBufAllocator().directBuffer(length);
             boolean complete = false;
             try {
@@ -594,7 +645,7 @@ public class RsocketRequestFactory {
             }
         }
 
-        private synchronized void release() {
+        private void release() {
             closed = true;
             items.forEach(DataBufferUtils::release);
             items.clear();
@@ -670,8 +721,8 @@ public class RsocketRequestFactory {
 
     private DataBuffer unaryReply(DataBuffer value, DataBufferFactory factory) {
         if (!(factory instanceof NettyDataBufferFactory nettyFactory)
-                || !(value instanceof NettyDataBuffer netty) || !netty.getNativeBuffer().isDirect()
-                || value.readableByteCount() < DIRECT_REPLY_MIN_BYTES) {
+                || !(value instanceof NettyDataBuffer netty)
+                || (strictJsonValidation && !netty.getNativeBuffer().isDirect())) {
             byte[] bytes = jsonEnvelope(value);
             return bytes == null ? null : factory.wrap(bytes);
         }
@@ -682,13 +733,16 @@ public class RsocketRequestFactory {
             }
             int start = skipBom(value);
             long size = (long) OBJECT_START.length + value.readableByteCount() + OBJECT_END.length;
-            if (readBufferedJson(value, start) == JsonToken.VALUE_NULL) {
+            boolean isNull = strictJsonValidation
+                    ? readBufferedJson(value, start) == JsonToken.VALUE_NULL
+                    : isNullOrEmptyJsonValue(value, start);
+            if (isNull) {
                 return null;
             }
             if (size > maxResponseBytes) {
                 throw responseLimit();
             }
-            // An all-direct composite avoids consolidation into a temporary heap buffer on Netty's NIO path.
+            // All-direct composite avoids consolidation copies on Netty's writev path across all payload sizes.
             var response = directEnvelope(nettyFactory, DIRECT_OBJECT_START, value, DIRECT_OBJECT_END);
             transferred = true;
             return response;
@@ -697,6 +751,30 @@ public class RsocketRequestFactory {
                 DataBufferUtils.release(value);
             }
         }
+    }
+
+    private static boolean isNullOrEmptyJsonValue(DataBuffer value, int start) {
+        int left = start;
+        int right = value.writePosition();
+        while (left < right && isJsonWhitespace(value.getByte(left))) {
+            left++;
+        }
+        while (right > left && isJsonWhitespace(value.getByte(right - 1))) {
+            right--;
+        }
+        int len = right - left;
+        if (len == 0) {
+            return true;
+        }
+        return len == 4
+                && value.getByte(left) == 'n'
+                && value.getByte(left + 1) == 'u'
+                && value.getByte(left + 2) == 'l'
+                && value.getByte(left + 3) == 'l';
+    }
+
+    private static boolean isJsonWhitespace(byte b) {
+        return b == ' ' || b == '\t' || b == '\r' || b == '\n';
     }
 
     private static DataBuffer directEnvelope(NettyDataBufferFactory factory, ByteBuf prefix, DataBuffer body, ByteBuf suffix) {
@@ -918,7 +996,7 @@ public class RsocketRequestFactory {
     }
 
     private <T> Flux<T> timeoutFirstReply(Flux<T> values) {
-        return values.timeout(Mono.delay(requestTimeout), value -> Mono.never(),
+        return values.timeout(wheelDelay(requestTimeout), value -> Mono.never(),
                 Flux.error(() -> new EventException(GatewayHttpExceptionEnum.GATEWAY_TIMEOUT, "RSocket first reply timed out")));
     }
 
