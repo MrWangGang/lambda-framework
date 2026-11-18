@@ -185,7 +185,10 @@ public class RsocketRequestFactory {
                                         PrincipalStash sessionPrincipal) {
         // Keep the socket reader attached until the error reply is flushed, even if the
         // RSocket requester cancels its input subscription before reporting the error.
-        Flux<byte[]> frames = session.receive().map(message -> {
+        Flux<byte[]> frames = session.receive()
+                .filter(message -> message.getType() != WebSocketMessage.Type.PONG
+                        && message.getType() != WebSocketMessage.Type.PING)
+                .map(message -> {
                     try {
                         return Signal.next(readWebSocketFrame(message));
                     } catch (RuntimeException error) {

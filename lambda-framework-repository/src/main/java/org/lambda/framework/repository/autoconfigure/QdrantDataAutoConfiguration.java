@@ -9,6 +9,7 @@ import org.lambda.framework.common.startup.DeploymentMode;
 import org.lambda.framework.enums.QdrantExceptionEnum;
 import org.lambda.framework.repository.operation.qdrant.ReactiveQdrantOperations;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @AutoConfiguration
+@ConditionalOnClass(QdrantClient.class)
 @Conditional(QdrantDataAutoConfiguration.Configured.class)
 @EnableConfigurationProperties(QdrantDataAutoConfiguration.Settings.class)
 public class QdrantDataAutoConfiguration {
@@ -51,11 +53,13 @@ public class QdrantDataAutoConfiguration {
         var clients = new ArrayList<QdrantClient>();
         try {
             for (URI endpoint : endpoints) {
-                boolean tls = "grpcs".equals(endpoint.getScheme());
-                if ((!tls && !"grpc".equals(endpoint.getScheme())) || endpoint.getHost() == null
+                String scheme = endpoint.getScheme();
+                boolean tls = "grpcs".equals(scheme) || "https".equals(scheme);
+                boolean plain = "grpc".equals(scheme) || "http".equals(scheme);
+                if ((!tls && !plain) || endpoint.getHost() == null
                         || endpoint.getUserInfo() != null || endpoint.getPort() < 1 || endpoint.getPort() > 65535
                         || StringUtils.hasText(endpoint.getPath()) || endpoint.getQuery() != null || endpoint.getFragment() != null) {
-                    throw new EventException(QdrantExceptionEnum.CONFIGURATION_INVALID, "Qdrant endpoint must be grpc[s]://host:port");
+                    throw new EventException(QdrantExceptionEnum.CONFIGURATION_INVALID, "Qdrant endpoint must be grpc[s]://host:port or http[s]://host:port");
                 }
                 var builder = QdrantGrpcClient.newBuilder(endpoint.getHost(), endpoint.getPort(), tls).withTimeout(settings.timeout());
                 if (StringUtils.hasText(settings.apiKey())) {

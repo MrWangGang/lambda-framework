@@ -64,6 +64,7 @@
         <modelmapper.version>3.2.8</modelmapper.version>
         <hutool-core.version>5.8.48</hutool-core.version>
         <reactor-kafka.version>1.3.25</reactor-kafka.version>
+        <qdrant.version>1.20.0</qdrant.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -152,9 +153,9 @@
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.lambda.framework</groupId>
-                <artifactId>lambda-framework-qdrant</artifactId>
-                <version>${project.version}</version>
+                <groupId>io.qdrant</groupId>
+                <artifactId>client</artifactId>
+                <version>${qdrant.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.lambda.framework</groupId>
@@ -237,6 +238,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
     <modules>
@@ -251,7 +253,6 @@
         <module>lambda-framework-security</module>
         <module>lambda-framework-guid</module>
         <module>lambda-framework-repository</module>
-        <module>lambda-framework-qdrant</module>
         <module>lambda-framework-compliance</module>
         <module>lambda-framework-lock</module>
         <module>lambda-framework-mq</module>

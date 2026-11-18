@@ -368,7 +368,7 @@ return mongo.updateFirst(filter, deduction, SkuPO.class)
 |---|---|
 | 文档数据 | `lambda-framework-repository` 提供 reactive MongoDB、分页、枚举转换、索引和 `TransactionalOperator` |
 | 缓存 | `lambda-framework-repository` 提供 `ReactiveRedisOperation`，用 TTL 和业务键前缀 |
-| 向量 | `lambda-framework-qdrant` 提供 `ReactiveQdrantRepository<T>`，按 collection 封装异步写入和向量查询 |
+| 向量 | `lambda-framework-repository` 提供 `ReactiveQdrantRepository<T>`，按 collection 封装异步写入和向量查询 |
 | 消息 | `lambda-framework-mq` 提供 RabbitMQ 和 Kafka 的响应式客户端 |
 | 分布式锁 | `lambda-framework-lock` 提供 ZooKeeper 和 Redisson，优先用作用域锁 |
 | 雪花 ID | `lambda-framework-guid` 自动提供 `GuidFactory` |

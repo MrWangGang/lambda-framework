@@ -61,7 +61,7 @@
 
 ## 2. 模块架构总览
 
-框架采用 Maven 多模块管理（`org.lambda.framework:lambda-framework:1.0.0-SNAPSHOT`），共包含 **15 个功能子模块**：
+框架采用 Maven 多模块管理（`org.lambda.framework:lambda-framework:1.0.0-SNAPSHOT`），共包含 **14 个功能子模块**：
 
 | 模块 (`artifactId`) | 核心职责 |
 |---|---|
@@ -73,8 +73,7 @@
 | `lambda-framework-gateway` | Reactive HTTP / NDJSON / WSS 网关转发引擎 `RsocketRequestFactory`、路由契约预热、SSE/WSS 流式背压与超时控制 |
 | `lambda-framework-nacos` | Nacos 实例源适配器、`RsocketRunListener` RSocket 端口及路由契约版本号注册发布 |
 | `lambda-framework-httpclient` | 基于 WebClient 与共享 `ConnectionProvider` 的非阻塞外部 HTTP 客户端、腾讯云 TC3 签名器 |
-| `lambda-framework-repository` | Reactive MongoDB 自动配置、空值策略、枚举与时间转换、审计更新 `MongoAuditUpdates`、分页 `ReactiveUnifyPagingRepositoryOperation`、Redis `ReactiveRedisOperation` |
-| `lambda-framework-qdrant` | Reactive Qdrant gRPC 客户端封装、多节点可见性等待及 `ReactiveQdrantRepository` |
+| `lambda-framework-repository` | Reactive MongoDB 自动配置、空值策略、枚举与时间转换、审计更新 `MongoAuditUpdates`、分页 `ReactiveUnifyPagingRepositoryOperation`、Redis `ReactiveRedisOperation`、Qdrant gRPC 封装及 `ReactiveQdrantRepository` |
 | `lambda-framework-compliance` | `PrincipalFactory`（会话签发/校验/RESP3 广播追踪缓存）、`JwtSessionTokens`（RS256 JWT + JWK 验签）、`DefaultBasicServiceImpl` / `DefaultTreeServiceImpl` |
 | `lambda-framework-security` | Reactive Gateway Spring Security 鉴权过滤器链、精确+通配符白名单、身份帧透传 |
 | `lambda-framework-guid` | 无锁 Snowflake ID 生成器 `GuidFactory` |
@@ -120,7 +119,7 @@ mvn clean install
 - **Reactive 网关（Gateway + Security + Loadbalance + Nacos + Compliance）**：
   `lambda-framework-gateway`、`lambda-framework-security`、`lambda-framework-loadbalance`、`lambda-framework-nacos`、`lambda-framework-compliance`
 - **按需增强组件**：
-  `lambda-framework-qdrant`（向量库）、`lambda-framework-lock`（Redisson/ZK 锁）、`lambda-framework-mq`（RabbitMQ/Kafka）、`lambda-framework-httpclient`（外部 HTTP 调用）
+  `lambda-framework-repository`（含 MongoDB/Redis/Qdrant 向量库）、`lambda-framework-lock`（Redisson/ZK 锁）、`lambda-framework-mq`（RabbitMQ/Kafka）、`lambda-framework-httpclient`（外部 HTTP 调用）
 
 启动类固定使用标准 `@SpringBootApplication`，由 Spring Boot `AutoConfiguration.imports` 按连接配置自动装配与启动自检。
 

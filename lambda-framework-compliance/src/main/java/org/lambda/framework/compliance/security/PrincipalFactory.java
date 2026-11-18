@@ -84,7 +84,7 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
             .build();
     private final AtomicLongArray invalidationEpoch = new AtomicLongArray(EPOCH_SLOTS);
     private final AtomicBoolean trackingConnecting = new AtomicBoolean(false);
-    private final AtomicLong nextTrackingAttemptNanos = new AtomicLong(0L);
+    private final AtomicLong nextTrackingAttemptNanos = new AtomicLong(System.nanoTime() - TRACKING_RETRY_NANOS);
     private volatile StatefulRedisConnection<String, String> trackingConnection;
     private volatile boolean trackingActive;
     private volatile boolean disposed;
@@ -312,6 +312,9 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
                     byte[] expectedBytes = expected.getBytes(StandardCharsets.UTF_8);
                     if (trackingActive && invalidationEpoch.get(slot) == epochBefore) {
                         sessionCache.put(token.key(), new CachedSession(expectedBytes, principal));
+                        if (!trackingActive || invalidationEpoch.get(slot) != epochBefore) {
+                            sessionCache.invalidate(token.key());
+                        }
                     }
                     if (MessageDigest.isEqual(expectedBytes,
                             token.suffix().getBytes(StandardCharsets.UTF_8))) {
@@ -354,7 +357,7 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
         }
         long now = System.nanoTime();
         long nextAllowed = nextTrackingAttemptNanos.get();
-        if (now < nextAllowed || !trackingConnecting.compareAndSet(false, true)) {
+        if (now - nextAllowed < 0 || !trackingConnecting.compareAndSet(false, true)) {
             return false;
         }
         nextTrackingAttemptNanos.set(now + TRACKING_RETRY_NANOS);
@@ -378,6 +381,7 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
     }
 
     private void startTrackingSafely() {
+        StatefulRedisConnection<String, String> conn = null;
         try {
             var operation = redis.getIfAvailable();
             if (operation == null
@@ -390,18 +394,19 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
                     ? new String[]{LAMBDA_SECURITY_AUTH_TOKEN_KEY}
                     : new String[]{LAMBDA_SECURITY_AUTH_TOKEN_KEY, tokens.trackingPrefix()};
             var trackingArgs = TrackingArgs.Builder.enabled().bcast().noloop().prefixes(prefixes);
-            var conn = client.connect(StringCodec.UTF8);
+            conn = client.connect(StringCodec.UTF8);
             if (disposed) {
                 conn.close();
                 return;
             }
-            trackingConnection = conn;
-            conn.addListener((io.lettuce.core.api.push.PushListener) this::handleTrackingPush);
-            conn.addListener(new RedisConnectionStateListener() {
+            final var activeConn = conn;
+            trackingConnection = activeConn;
+            activeConn.addListener((io.lettuce.core.api.push.PushListener) this::handleTrackingPush);
+            activeConn.addListener(new RedisConnectionStateListener() {
                 @Override
                 public void onRedisConnected(RedisChannelHandler<?, ?> connection, SocketAddress socketAddress) {
                     if (!disposed) {
-                        enableTracking(conn, trackingArgs);
+                        enableTracking(activeConn, trackingArgs);
                     }
                 }
 
@@ -411,10 +416,17 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
                     invalidateAllLocal();
                 }
             });
-            enableTracking(conn, trackingArgs);
+            enableTracking(activeConn, trackingArgs);
         } catch (Exception ex) {
             trackingActive = false;
             trackingConnection = null;
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (Exception closeEx) {
+                    log.debug("Failed closing leaked Redis session tracking connection", closeEx);
+                }
+            }
             log.debug("Failed to initialize Redis session tracking", ex);
         } finally {
             trackingConnecting.set(false);

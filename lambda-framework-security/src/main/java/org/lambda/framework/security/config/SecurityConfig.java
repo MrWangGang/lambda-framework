@@ -4,7 +4,9 @@ import org.lambda.framework.common.exception.EventException;
 import org.lambda.framework.common.support.SecurityStash;
 import org.lambda.framework.common.templete.ResponseTemplete;
 import org.lambda.framework.common.util.JsonUtil;
+import org.lambda.framework.enums.ComplianceExceptionEnum;
 import org.lambda.framework.enums.SecurityExceptionEnum;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 
 import java.nio.charset.StandardCharsets;
@@ -80,6 +82,11 @@ public class SecurityConfig {
 
     private Mono<Void> authenticate(ServerWebExchange exchange, WebFilterChain chain, PrincipalFactory principals,
             Set<String> exactPaths, List<PathPattern> paths) {
+        if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS
+                && exchange.getRequest().getHeaders().getOrigin() != null
+                && exchange.getRequest().getHeaders().getAccessControlRequestMethod() != null) {
+            return chain.filter(exchange);
+        }
         var path = exchange.getRequest().getPath().pathWithinApplication();
         if (exactPaths.contains(path.value()) || matchesAny(paths, path)) {
             return chain.filter(exchange);
@@ -89,7 +96,10 @@ public class SecurityConfig {
             return unauthorized(exchange);
         }
         return principals.resolvePrincipal(token).map(Optional::of)
-                .onErrorReturn(EventException.class, Optional.empty())
+                .onErrorResume(EventException.class, ex ->
+                        ComplianceExceptionEnum.SESSION_INVALID.getCode().equals(ex.getCode())
+                                ? Mono.just(Optional.empty())
+                                : Mono.error(ex))
                 .defaultIfEmpty(Optional.empty()).flatMap(principal -> {
                     if (principal.isEmpty()) {
                         return unauthorized(exchange);

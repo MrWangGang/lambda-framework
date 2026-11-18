@@ -55,9 +55,10 @@ public final class ReactiveRedissonLock {
                                     "Redisson lock acquisition timed out"));
                         }
                         if (cancelled.get()) {
-                            return releaseOnce(lock, owner, released)
-                                    .then(Mono.error(new EventException(LockExceptionEnum.REDIS_LOCK_ACQUIRE_FAILED,
-                                            "Redisson lock acquisition cancelled")));
+                            releaseOnce(lock, owner, released)
+                                    .subscribe(ignored -> {}, error -> log.debug("Cancelled Redisson lock unlock failed", error));
+                            return Mono.error(new EventException(LockExceptionEnum.REDIS_LOCK_ACQUIRE_FAILED,
+                                    "Redisson lock acquisition cancelled"));
                         }
                         return Mono.just(owner);
                     });
@@ -73,10 +74,12 @@ public final class ReactiveRedissonLock {
     }
 
     private static Mono<Void> releaseOnce(RLockReactive lock, long owner, AtomicBoolean released) {
-        if (!released.compareAndSet(false, true)) {
-            return Mono.empty();
-        }
-        return lock.unlock(owner)
-                .onErrorResume(IllegalMonitorStateException.class, ignored -> Mono.empty());
+        return Mono.defer(() -> {
+            if (!released.compareAndSet(false, true)) {
+                return Mono.empty();
+            }
+            return lock.unlock(owner)
+                    .onErrorResume(IllegalMonitorStateException.class, ignored -> Mono.empty());
+        });
     }
 }
