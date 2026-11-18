@@ -31,14 +31,19 @@ import org.springframework.web.util.pattern.PathPattern;
 import org.springframework.web.util.pattern.PathPatternParser;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
 @EnableWebFluxSecurity
 @EnableConfigurationProperties(SecurityConfig.Settings.class)
 public class SecurityConfig {
+    private static final byte[] UNAUTHORIZED_BODY = buildUnauthorizedBody();
+
     @ConfigurationProperties("lambda.security")
     record Settings(@DefaultValue List<String> permitPaths) {}
 
@@ -46,23 +51,37 @@ public class SecurityConfig {
     @ConditionalOnMissingBean
     SecurityWebFilterChain lambdaSecurityFilterChain(ServerHttpSecurity http, PrincipalFactory principals,
             Settings settings, ReactiveRedisOperation redis) {
-        var paths = settings.permitPaths().stream().map(PathPatternParser.defaultInstance::parse).toList();
+        var exactSet = new HashSet<String>();
+        var patternList = new ArrayList<PathPattern>();
+        for (String entry : settings.permitPaths()) {
+            if (isExactPath(entry)) {
+                exactSet.add(entry);
+            } else {
+                patternList.add(PathPatternParser.defaultInstance.parse(entry));
+            }
+        }
+        Set<String> exactPaths = Set.copyOf(exactSet);
+        List<PathPattern> paths = List.copyOf(patternList);
         return http.csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .logout(ServerHttpSecurity.LogoutSpec::disable)
                 .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
                 .requestCache(cache -> cache.requestCache(NoOpServerRequestCache.getInstance()))
-                .addFilterAt((exchange, chain) -> authenticate(exchange, chain, principals, paths),
+                .addFilterAt((exchange, chain) -> authenticate(exchange, chain, principals, exactPaths, paths),
                         SecurityWebFiltersOrder.AUTHENTICATION)
                 .authorizeExchange(rules -> rules.anyExchange().permitAll())
                 .build();
     }
 
+    private static boolean isExactPath(String path) {
+        return path.indexOf('*') < 0 && path.indexOf('?') < 0 && path.indexOf('{') < 0 && path.indexOf('}') < 0;
+    }
+
     private Mono<Void> authenticate(ServerWebExchange exchange, WebFilterChain chain, PrincipalFactory principals,
-            List<PathPattern> paths) {
+            Set<String> exactPaths, List<PathPattern> paths) {
         var path = exchange.getRequest().getPath().pathWithinApplication();
-        if (paths.stream().anyMatch(pattern -> pattern.matches(path))) {
+        if (exactPaths.contains(path.value()) || matchesAny(paths, path)) {
             return chain.filter(exchange);
         }
         String token = requestToken(exchange.getRequest().getHeaders());
@@ -89,16 +108,28 @@ public class SecurityConfig {
         return headers.getFirst("Auth-Token");
     }
 
+    private static boolean matchesAny(List<PathPattern> paths, org.springframework.http.server.PathContainer path) {
+        for (PathPattern pattern : paths) {
+            if (pattern.matches(path)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static Mono<Void> unauthorized(ServerWebExchange exchange) {
         exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
         exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
         var response = exchange.getResponse();
         response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        return response.writeWith(Mono.fromSupplier(() -> response.bufferFactory().wrap(UNAUTHORIZED_BODY)));
+    }
+
+    private static byte[] buildUnauthorizedBody() {
         var body = new ResponseTemplete();
         var error = SecurityExceptionEnum.AUTHENTICATION_REQUIRED;
         body.setServiceCode(error.getCode());
         body.setServiceMessage(error.getMessage());
-        return response.writeWith(Mono.fromSupplier(() ->
-                response.bufferFactory().wrap(JsonUtil.write(body).getBytes(StandardCharsets.UTF_8))));
+        return JsonUtil.write(body).getBytes(StandardCharsets.UTF_8);
     }
 }

@@ -100,6 +100,9 @@ final class AdaptiveRSocketPool implements AutoCloseable {
             return destination(eligible).flatMap(destination -> action.apply(destination.connection().requester()));
         }
         return destination(eligible).flatMap(destination -> {
+            if (!destination.adaptive()) {
+                return action.apply(destination.connection().requester());
+            }
             Instance instance = destination.instance();
             return Mono.using(instance::beginRequest,
                     attempt -> action.apply(destination.connection().requester())
@@ -107,7 +110,7 @@ final class AdaptiveRSocketPool implements AutoCloseable {
                             .doOnError(ignored -> attempt.finish(instance, true)),
                     attempt -> {
                         instance.pending.decrementAndGet();
-                        attempt.finish(instance, true);
+                        attempt.cancel();
                     });
         });
     }
@@ -153,11 +156,11 @@ final class AdaptiveRSocketPool implements AutoCloseable {
             if (!single.eligible(eligible)) {
                 return Optional.empty();
             }
-            return single.nextConnection().map(value -> new Destination(single, value));
+            return single.nextConnection().map(value -> new Destination(single, value, false));
         }
         if (!adaptiveSelection) {
             int offset = Math.floorMod(nextInstance.getAndIncrement(), size);
-            return roundRobin(candidates, offset, eligible);
+            return roundRobin(candidates, offset, eligible, false);
         }
         var random = ThreadLocalRandom.current();
         int idx1 = random.nextInt(size);
@@ -167,7 +170,7 @@ final class AdaptiveRSocketPool implements AutoCloseable {
             if (probe.eligible(eligible)) {
                 var connection = probe.nextConnection();
                 if (connection.isPresent()) {
-                    return Optional.of(new Destination(probe, connection.orElseThrow(this::unavailable)));
+                    return Optional.of(new Destination(probe, connection.orElseThrow(this::unavailable), true));
                 }
             }
         }
@@ -187,20 +190,21 @@ final class AdaptiveRSocketPool implements AutoCloseable {
         if (best != null) {
             var connection = best.nextConnection();
             if (connection.isPresent()) {
-                return Optional.of(new Destination(best, connection.orElseThrow(this::unavailable)));
+                return Optional.of(new Destination(best, connection.orElseThrow(this::unavailable), true));
             }
         }
-        return roundRobin(candidates, idx1, eligible);
+        return roundRobin(candidates, idx1, eligible, true);
     }
 
-    private static Optional<Destination> roundRobin(List<Instance> candidates, int offset, Set<Endpoint> eligible) {
+    private static Optional<Destination> roundRobin(List<Instance> candidates, int offset, Set<Endpoint> eligible,
+            boolean adaptive) {
         int size = candidates.size();
         for (int i = 0; i < size; i++) {
             var candidate = candidates.get((offset + i) % size);
             if (candidate.eligible(eligible)) {
                 var connection = candidate.nextConnection();
                 if (connection.isPresent()) {
-                    return connection.map(value -> new Destination(candidate, value));
+                    return connection.map(value -> new Destination(candidate, value, adaptive));
                 }
             }
         }
@@ -219,7 +223,7 @@ final class AdaptiveRSocketPool implements AutoCloseable {
         instances = Map.of();
     }
 
-    private record Destination(Instance instance, Connected connection) {}
+    private record Destination(Instance instance, Connected connection, boolean adaptive) {}
 
     private record Connected(RSocketRequester requester, RSocket socket) {
         boolean available() {
@@ -293,14 +297,19 @@ final class AdaptiveRSocketPool implements AutoCloseable {
     private static final class Attempt extends AtomicBoolean {
         private final long started = System.nanoTime();
 
-        private void finish(Instance instance, boolean failedOrCancelled) {
+        private void finish(Instance instance, boolean failed) {
             if (compareAndSet(false, true)) {
                 long elapsed = Math.max(1L, System.nanoTime() - started);
-                long sample = failedOrCancelled
+                long sample = failed
                         ? Math.max(elapsed, Math.max(instance.latency.get() * 4L, ERROR_PENALTY_NANOS))
                         : elapsed;
                 instance.recordLatency(sample);
             }
+        }
+
+        private void cancel() {
+            // Cancelled callers drop in-flight count without penalizing backend latency.
+            compareAndSet(false, true);
         }
     }
 

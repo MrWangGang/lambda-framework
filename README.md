@@ -1,373 +1,460 @@
 # Lambda Framework
 
-面向 JDK 27 和 Spring Boot 4 的响应式 Java 后端框架。业务服务用 MongoDB、Redis、Qdrant 与消息队列。前端走 reactive 网关，Java 服务间走 RSocket Fory。
+面向 **JDK 27 + Spring Boot 4 + Project Reactor + RSocket + Apache Fory + Nacos** 的全响应式微服务研发框架。框架以零阻塞、零反射热路径、二进制内网传输、自适应负载均衡和严格领域契约工程化为核心，兼顾高并发低延迟与团队一致性。
 
-## 开始使用
+> 本文档既是 **框架使用手册**，也内置了基于 Lambda Framework 构建业务的 **强制开发规范**（与框架仓库内置技能 [lambda-java-backend](./skills/lambda-java-backend/SKILL.md) 保持一致）。
 
-1. 使用现有 JDK 27 与 IntelliJ IDEA Maven。用下方命令将框架安装到本机 Maven。
-2. 新应用继承 `org.lambda.framework:lambda-framework:1.0.0-SNAPSHOT`，按需引入模块，启动类使用 `@SpringBootApplication`。
-3. 提供启用组件的连接配置。框架自动绑定属性、管理客户端生命周期并检查连通性。
+---
 
-~~~bash
-export JAVA_HOME="$(/usr/libexec/java_home -v 27)"
-MAVEN_BIN="$HOME/Applications/IntelliJ IDEA.app/Contents/plugins/maven-plugin/lib/maven3/bin/mvn"
-"$MAVEN_BIN" -version
-"$MAVEN_BIN" -B clean install
-~~~
+## 目录
 
-路径以 IDEA 的实际安装位置为准。其他环境设置 JDK 27 后，在 IDEA Maven 工具窗口或用本机 Maven 执行相同目标。
+- [1. 运行基线与核心特性](#1-运行基线与核心特性)
+- [2. 模块架构总览](#2-模块架构总览)
+- [3. 快速开始与源码安装](#3-快速开始与源码安装)
+- [4. 核心机制与高并发架构](#4-核心机制与高并发架构)
+  - [4.1 Reactive 网关与 RSocket 零拷贝透传](#41-reactive-网关与-rsocket-零拷贝透传)
+  - [4.2 P2C 自适应负载均衡与多通道隔离](#42-p2c-自适应负载均衡与多通道隔离)
+  - [4.3 原生 RPC 与 Apache Fory 编解码](#43-原生-rpc-与-apache-fory-编解码)
+  - [4.4 Redis RESP3 服务端追踪缓存与 JWT 会话](#44-redis-resp3-服务端追踪缓存与-jwt-会话)
+- [5. 组件使用手册与配置说明](#5-组件使用手册与配置说明)
+  - [5.1 启动引导与 Nacos 配置](#51-启动引导与-nacos-配置)
+  - [5.2 RSocket、网关与 WebSocket 双向通信](#52-rsocket网关与-websocket-双向通信)
+  - [5.3 安全认证与请求上下文 (`PrincipalFactory`)](#53-安全认证与请求上下文-principalfactory)
+  - [5.4 MongoDB 响应式仓储、审计、聚合与分页](#54-mongodb-响应式仓储审计聚合与分页)
+  - [5.5 Redis 缓存与分布式事务操作](#55-redis-缓存与分布式事务操作)
+  - [5.6 Qdrant 向量检索](#56-qdrant-向量检索)
+  - [5.7 分布式锁（Redisson / ZooKeeper）](#57-分布式锁redisson--zookeeper)
+  - [5.8 消息队列（RabbitMQ 延迟消息 / Kafka）](#58-消息队列rabbitmq-延迟消息--kafka)
+  - [5.9 第三方 HTTP 客户端 (`ReactiveHttpClient`)](#59-第三方-http-客户端-reactivehttpclient)
+  - [5.10 无锁雪花 ID (`GuidFactory`) 与启动健康检查](#510-无锁雪花-id-guidfactory-与启动健康检查)
+- [6. 内置开发规范（强制）](#6-内置开发规范强制)
+  - [6.1 仓库、包名与模块化规范](#61-仓库包名与模块化规范)
+  - [6.2 分层职责与依赖注入](#62-分层职责与依赖注入)
+  - [6.3 接口契约、record 命名与数值精度](#63-接口契约record-命名与数值精度)
+  - [6.4 MongoDB 建模、ObjectId、索引与原子并发](#64-mongodb-建模objectid索引与原子并发)
+  - [6.5 空值处理与统一异常码契约](#65-空值处理与统一异常码契约)
+  - [6.6 第三方接口与 Docker 交付禁令](#66-第三方接口与-docker-交付禁令)
 
-| 需求 | Maven 模块 |
+---
+
+## 1. 运行基线与核心特性
+
+| 维度 | 栈与版本基线 |
 |---|---|
-| 框架异常码与业务枚举契约 | `lambda-framework-enum` |
-| MongoDB、Redis、事务、分页 | `lambda-framework-repository` |
-| Qdrant gRPC，`ReactiveQdrantRepository<T>` 写入和查询 | `lambda-framework-qdrant` |
-| RabbitMQ、Kafka | `lambda-framework-mq` |
-| ZooKeeper 和 Redisson 锁 | `lambda-framework-lock` |
-| 雪花 ID | `lambda-framework-guid` |
-| RSocket 提供方与 Java RPC 调用端 | `lambda-framework-rsocket`、`lambda-framework-rpc` |
-| HTTP/WSS 网关与 Redis 令牌认证 | `lambda-framework-gateway`、`lambda-framework-security` |
-| Nacos 配置与发现 | `lambda-framework-nacos` |
+| **JDK / JVM** | Java 27 (`<maven.compiler.release>27</maven.compiler.release>`)，生产推荐 ZGC (`-XX:+UseZGC -XX:+ZUncommit`) |
+| **Core 框架** | Spring Boot `4.1.2`、Spring Cloud `2025.1.4`、Spring Cloud Alibaba `2025.1.0.0` |
+| **服务注册/配置** | Nacos `3.3.0`（支持 gRPC 服务订阅、契约版本事件推送） |
+| **RPC 通信与序列化** | RSocket TCP、Apache Fory `1.7.7`（内网二进制零反射 RPC）、Jackson 2/3（外网 JSON + ObjectId 自动转换） |
+| **数据与向量** | MongoDB Reactive（BSON ObjectId、响应式审计、事务）、Redis Reactive（RESP3 广播失效）、Qdrant gRPC |
+| **消息与锁** | Reactor RabbitMQ（`x-delayed-message` 延迟队列）、Reactor Kafka、Redisson `4.8.0`、Curator `5.9.0` |
+| **线程模型** | Project Reactor 事件循环 + `RsocketVirtualThreadConfig` 自动启用 JDK 27 Virtual Threads |
 
-[组件配置](#组件配置) · [数据访问与分页](#数据访问与分页) · [会话与身份](#会话与身份) · [GitHub SSH](#github-ssh)
+**核心架构亮点：**
 
-## 普通接口与 Java RPC
+1. **全链路 Zero-Copy 网关透传**：HTTP JSON / NDJSON 请求载荷由 Netty `DataBuffer` 直接封装为零拷贝 `Payload` 送入 RSocket，后端返回 JSON 直接经网关注入统一 `ResponseTemplete` 外壳输出，无冗余字符串/对象反序列化。
+2. **三通道 I/O 资源物理隔离**：网关到后端按交互模型拆分为 `UNARY`（单次请求）、`STREAM`（流式输出）、`CHANNEL`（双向流/WSS）三套独立 EventLoop 池，Linux 下优先使用 Netty 原生 `EpollEventLoopGroup`。
+3. **P2C 自适应负载均衡 + 路由契约版本缓存**：多实例部署时使用 Power of Two Choices 随机双选 + 并发数与 EWMA 延迟联合评分；单实例自动切换零开销直连路径；客户端取消不误伤后端节点延迟统计；配合 `GatewayRouteVersionInterceptor` 与后台定时预热消除冷启动抖动。
+4. **Redis RESP3 客户端本地会话缓存**：`PrincipalFactory` 基于 Lettuce 建立 RESP3 `CLIENT TRACKING ON BCAST NOLOOP` 推送失效链路，热请求 O(1) 本地命中 Guava 会话缓存并预编码 token 字节比对，异常断线后按 5 秒冷却窗口自动恢复。
+5. **无锁雪花 ID 与高并发细节**：`GuidFactory` 采用单 `AtomicLong` 无锁 CAS 编码毫秒时间戳与序列号；`SecurityConfig` 对静态白名单执行 O(1) 哈希精确匹配；RSocket 服务端强制使用 `PathPatternRouteMatcher` 替代低效正则匹配。
 
-普通前端接口在服务端的 `@Controller` 中声明。网关按服务配置 `rb://` 路由前缀，前端发送 POST JSON。Mongo ID 字段声明为 `ObjectId`，框架在 JSON 入口完成类型绑定。
+---
 
-~~~java
-@Controller
-class UserController {
-    @MessageMapping("/api/user/find")
-    Mono<Detail> find(@Payload FindRequest request) {
-        return users.find(request);
-    }
+## 2. 模块架构总览
 
-    record FindRequest(@NotNull ObjectId id) {}
-    record Detail(ObjectId id, String name) {}
-}
-~~~
+框架采用 Maven 多模块管理（`org.lambda.framework:lambda-framework:1.0.0-SNAPSHOT`），共包含 **15 个功能子模块**：
 
-Java RPC 的契约 JAR 放在提供方服务目录内。实现类用 `@RSocketFacade`，调用方字段用 `@RSocketRpc("user")` 指定 Nacos 服务。框架自动生成 `user.userFacade.find`，同一路由注册两次会在启动时失败。
+| 模块 (`artifactId`) | 核心职责 |
+|---|---|
+| `lambda-framework-enum` | 全框架统一错误码契约 `ExceptionEnumFunction` 及各组件 `*ExceptionEnum` |
+| `lambda-framework-common` | `@RSocketFacade`/`@RSocketRpc` 注解、`UnifyPO`、`ScopedLoginUser`、`UiFlux`/`BiFlux`、`JsonUtil`/`OptionalUtil`/`ReactiveValues`、`ComponentCheck`、`ObjectIdJsonModules` |
+| `lambda-framework-rsocket` | RSocket 服务端拦截器、`RSocketStrategiesConfig`、`PathPatternRouteMatcher`、`ForyRpcCodec`、二进制 `IdentityStashEncoder/Decoder`、全局异常序列化 |
+| `lambda-framework-loadbalance` | `AdaptiveRSocketPool`、`RSocketLoadbalance`、三类流量 EventLoop 隔离、Netty Keepalive 与心跳保活 |
+| `lambda-framework-rpc` | `@RSocketRpc` 声明式客户端动态代理（编译期契约校验与 MethodHandle/Direct 调度） |
+| `lambda-framework-gateway` | Reactive HTTP / NDJSON / WSS 网关转发引擎 `RsocketRequestFactory`、路由契约预热、SSE/WSS 流式背压与超时控制 |
+| `lambda-framework-nacos` | Nacos 实例源适配器、`RsocketRunListener` RSocket 端口及路由契约版本号注册发布 |
+| `lambda-framework-httpclient` | 基于 WebClient 与共享 `ConnectionProvider` 的非阻塞外部 HTTP 客户端、腾讯云 TC3 签名器 |
+| `lambda-framework-repository` | Reactive MongoDB 自动配置、空值策略、枚举与时间转换、审计更新 `MongoAuditUpdates`、分页 `ReactiveUnifyPagingRepositoryOperation`、Redis `ReactiveRedisOperation` |
+| `lambda-framework-qdrant` | Reactive Qdrant gRPC 客户端封装、多节点可见性等待及 `ReactiveQdrantRepository` |
+| `lambda-framework-compliance` | `PrincipalFactory`（会话签发/校验/RESP3 广播追踪缓存）、`JwtSessionTokens`（RS256 JWT + JWK 验签）、`DefaultBasicServiceImpl` / `DefaultTreeServiceImpl` |
+| `lambda-framework-security` | Reactive Gateway Spring Security 鉴权过滤器链、精确+通配符白名单、身份帧透传 |
+| `lambda-framework-guid` | 无锁 Snowflake ID 生成器 `GuidFactory` |
+| `lambda-framework-lock` | Redisson 响应式分布式锁（`ReactiveRedissonLock`）、ZooKeeper Curator 分布式锁 |
+| `lambda-framework-mq` | Reactor RabbitMQ（含延迟交换机封装 `RabbitMQReactiveOperate`）与 Reactor Kafka（`KafkaMQReactiveOperate`） |
 
-~~~java
-public interface UserFacade {
-    Mono<Detail> find(FindRequest request);
+---
 
-    record FindRequest(ObjectId id) {}
-    record Detail(ObjectId id, String name) {}
-}
-~~~
+## 3. 快速开始与源码安装
 
-返回 `Mono` 生成一次响应，`Flux` 可聚合成 JSON 数组，`UiFlux` 用于单向 NDJSON，`Flux<I> → BiFlux<O>` 用于双向流。前端 WSS 路由使用 `ws://服务名`，网关用 RSocket Channel 转发。示例仓库展示完整链路和认证配置。 [示例仓库](https://github.com/MrWangGang/lambda-framework-example)
+### 3.1 安装框架到本地 Maven 仓库
 
-RSocket 出站连接按普通请求、单向流和双向流使用独立的 Netty I/O 线程组和连接池。每个应用的 Nacos Data ID 可覆盖以下默认值：
+框架禁用远端制品仓库发布（`maven.deploy.skip=true`），需在本机使用 JDK 27 安装至本地 `~/.m2`：
 
-```properties
-lambda.rsocket.client.io-workers.unary=2
-lambda.rsocket.client.io-workers.stream=2
-lambda.rsocket.client.io-workers.channel=2
-lambda.rsocket.client.connections-per-instance=2
-lambda.rsocket.client.adaptive-load-balancing=true
+```bash
+git clone git@github.com:MrWangGang/lambda-framework.git
+cd lambda-framework
+mvn clean install
 ```
 
-线程数是每种交互在一个 JVM 内的 I/O 工作线程数。连接数是每个下游实例、每种交互和编码各自的 TCP 连接数，支持 1 至 8 条。网关可用路由元数据 `rsocketConnectionsPerInstance`、`rsocketStreamConnectionsPerInstance` 或 `rsocketChannelConnectionsPerInstance` 覆盖连接数。单条连接支持多个并行请求或流；连接数不限制业务并发数。修改客户端配置后重启对应应用。
+### 3.2 业务服务引用示例
 
-按服务名发起的普通请求默认使用自适应负载均衡，在已连通实例中结合在途请求数和近期响应耗时选择实例，再轮询该实例的可用连接。慢实例仍保留少量流量用于发现恢复。连接在后台补建，已发送的请求不会自动重放。设置 `lambda.rsocket.client.adaptive-load-balancing=false` 可切回轮询。
+业务微服务父工程 `pom.xml` 直接导入框架 POM 或将各模块纳入 `<dependencyManagement>`，在 `-core` 模块按需引入功能模块即可：
 
-接入 Nacos 时，连接池和网关订阅实例变更。服务注册时公布路由清单的版本，网关首次看到该版本时从对应实例读取并校验完整清单。后续请求直接查本地快照，清单没有固定到期时间。滚动发布时，新增路径只发给声明该路径的实例。相同路径如果同时声明不同交互类型，网关返回 503，等到版本一致后恢复。没有路由版本的旧提供方按实例加载清单，升级提供方后才能识别地址未变的路由变更。未使用 Nacos 时，实例发现仍使用通用轮询。
+```xml
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>org.lambda.framework</groupId>
+            <artifactId>lambda-framework</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
+```
 
-`rb://` 和 `ws://` 路由默认开启预热。网关就绪后在后台加载下游的路由清单，按声明的交互类型准备连接。预热不调用业务接口。可用 `spring.cloud.gateway.server.webflux.routes[0].metadata.rsocketWarmup=false` 关闭对应路由的预热。
+典型微服务 `-core` 模块依赖组合：
 
+- **业务微服务（MongoDB + Redis + RSocket + RPC + Compliance）**：
+  `lambda-framework-rsocket`、`lambda-framework-rpc`、`lambda-framework-nacos`、`lambda-framework-repository`、`lambda-framework-compliance`、`lambda-framework-guid`
+- **Reactive 网关（Gateway + Security + Loadbalance + Nacos + Compliance）**：
+  `lambda-framework-gateway`、`lambda-framework-security`、`lambda-framework-loadbalance`、`lambda-framework-nacos`、`lambda-framework-compliance`
+- **按需增强组件**：
+  `lambda-framework-qdrant`（向量库）、`lambda-framework-lock`（Redisson/ZK 锁）、`lambda-framework-mq`（RabbitMQ/Kafka）、`lambda-framework-httpclient`（外部 HTTP 调用）
 
-所有 MongoDB 集合实体放在 `po` 包并以 `PO` 结尾，继承 `UnifyPO<ObjectId>`。Spring Data 审计自动维护 `createdAt`、`updatedAt` 和 `@Version`。手写更新和已有数据迁移见 [数据访问与分页](#数据访问与分页)。
+启动类固定使用标准 `@SpringBootApplication`，由 Spring Boot `AutoConfiguration.imports` 按连接配置自动装配与启动自检。
 
-Controller 负责绑定和转发。业务逻辑与校验放在 `*ServiceImpl`，Repository 负责数据读写。
+---
 
-## 获取当前用户
+## 4. 核心机制与高并发架构
 
-注入 `PrincipalFactory`，在当前响应式链路里调用 `currentUserId()` 或 `currentUser(LoginUser.class)`。网关校验 Redis 会话后自动透传身份。Java RPC 的身份元数据和业务请求都使用 Fory。 [会话与身份](#会话与身份)
+### 4.1 Reactive 网关与 RSocket 零拷贝透传
 
-## 异常码与微服务结构
+网关通过 `GatewayFilter` 与 `RsocketRequestFactory` 将公网 HTTP POST 与 WSS 请求桥接为内网 RSocket TCP 调用：
 
-框架各组件的错误枚举位于 [lambda-framework-enum](lambda-framework-enum/src/main/java/org/lambda/framework/enums)，例如 `GatewayExceptionEnum.UPSTREAM_UNAVAILABLE`。框架通过 `EventException` 抛出枚举，业务 Service 通过 `BusinessException` 抛出本服务的异常枚举。
+- **Zero-Copy Payload 封装**：网关直接消费请求体 `DataBuffer`（`DataBufferUtils.join` + `byte[]`/`NettyDataBuffer` 零额外序列化），按服务返回的 `GatewayInteraction` 协议模式选择 `request/response`、`request/stream` 或 `request/channel`。
+- **路径契约自动同步 (`GatewayRouteContract`)**：后端服务启动后自动汇总所有 `@MessageMapping("/api/...")` 的交互类型（`UNARY`、`STREAM`、`NDJSON`、`CHANNEL`），生成契约指纹版本号并注册到 Nacos 元数据；网关拦截器对比响应头版本号，路由变更时自动触发刷新，同时 `RsocketRouteWarmup` 后台定期核对预热，避免首包未知交互模式引发 404/503。
+- **有界帧与超时保护**：内置最大请求体（默认 `1MB`）、最大响应体（默认 `4MB`）、流式最大条数（默认 `512`）与单次/首包超时（默认 `15s`），时间轮驱动快速淘汰超时帧。
+- **JSON 严格校验开关**：`lambda.gateway.rsocket.strict-json-validation` 默认 `false`（直接透传字节以追求极限性能），按需开启时会对 JSON 入参做严格语法校验。
 
-每个 Java 应用在独立仓库中维护 `-core` 和 `-facade` 模块。业务微服务另设 `-enum` 维护自己的 `B` 码。源码中的应用配置集中在 `-core/src/main/resources/application.properties`。模块与部署目录规范见 [Lambda Java 后端技能](skills/lambda-java-backend/SKILL.md#项目名称包名和-maven-模块)。
+### 4.2 P2C 自适应负载均衡与多通道隔离
 
-`serviceCode` 固定八位。成功为 `00000000`。框架使用 `S` 加七位数字，业务使用 `B` 加七位数字。框架号段按组件分配。
+`RSocketLoadbalance` 与 `AdaptiveRSocketPool` 负责全部内网 RSocket 连接维护：
 
-| 框架号段 | 组件 |
-|---|---|
-| `S00` 至 `S04` | Common、网关、RSocket、RPC、负载均衡 |
-| `S05` 至 `S09` | Repository、Security、Compliance、MQ、分布式锁 |
-| `S10` 至 `S13` | HTTP 客户端、雪花 ID、Qdrant、Nacos |
+- **三通道隔离 (`RSocketClientResources`)**：
+  - `unary`（默认 `0` = 自动按 CPU 核心数分配）：专用于短平快 HTTP RPC / 网关 `Mono` 转发；
+  - `stream`（默认 `2`）：专用于服务端推送/NDJSON 流式拉取；
+  - `channel`（默认 `2`）：专用于长连接全双工聊天与流式对话，防止大流或长连接拖慢普通短请求响应。
+- **连接池与健康探活**：默认每个后端实例维持 `2` 条 TCP 长连接（`connections-per-instance=2`），启用 TCP Keepalive、20 秒心跳探测与 60 秒空闲断线重连（`max-inbound-payload-bytes` 默认 `16MB`）。
+- **单/多实例自适应路径**：
+  - **单实例**：`AdaptiveRSocketPool` 自动跳过 `nanoTime()` 与原子计数器 CAS 竞争，走零分配直连快速路径；
+  - **多实例**：开启 `adaptive-load-balancing=true` 时采用 P2C（Power of Two Choices）双节点抽样，依据 `(pending + 1) * ewmaLatency` 选择最优实例，并以 `1/256` 概率探测冷节点恢复状态；客户端主动取消（Cancel）仅归还 `pending` 计数而不计入错误延迟惩罚。
 
-## 开发规范与技能
+### 4.3 原生 RPC 与 Apache Fory 编解码
 
-<details>
-<summary>展开智能体开发技能与使用入口</summary>
+- **服务提供方**：在接口实现类标注 `@RSocketFacade` 并实现独立 `-facade` 接口。服务启动时依据 `spring.application.name`、接口短名与方法名自动生成点分路由（如 `tazhoo-service-user.userFacade.find`），严禁同服务路由冲突与方法重载。
+- **服务调用方**：在 `-core` 引入提供方的 `-facade` 依赖后，注入 `@RSocketRpc("目标服务名")` 字段或 Setter，`RsocketRpcProxyBeanFactoryPostProcessor` 自动生成无反射代理，且仅允许以 Apache Fory MIME Type 发送，服务端 `RpcDataMimeInterceptor` 会拦截非法 JSON/明文直连原生 RPC 路由的请求。
+- **契约类型自动注册 (`ForyRpcContracts`)**：启动阶段自动扫描所有 `@RSocketFacade` 与 `@RSocketRpc` 接口入参/出参的 `record`、`PO`、嵌套泛型、`ConverterEnum` 及分页类型注册至 Fory；如有非契约签名的多态子类，通过 `ForyRpcTypes` Bean 显式注册。
+- **二进制身份透传 (`IdentityStashEncoder/Decoder`)**：内网 `SecurityStash`（token + principal JSON）采用定长 2 字节长度头 + UTF-8 原生字节写入，无需二次 JSON/Fory 对象包装。
 
-- [Lambda Java 后端技能](skills/lambda-java-backend/SKILL.md) 定义信息收集、代码实现、检查和交付顺序。
+### 4.4 Redis RESP3 服务端追踪缓存与 JWT 会话
 
-</details>
+`PrincipalFactory` 同时支持标准状态令牌与 **RS256 非对称签发 JWT 会话 (`JwtSessionTokens`)**：
 
-## 组件配置
+- **JWT 与多端会话并发控制**：登录核验后调用 `PrincipalFactory.setPrincipal(ScopedLoginUser)` 签发 JWT，令牌通过 Redis Lua 脚本按 `<redisPrefix>:{<realm>:<userId>}:<terminal>` 原子更新，支持单端互踢与全端吊销。
+- **本地零穿透缓存 (`CLIENT TRACKING ON BCAST`)**：
+  - 连接初始化时，开启 Redis RESP3 客户端广播失效追踪（前缀覆写传统 auth-token 与 JWT session 键）；
+  - 节点本地使用 Guava Cache（最大 `32768` 条 / `30s` TTL）缓存已验证会话，并用 `invalidationEpoch` 分槽版本号杜绝并发写入脏缓存；
+  - 缓存内预存 `tokenBytes` 字节数组，鉴权命中时零编码分配直接 `MessageDigest.isEqual` 比对；
+  - 若启动阶段 Redis 尚未就绪，流量触发后按 `5s` 退避冷却自愈建连。
+- **`currentUserId()` 热路径优化**：内置 `principalUserIdCache` 缓存，避免每次调用 `currentUserId()` / `currentUserObjectId()` 都重复执行 Jackson 完整反序列化。
 
-Spring Boot 依据依赖与配置自动装配。业务应用使用标准启动类。默认对已经配置的组件执行并行连通检查，超时由 `lambda.startup.timeout` 控制。业务服务完成启动检查后再向 Nacos 登记实际 TCP 端口。
+---
 
-### 数据组件
+## 5. 组件使用手册与配置说明
 
-| 组件 | Maven 模块 | 激活属性 | 单机 `single` | 集群 `cluster` |
-|---|---|---|---|---|
-| MongoDB | `lambda-framework-repository` | `lambda.repository.mongo.uri` | 一个地址，单节点副本集 | 多个种子地址或 SRV，多节点副本集 |
-| Redis | `lambda-framework-repository` | `lambda.repository.redis.nodes` | 一个地址，可配置数据库序号 | 至少两个种子地址，数据库 0 |
-| Qdrant | `lambda-framework-qdrant` | `lambda.repository.qdrant.endpoints` | 一个 gRPC 地址 | 至少两个 gRPC 地址 |
+### 5.1 启动引导与 Nacos 配置
 
-~~~properties
+每个微服务仅保留唯一的本地配置文件 `<服务名>-core/src/main/resources/application.properties`，引导加载 Nacos 配置与服务发现：
+
+```properties
+spring.application.name=tazhoo-service-app
+spring.config.import=nacos:${spring.application.name}.properties?group=${NACOS_GROUP}&refreshEnabled=true
+spring.cloud.nacos.config.server-addr=${NACOS_SERVER_ADDR}
+spring.cloud.nacos.config.namespace=${NACOS_NAMESPACE}
+spring.cloud.nacos.discovery.server-addr=${NACOS_SERVER_ADDR}
+spring.cloud.nacos.discovery.namespace=${NACOS_NAMESPACE}
+spring.cloud.nacos.discovery.group=${NACOS_GROUP}
+spring.cloud.nacos.username=${NACOS_USERNAME}
+spring.cloud.nacos.password=${NACOS_PASSWORD}
+```
+
+> 服务业务配置写在 Nacos Data ID `<spring.application.name>.properties` 中，禁止在本地仓库明文保留生产密码、私钥、商户证书或第三方 API Secret。
+
+### 5.2 RSocket、网关与 WebSocket 双向通信
+
+**1）后端 Controller 暴露网关接口**
+
+网关对外暴露固定动作路径（统一 HTTP POST 或 `wss://`）：
+
+```java
+@Controller
+@RSocketFacade // 若同一业务同时供其他微服务 RPC 调用，可拆出独立 Facade 实现
+public class OrderGatewayController {
+    @Resource
+    private OrderServiceImpl orderService;
+
+    @MessageMapping("/api/order/summary")
+    public Mono<OrderFacade.Summary> summary(@RequestBody OrderFacade.SummaryRequest request) {
+        return orderService.summary(request); // request/response
+    }
+
+    @MessageMapping("/api/order/list")
+    public Flux<OrderFacade.Item> list(@RequestBody OrderFacade.ListRequest request) {
+        return orderService.list(request); // request/stream -> 聚合 JSON 数组
+    }
+
+    @MessageMapping("/api/order/watch")
+    public UiFlux<OrderFacade.Event> watch(@RequestBody OrderFacade.WatchRequest request) {
+        return UiFlux.of(orderService.watch(request)); // request/stream -> 单向 NDJSON
+    }
+
+    @MessageMapping("/api/order/exchange")
+    public BiFlux<OrderFacade.Reply> exchange(Flux<OrderFacade.Command> commands) {
+        return BiFlux.of(orderService.exchange(commands)); // request/channel -> WSS 双向文本帧 / NDJSON
+    }
+}
+```
+
+**2）网关 Nacos 路由与调优参数 (`tazhoo-gateway.properties`)**
+
+```properties
+spring.main.web-application-type=reactive
+server.port=8080
+
+# HTTP RSocket 转发路由（lb/rb 前缀按网关约定）
+spring.cloud.gateway.server.webflux.routes[0].id=tazhoo-service-app-http
+spring.cloud.gateway.server.webflux.routes[0].uri=rb://tazhoo-service-app
+spring.cloud.gateway.server.webflux.routes[0].predicates[0]=Path=/api/app/**
+
+# WebSocket 双向通道路由
+spring.cloud.gateway.server.webflux.routes[1].id=tazhoo-service-im-ws
+spring.cloud.gateway.server.webflux.routes[1].uri=ws://tazhoo-service-im
+spring.cloud.gateway.server.webflux.routes[1].predicates[0]=Path=/ws/api/im/**
+spring.cloud.gateway.server.webflux.routes[1].filters[0]=StripPrefix=1
+
+# 网关转发与流控阈值（以下为框架默认值，按需调整）
+lambda.gateway.rsocket.max-request-bytes=1048576
+lambda.gateway.rsocket.max-response-bytes=4194304
+lambda.gateway.rsocket.max-response-items=512
+lambda.gateway.rsocket.request-timeout=15s
+lambda.gateway.rsocket.strict-json-validation=false
+
+# RSocket 客户端连接池与通道线程（0 = 自动按 CPU 核数）
+lambda.rsocket.client.connections-per-instance=2
+lambda.rsocket.client.adaptive-load-balancing=true
+lambda.rsocket.client.max-inbound-payload-bytes=16777216
+lambda.rsocket.client.io-workers.unary=0
+lambda.rsocket.client.io-workers.stream=2
+lambda.rsocket.client.io-workers.channel=2
+```
+
+**3）业务服务端 RSocket TCP 配置**
+
+```properties
+spring.rsocket.server.transport=tcp
+spring.rsocket.server.port=7001
+lambda.rsocket.server.max-inbound-payload-bytes=16777216
+```
+
+> 业务微服务的 RSocket 必须使用 `tcp`，框架启动拦截器会主动校验并拒绝暴露 WebSocket 等非预期服务端传输层。
+
+### 5.3 安全认证与请求上下文 (`PrincipalFactory`)
+
+- **网关公开白名单 (`SecurityConfig`)**：无需登录的路径配置于 `lambda.security.permit-paths`，静态精确路径自动走 O(1) `HashSet` 查找，通配路径使用 `PathPattern` 匹配：
+
+```properties
+lambda.security.permit-paths[0]=/api/user/auth/login
+lambda.security.permit-paths[1]=/api/app/public/**
+```
+
+- **JWT 会话配置 (`lambda.security.jwt.*`)**：网关与签发服务开启 JWT 验签/签发；业务服务若仅需从 Reactor Context 读取身份，无需配置签名私钥：
+
+```properties
+lambda.security.jwt.enabled=true
+lambda.security.jwt.issuer=tazhoo
+lambda.security.jwt.app-audience=tazhoo-app
+lambda.security.jwt.admin-audience=tazhoo-admin
+lambda.security.jwt.redis-prefix=tazhoo:auth:session
+lambda.security.jwt.lifetime=15m
+lambda.security.jwt.app-lifetime=7d
+lambda.security.jwt.signing-key-id=k1
+lambda.security.jwt.private-key=file:/app/keys/jwt-private.pem
+lambda.security.jwt.public-keys.k1=file:/app/keys/jwt-public.pem
+```
+
+- **在 Service 中读取登录上下文**：
+
+```java
+@Resource
+private PrincipalFactory principalFactory;
+
+public Mono<UserFacade.Detail> me() {
+    return principalFactory.currentUserObjectId()
+            .flatMap(userId -> userRepository.findById(userId))
+            .switchIfEmpty(Mono.error(new BusinessException(UserExceptionEnum.USER_NOT_FOUND)));
+}
+```
+
+### 5.4 MongoDB 响应式仓储、审计、聚合与分页
+
+**配置项：**
+
+```properties
+lambda.repository.mongo.uri=mongodb://user:pass@127.0.0.1:27017/tazhoo?authSource=admin&replicaSet=rs0&retryWrites=true&w=majority
 lambda.repository.mongo.mode=single
-lambda.repository.mongo.uri=${MONGODB_URI}
+lambda.repository.mongo.create-indexes=true
+lambda.repository.mongo.write-null-fields=true
+```
+
+**实体基类与索引声明 (`UnifyPO<ObjectId>`)：**
+
+```java
+@Document(collection = "pets")
+@CompoundIndex(name = "idx_pet_owner_created", def = "{'ownerId': 1, 'createdAt': -1, '_id': -1}")
+public class PetPO extends UnifyPO<ObjectId> {
+    private ObjectId ownerId;
+    private String name;
+    private PetStatusEnum status; // 实现 ConverterEnum
+}
+```
+
+**审计原子更新 (`MongoAuditUpdates`) 与分页面包 (`ReactiveUnifyPagingRepositoryOperation`)：**
+
+- 使用 `MongoAuditUpdates.modified(update)` 自动维护 `$set updatedAt` 与 `$inc version`；
+- 幂等写入使用 `MongoAuditUpdates.insertOnly(update, createdAt, updatedAt)`；
+- 列表分页让 Repository 继承 `ReactiveMongoCrudRepositoryOperation<PetPO, ObjectId>`，在 Service 层封装页码（1-based）与页容校验后调用 `queryPage(...)` 返回 `Mono<Paged<T>>`。
+
+### 5.5 Redis 缓存与分布式事务操作
+
+```properties
 lambda.repository.redis.mode=single
-lambda.repository.redis.nodes=${REDIS_NODES}
-lambda.repository.redis.username=${REDIS_USERNAME}
-lambda.repository.redis.password=${REDIS_PASSWORD}
+lambda.repository.redis.nodes[0]=127.0.0.1:6379
+lambda.repository.redis.username=root
+lambda.repository.redis.password=***
+lambda.repository.redis.database=0
+lambda.repository.redis.timeout=3s
+lambda.repository.redis.tls=false
+```
+
+使用 `ReactiveRedisOperation`（已预配 String Key + Jackson JSON Value 序列化与启动 `PING` 健康检查）：
+
+```java
+@Resource
+private ReactiveRedisOperation redis;
+
+// 写入并带正向 TTL（秒），读取强类型反序列化
+return redis.set("tazhoo:sms:code:" + phone, code, 300L)
+        .then(redis.get("tazhoo:sms:code:" + phone, String.class));
+```
+
+> 集群模式配置 `lambda.repository.redis.mode=cluster`，并提供 2 个以上种子节点、`database=0`。
+
+### 5.6 Qdrant 向量检索
+
+```properties
 lambda.repository.qdrant.mode=single
-lambda.repository.qdrant.endpoints=${QDRANT_ENDPOINTS}
-lambda.repository.qdrant.api-key=${QDRANT_API_KEY}
-~~~
+lambda.repository.qdrant.endpoints[0]=http://127.0.0.1:6334
+lambda.repository.qdrant.api-key=***
+lambda.repository.qdrant.timeout=5s
+```
 
-Mongo URI 形如 `mongodb://host:27017/app?replicaSet=rs0`。带凭据时对 URI 中的用户名和密码做百分号编码。单机环境使用 `rs.initiate()` 初始化副本集。框架检测实际副本集成员数与声明模式，并自动注册响应式事务操作符。Mongo 自动创建实体声明的索引，可通过 `lambda.repository.mongo.create-indexes=false` 交给部署迁移管理。
+业务向量仓储继承 `ReactiveQdrantRepository<T>` 并通过注入 `ReactiveQdrantOperations` 调用非阻塞 gRPC 查询、写入与跨节点集合就绪检查（`awaitCollection`）。
 
-Redis 和 Qdrant 的地址列表可写为逗号分隔值。Redis 地址是 `host:port`，默认数据库 0、命令超时 3 秒，可启用 `lambda.repository.redis.tls=true`。Qdrant 地址是 `grpc://host:6334` 或 `grpcs://host:6334`，默认请求超时 5 秒。配置多个 Qdrant 端点时请求轮询，写入重试由业务幂等约束决定。应用的 `@Repository` 继承 `ReactiveQdrantRepository<T>`，构造时绑定集合与结果映射，调用受保护的 `ensureCollection`、`upsert` 和 `query`。集合分片和副本数由创建参数指定。
+### 5.7 分布式锁（Redisson / ZooKeeper）
 
-~~~java
-Mono<UpdateResult> saved = qdrant.upsert(upsertPoints);
-Flux<ScoredPoint> results = qdrant.query(queryPoints);
-~~~
+- **Redisson 响应式锁**（复用 `lambda.repository.redis.*` 连接）：
 
-### 消息、锁与 ID
+```java
+var lock = new ReactiveRedissonLock(redissonReactiveClient, "tazhoo:lock:order:" + orderId);
+return lock.withLock(Duration.ofSeconds(2), Duration.ofSeconds(10), () -> processOrder(orderId));
+```
 
-| 组件 | 模块 | 激活属性和模式 |
+- **ZooKeeper 分布式锁**：配置 `lambda.lock.zookeeper.connect-string=127.0.0.1:2181`、`lambda.lock.zookeeper.mode=single`、`lambda.lock.zookeeper.namespace=locks` 即可自动装配 `CuratorFramework`。
+
+### 5.8 消息队列（RabbitMQ 延迟消息 / Kafka）
+
+- **RabbitMQ**（`lambda.mq.rabbitmq.*`：`mode=single|cluster`、`addresses`、`username`、`password`、`virtual-host=/`、`tls=false`）：注入 `RabbitMQReactiveOperate`，支持 `declareDelay`、`sendDelay`（基于 `x-delayed-message` 插件与发布确认）及 `receiverManual`/`receiverAuto`。
+- **Kafka**（`lambda.mq.kafka.mode=single|cluster`、`bootstrap-servers`）：注入 `KafkaMQReactiveOperate`，统一经发布方 `-facade` 定义 `KafkaMQDeclare` 常量收发消息。
+
+### 5.9 第三方 HTTP 客户端 (`ReactiveHttpClient`)
+
+构造不可变客户端复用框架全局连接池（最大 256 连接，20s 空闲回收），内置响应大小上限（默认 `256KB`）、非 2xx 错误自动映射为 `EventException(UPSTREAM_RESPONSE_FAILED)` 与 `TimeoutException` 统一收敛；对接腾讯云 API 可直接使用同包下的 `Tc3Authorization` 生成签名头。
+
+### 5.10 无锁雪花 ID (`GuidFactory`) 与启动健康检查
+
+- **雪花 ID**：配置 `lambda.guid.mode=single|cluster` 与 `lambda.guid.worker`（或环境变量 `LAMBDA_INSTANCE_INDEX`，范围 `0..1023`），直接注入 `GuidFactory`，调用 `nextId()` / `nextLong()`。
+- **启动自检 (`ComponentCheck`)**：默认开启 `lambda.startup.check=true`（超时 `lambda.startup.timeout=8s`），应用启动时会验证已装配的 MongoDB、Redis、RabbitMQ、Kafka、Qdrant 等组件就绪状态，失败则快速暴露配置故障。
+
+---
+
+## 6. 内置开发规范（强制）
+
+任何基于 Lambda Framework 开发的微服务与网关应用，均须遵守以下工程与编码规范：
+
+### 6.1 仓库、包名与模块化规范
+
+1. **一应用一仓库**：仓库名与根工程目录统一为 `<项目名>-<微服务名>`（全小写连字符，如 `tazhoo-service-user`），与 `spring.application.name`、Nacos Data ID 基名一致。
+2. **标准四模块目录结构**（即使暂无跨服务 RPC，网关也保留同级 `-facade`）：
+   - `<app>-core`：启动类（位于 `com.<项目>.<服务>.core`）、`controller`、`service`、`repository`、`po`、内部 `contract` 及唯一的 `src/main/resources/application.properties`；打包为 Spring Boot 可执行 JAR，并在 `install` 阶段复制到 `../<app>-docker/app.jar`。
+   - `<app>-facade`：对外 `@RSocketFacade` 契约接口、请求/响应 `record`、MQ 主题常量；打包为普通 JAR。
+   - `<app>-enum`：仅存放本服务错误码枚举 `*ExceptionEnum`（包名用 `enums`）。
+   - `<app>-docker`：仅存放 `Dockerfile`、`compose.yaml`、`.dockerignore` 与构建产出的 `app.jar`（`.gitignore` 排除构建产物）。
+
+### 6.2 分层职责与依赖注入
+
+| 层级 | 强制职责 | 严禁行为 |
 |---|---|---|
-| RabbitMQ | `lambda-framework-mq` | `lambda.mq.rabbitmq.addresses`、`mode`、`username`、`password`、`virtual-host`、`tls` |
-| Kafka | `lambda-framework-mq` | `lambda.mq.kafka.bootstrap-servers` 和 `mode` |
-| ZooKeeper | `lambda-framework-lock` | `lambda.lock.zookeeper.connect-string`、`mode`、`namespace`、`timeout` |
-| Redisson | `lambda-framework-lock` | 随该模块及 Redis 连接配置启用，共用 Redis 两种部署模式 |
-| 雪花 ID | `lambda-framework-guid` | `lambda.guid.mode` 和 `lambda.guid.worker` |
+| **Controller / Facade 实现** | 声明 `@MessageMapping` 固定斜杠路径或实现 `*Facade` 接口，绑定参数后直接转发 Service | **禁止**编写校验、默认值、权限判断或业务分支 |
+| **Service (`*ServiceImpl`)** | `@Validated` 参数校验、默认值填充、权限归属验证、事务编排、业务规则与契约映射 | **禁止**编写构造函数注入（统一字段 `@Resource`，可选依赖用 `@Autowired`） |
+| **Repository** | 数据读写、索引查询、聚合与原子条件更新 | **禁止**参数校验、业务判断或抛出 HTTP 语义 |
 
-模式的默认值是 `single`。集群配置提供多个地址，使用 Docker 时客户端能访问集群公布的地址。RabbitMQ 延迟交换机需要在承载它的 RabbitMQ 节点启用延迟消息插件。Kafka 的 topic 分区、副本和消费者组按业务设置。ZooKeeper 连接串可包含 chroot，锁空间通过 `namespace` 分开。
+> 业务项目中 **禁止** 自建通用工具类（如 `*Util`）；可复用工具必须先沉淀至 `lambda-framework-common` 并通过单元测试。
 
-~~~java
-return locks.getLock("order:" + id)
-        .withLock(Duration.ofSeconds(2), () -> repository.update(id));
-~~~
+### 6.3 接口契约、record 命名与数值精度
 
-单实例雪花默认 worker 0。集群设置 `LAMBDA_INSTANCE_INDEX` 或 `lambda.guid.worker`，范围 0–1023，同一个 ID 命名空间中同时运行的实例分配不同编号。生产主机同步时钟。每个 worker 每毫秒最多生成 4096 个 ID，时间回拨或耗尽时应用收到异常。对外建议使用 `GuidFactory.nextId()` 返回字符串。
+- **独立契约 `record`**：HTTP/RPC 入参与出参声明为契约 `record`（放于所属 Facade 接口内部或本地 `contract` 包），按动作/用途命名（如 `FindRequest`、`CreateRequest`、`Detail`、`PageItem`），**不加 `DTO`/`VO`/`PO` 后缀**。
+- **HTTP 统一 POST 固定路径**：所有面向前端的业务 HTTP 统一通过网关 `rb://` + `POST` 访问，查询条件放在 JSON Body（空参使用 `EmptyRequest`），禁止把业务筛选条件暴露为任意变体 URL 路径或查询参数。
+- **金额禁止 `BigDecimal` 与浮点**：API 契约与数据库持久化中的金额及高精度标量统一使用规范字符串（明确币种与最小单位），业务层以带溢出保护的整型运算处理；库存计数、版本号、页码及日期保留技术原类型。
+- **枚举中文键**：持久化业务枚举必须实现 `ConverterEnum`，`getValue()`（前后端及 MongoDB 存储值）与 `getDescription()` 均使用简明中文，禁止存储无意义数字魔法值。
 
-### 网关、服务发现与认证
+### 6.4 MongoDB 建模、ObjectId、索引与原子并发
 
-- 网关依赖 `lambda-framework-gateway`，使用 reactive 模式。HTTP 路由用 `rb://服务名`，WSS 路由用 `ws://服务名`，按服务划分路径前缀。
-- 业务提供方配置 RSocket TCP 端口。Nacos 客户端配置各应用名、namespace 和 group，Data ID 为 `<项目名称>.properties`。集群环境使用可达的 Nacos 入口。
-- 网关加 `lambda-framework-security` 即启用 Redis 令牌认证。公开路径写在 `lambda.security.permit-paths`，其他路径由 Bearer 令牌认证。服务通过 `PrincipalFactory` 获取身份。RSocket TCP 端口仅允许网关和可信服务访问。
-- 应用 Service 直接以 `Impl` 结尾，用 `@Resource` 注入依赖。普通业务 Controller 写斜杠 `@MessageMapping`。Java Facade 依赖契约 JAR，提供方实现用 `@RSocketFacade`，调用方用 `@RSocketRpc("服务名")`，方法路由自动生成。
+1. **统一超类**：所有集合实体必须继承 `UnifyPO<ObjectId>`（提供 `_id`、`createdAt`、`updatedAt`、`@Version Long version`），时间统一用 `Instant`。
+2. **原生 `ObjectId` 全链路透传**：接口请求/响应 `record` 直接使用 `org.bson.types.ObjectId`（框架 Jackson 自动完成 24 位 hex 字符串互转），Fory RPC 直接传输 `ObjectId`；Repository 的 `@Query` 与 `@Aggregation` 参数 `?0` 严禁加引号（写 `{ _id: ?0 }` 而非 `'?0'`），跨集合关联字段 BSON 类型严格保持一致。
+3. **关系建模与索引**：多对多必须建立独立关系集合并配唯一复合索引；高频增长子项（聊天记录、流水）独立建表并以 `(时间, _id)` 游标翻页；所有高频筛选+排序组合必须在实体声明 `@CompoundIndex` 并核对执行计划。
+4. **并发与防超卖**：
+   - 编辑操作必须携带并校验客户端 `version`；
+   - 库存扣减必须在同一条 MongoDB `updateFirst`/`findAndModify` 中同时匹配 `_id + 可售状态 + available >= quantity` 并联动 `MongoAuditUpdates.modified(...)`；
+   - 余额条件更新匹配 `_id + currency + oldAmount + version` 并处于同一 `TransactionalOperator` 事务内。
 
-## 数据访问与分页
+### 6.5 空值处理与统一异常码契约
 
-### 1. 数据访问的三层
-
-| 层 | 入口 | 适用范围 |
-|---|---|---|
-| 公共模型 | `UnifyPO<ID>`、`Paging`、`Paged<T>` | 实体字段、分页请求和结果约定 |
-| Repository | MongoDB Repository、`ReactiveRedisOperation`、`ReactiveQdrantRepository<T>` | 数据库读写 |
-| Service | `DefaultBasicServiceImpl`、`DefaultTreeServiceImpl` | 通用业务操作组合 |
-
-需要复杂原子条件更新、多集合事务或精确控制查询计划时，可直接使用 `ReactiveMongoTemplate`；示例的商品和订单采用这一路径。不要为了套公共 CRUD 把库存更新拆成“先读、在 Java 计算、再无条件保存”。
-
-### 2. 公共实体
-
-所有 MongoDB 集合实体继承 `UnifyPO<ObjectId>`，统一持久化 `_id`、`createdAt`、`updatedAt` 和 `version`。Spring Data 审计负责实体写入，原子更新使用 `MongoAuditUpdates`。业务需要的租户、软删除等字段由实体单独定义。 [统一字段规范](skills/lambda-java-backend/SKILL.md#实体注解与主键)
-
-#### 旧集合迁移
-
-先在目标项目中确定要迁移的集合和历史时间来源，并暂停旧版本写入。下面以 MongoDB 的 `products` 集合为例。脚本保留已有值，只匹配至少一个公共字段缺失或为 null 的记录，可重跑。示例最后用 ObjectId 的生成时间补齐缺失的创建时间，已有业务审计时间时优先用业务数据。
-
-~~~javascript
-const needsAudit = {
-  $or: [{createdAt: null}, {updatedAt: null}, {version: null}]
-};
-
-db.products.updateMany(needsAudit, [
-  {$set: {createdAt: {$ifNull: ["$createdAt", "$createTime", {$toDate: "$_id"}]}}},
-  {$set: {
-    updatedAt: {$ifNull: ["$updatedAt", "$updateTime", "$createdAt"]},
-    version: {$ifNull: ["$version", NumberLong("0")]}
-  }}
-]);
-
-db.products.countDocuments(needsAudit);
-~~~
-
-对其他已确认的集合分别执行，计数为零后启动新版本。旧字段的移除按项目的数据保留策略单独安排。
-
-### 3. 通用 CRUD
-
-`IDefaultBasicService` 包含：
-
-| 方法组 | 行为入口 |
+| 场景 | 强制写法 |
 |---|---|
-| `insert / update / sync` | 单个和 Publisher 批量保存 |
-| `get / find / fuzzy / count` | ID、对象条件、模糊与数量查询 |
-| `delete / deleteBy` | 按 ID 或条件删除 |
-| `deleteAll` | 删除全部数据，业务接口不应直接暴露 |
-| `find(Paging, ...)` | 使用分页适配接口查询 |
+| 同步可空值、Map/枚举查找 | 返回 `Optional<T>`，取值用 `OptionalUtil.require` 或 `orElseThrow`；**严禁 `Optional.get()` 或吞异常兜底** |
+| 单条必需响应式结果 | `ReactiveValues.require(mono, () -> new BusinessException(...))` |
+| 缺失具有业务含义（查重/幂等） | `ReactiveValues.optional(mono)` 由 Service 显式分支 |
+| 集合/分页/流无数据 | 返回 `List.of()`、`Flux.empty()` 或空 `data: []`，`Mono<Void>` 成功直接完成 |
 
-服务需要返回匹配的 Repository，其约束包括 ReactiveCrudRepository、ReactiveSortingRepository、ReactiveQueryByExampleExecutor 和框架分页接口。
+**8 位 `serviceCode` 契约**：
+- `00000000`：成功；
+- `S` + 7 位数字：框架及系统级错误（`EventException`）；
+- `B` + 7 位数字：业务错误（`BusinessException`，定义在各服务 `-enum` 模块）；
+- 面向用户的 `serviceMessage` 须清晰可执行且不超过 **24 个 Unicode 码点**，异常堆栈与底层协议细节仅记录在服务端日志。
 
-分页查询由回调实现。Mongo 示例使用 ReactiveMongoTemplate。
+### 6.6 第三方接口与 Docker 交付禁令
 
-批量 Publisher 也需要限制输入规模和并发；`collectList()` 会把结果收集到内存，不能对无限流直接调用。
-
-### 4. Paging 和 Paged 的字段约定
-
-请求：
-
-~~~json
-{"page":1,"size":20}
-~~~
-
-设计约定是 page 从 1 开始，size 大于 0。框架目前没有统一的 size 上限，HTTP 边界应另设 1..100 等业务限制。
-
-结果设计：
-
-~~~json
-{"page":1,"size":20,"total":45,"pages":3,"records":[]}
-~~~
-
-示例 POST /api/product/page 使用此响应结构，POST /api/product/cursor 使用独立的复合游标结构。
-
-~~~java
-Paging paging = Paging.builder().page(1).size(20).build();
-Paging defaults = Paging.builder().build();
-~~~
-
-Builder 默认 page=1、size=10。内部 PageRequest 使用从 0 开始的页码。
-
-### 5. 分页适配入口
-
-| 入口 | 回调 | 主要结果 |
-|---|---|---|
-| `pageFrom` | `MappedPageQuery` | 回调返回 Spring Data Page |
-| 条件 `queryPage` | `CountedPageQuery` | count(condition) + query(condition, pageable) |
-| 无条件 `queryPage` | `CountedPageSource` | count() + query(pageable) |
-
-业务实现 Mongo 查询和 count 时，遵守以下规则。
-
-1. 两个查询使用完全相同的过滤条件。
-2. count 不携带 skip/limit。
-3. 排序稳定且有索引。
-4. 返回空结果时 total、pages、records 的约定一致。
-5. 多次查询之间并发写入可能使 count 与 records 不处于同一快照。
-
-框架在事务内顺序执行 count 和 records。在事务外可并行等待两个查询。
-
-### 6. 页码查询示例
-
-~~~bash
-curl -fsS -X POST http://127.0.0.1:8081/api/product/page \
-  -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"category":"book","page":"1","size":"20"}'
-~~~
-
-### 7. 示例已经实现的游标分页
-
-~~~bash
-curl -fsS -X POST http://127.0.0.1:8081/api/product/cursor \
-  -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d '{"category":"book","limit":"20"}'
-~~~
-
-空结果结构：
-
-~~~json
-{"items":[],"nextBeforeTime":null,"nextBeforeId":null}
-~~~
-
-非末页会返回两个 next 字段。下一页必须同时传入：
-
-~~~bash
-curl -fsS http://127.0.0.1:8081/api/product/cursor \
-  -H "Authorization: Bearer ${TOKEN}" \
-  --json '{"category":"book","limit":"20","beforeTime":"上次的 nextBeforeTime","beforeId":"上次的 nextBeforeId"}'
-~~~
-
-实际排序为 `createdAt DESC, _id DESC`，索引为 `category ASC, createdAt DESC, _id DESC`。查询取 limit+1 条判断是否有下一页；只返回前 limit 条。
-
-下一页条件是“时间更早，或时间相等而 ID 更小”。ID 用于稳定排序，不用来推断创建时间。分页期间插入或修改数据仍可能改变结果集合，游标不提供跨请求一致快照。
-
-### 8. 页码分页和游标分页如何选
-
-| 场景 | 建议 |
-|---|---|
-| 后台少量数据，需要跳到第 N 页 | 页码分页，限制深度并核验 count 成本 |
-| 信息流、收藏、评论、订单时间线 | 游标分页 |
-| 大规模导出 | 范围批次 / 流式处理，避免整表 collectList |
-| 搜索引擎深翻页 | 按引擎能力设计 search_after 等方案，单独验收 |
-| 必须看到严格一致的历史快照 | 专门的快照 / 导出任务 |
-
-大偏移 skip 随偏移增长需要扫描更多结果。范围条件配合稳定索引更适合连续翻页。[MongoDB skip 与范围查询说明](https://www.mongodb.com/docs/manual/reference/method/cursor.skip/)
-
-### 9. 查询与更新规范
-
-- 索引先覆盖等值过滤，再考虑排序和范围条件；用实际 explain 验证。
-- 高频接口限制返回字段，避免每次返回大文档。
-- 关系数据增长不设上限时拆集合，避免不断追加收藏 ID。
-- 库存使用 stock >= quantity 的条件更新，再原子递减。
-- 更新带 version 条件；冲突交给业务重试 / 提示，不做静默覆盖。
-- count 和跨集合聚合需要独立观察成本。
-- 缓存和 Qdrant 是派生数据；MongoDB 是示例业务事实来源。
-- 事务范围内不进行远程副作用；可靠通知采用待实现的 Outbox 流程。
-
-完整关系设计见[示例数据建模手册](https://github.com/MrWangGang/lambda-framework-example#mongodb-建模)。
-
-## 会话与身份
-
-网关引入 `lambda-framework-security`，应用引入 `lambda-framework-compliance`。网关和处理登录的服务使用同一个 Redis 会话库。用 `lambda.security.permit-paths` 声明登录等公开路径，其他请求由网关从 `Authorization: Bearer <token>` 获取令牌并校验会话。
-
-### 业务实现
-
-用户实体可继承 `UnifyPO<ObjectId>`。登录快照使用实现 `SecurityLoginUser<ID>` 的独立类型，保留 ID 和业务需要的字段。实际应用在核验密码或其他凭据后调用 `principalFactory.setPrincipal(loginUser)`。返回的令牌通过专门的响应 record 交给客户端。Redis 按用户维护一个有效会话，重新登录替换旧令牌。
-
-在 Controller、Service 或 Facade 注入 `PrincipalFactory`。在当前请求的 Reactor 链路内取身份。未登录时返回空 Mono，受保护的业务将空值转成自己的未认证错误。
-
-~~~java
-return principals.currentUserId()
-        .switchIfEmpty(Mono.error(new EventException(SecurityExceptionEnum.AUTHENTICATION_REQUIRED)))
-        .flatMapMany(orderRepository::findByCustomerId);
-~~~
-
-| 方法 | 用途 |
-|---|---|
-| `currentUserId()` | 从当前会话令牌取用户 ID，直接读取 Reactor Context |
-| `currentUserObjectId()` | 取得 BSON ObjectId，直接传给 MongoDB Repository |
-| `currentUser(LoginUser.class)` | 取完整用户快照，按指定类型解码 |
-| `currentToken()` | 获取当前会话令牌，供会话维护使用 |
-| `updatePrincipal(user)` | 更新当前令牌对应的快照 |
-| `revisePrincipal(user)` | 从受保护的管理入口更新指定用户当前会话的快照 |
-| `deletePrincipal()` | 注销当前令牌 |
-
-身份读取无需重新访问 Redis。只需要 ID 时使用 `currentUserId()`。MongoDB Repository 用 `ObjectId` 时，直接使用 `currentUserObjectId()`。断开的新订阅、独立定时任务和消息消费者需要自己的身份来源。业务仍负责校验租户、资源归属和操作权限。
-
-### 透传与部署
-
-客户端请求到网关后，网关校验 Redis 会话。框架把身份放入独立的 RSocket 元数据，下游放回 Reactor Context。网关到服务用 JSON，Java RPC 的身份元数据与业务数据都用 Fory。双向流只从首帧恢复该流的身份。
-
-内部 TCP 使用受信任网络模型。把业务 RSocket 端口绑定到回环或专用内网地址，防火墙和网络策略只放行网关与可信服务。获准直接访问端口的进程有权提供身份元数据。公开 HTTP 与 WSS 由边缘入口统一开放。
-
-## GitHub SSH
-
-使用本机已有的 GitHub SSH 密钥。通过 `ssh -T git@github.com` 核对登录账号，通过 `git remote -v` 核对仓库地址。
-
-~~~bash
-git remote set-url --push origin git@github.com:MrWangGang/lambda-framework.git
-git ls-remote origin refs/heads/main
-git push origin main
-~~~
-
-示例仓库的 SSH 地址为 `git@github.com:MrWangGang/lambda-framework-example.git`。将公钥添加到 GitHub，私钥保留在本机。先构建并安装框架，再构建示例。若 Maven 报 `release version 27 not supported`，核对 `mvn -version` 中的 JDK。运行时类冲突用 `mvn dependency:tree` 定位。
+1. **第三方 HTTP 强约束**：所有服务调用外部 HTTP/HTTPS 必须通过 `lambda-framework-httpclient`（基于 `ReactiveHttpClient`）封装成非阻塞 `Mono`/`Flux`；严禁在业务代码中使用 `block()`、自行 `subscribe()` 或另起 `RestTemplate`/`OkHttp` 客户端。
+2. **严禁本机运行业务容器与服务**：允许在开发机上执行 `mvn clean install` 编译、单测与产物检查，**严禁在开发者本机启动任何 Java 业务微服务、网关进程或业务 Docker 容器**；联调与验收必须打包唯一可执行 `app.jar` 上传目标服务器的独立部署目录 `/root/deploy/<应用名>/` 通过 Docker 运行。
+3. **仓库清洁**：私有 IP、账号密码、SSH 密钥、支付证书与测试临时配置只存于本机私有文档或服务器环境变量与 Nacos，严禁提交进任何 Git 仓库。

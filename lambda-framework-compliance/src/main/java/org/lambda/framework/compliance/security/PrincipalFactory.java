@@ -36,7 +36,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.regex.Pattern;
 
@@ -49,6 +51,7 @@ import static org.lambda.framework.enums.ComplianceExceptionEnum.SESSION_INVALID
 public final class PrincipalFactory implements SmartInitializingSingleton, DisposableBean {
     private static final Logger log = LoggerFactory.getLogger(PrincipalFactory.class);
     private static final int EPOCH_SLOTS = 256;
+    private static final long TRACKING_RETRY_NANOS = TimeUnit.SECONDS.toNanos(5);
     private static final Pattern TOKEN_FORMAT = Pattern.compile(LAMBDA_SECURITY_AUTH_TOKEN_REGEX);
     private static final Pattern USER_ID_FORMAT = Pattern.compile("[a-zA-Z0-9]+");
     private static final RedisScript<Long> CHANGE_SESSION = RedisScript.of("""
@@ -75,8 +78,13 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
             .maximumSize(32768)
             .expireAfterWrite(Duration.ofSeconds(30))
             .build();
+    private final Cache<String, String> principalUserIdCache = CacheBuilder.newBuilder()
+            .maximumSize(32768)
+            .expireAfterWrite(Duration.ofMinutes(5))
+            .build();
     private final AtomicLongArray invalidationEpoch = new AtomicLongArray(EPOCH_SLOTS);
-    private final AtomicBoolean trackingInitAttempted = new AtomicBoolean(false);
+    private final AtomicBoolean trackingConnecting = new AtomicBoolean(false);
+    private final AtomicLong nextTrackingAttemptNanos = new AtomicLong(0L);
     private volatile StatefulRedisConnection<String, String> trackingConnection;
     private volatile boolean trackingActive;
     private volatile boolean disposed;
@@ -88,7 +96,7 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
 
     @Override
     public void afterSingletonsInstantiated() {
-        if (!disposed && trackingInitAttempted.compareAndSet(false, true)) {
+        if (tryAcquireTrackingSlot()) {
             startTrackingSafely();
         }
     }
@@ -107,6 +115,7 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
             }
         }
         sessionCache.invalidateAll();
+        principalUserIdCache.invalidateAll();
     }
 
     public Mono<String> currentUserId() {
@@ -114,15 +123,31 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
             String token = identity.getAuthToken();
             if (token == null) {
                 String principal = identity.getPrincipal();
-                return principal == null ? null : readScopedPrincipal(principal).getId();
+                return principal == null ? null : extractUserId(principal);
             }
             if (!token.startsWith(LAMBDA_SECURITY_AUTH_TOKEN_KEY)) {
-                return readScopedPrincipal(identity.getPrincipal()).getId();
+                String principal = identity.getPrincipal();
+                if (principal == null) {
+                    throw new EventException(CONTEXT_INVALID, "用户身份无法读取");
+                }
+                return extractUserId(principal);
             }
             int start = LAMBDA_SECURITY_AUTH_TOKEN_KEY.length();
             int end = token.lastIndexOf('.');
             return end > start ? token.substring(start, end) : null;
         });
+    }
+
+    private String extractUserId(String principal) {
+        String cached = principalUserIdCache.getIfPresent(principal);
+        if (cached != null) {
+            return cached;
+        }
+        String id = readScopedPrincipal(principal).getId();
+        if (id != null) {
+            principalUserIdCache.put(principal, id);
+        }
+        return id;
     }
 
     /** Current user identifier for repositories with BSON ObjectId keys. */
@@ -270,7 +295,7 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
         if (trackingActive) {
             CachedSession cached = sessionCache.getIfPresent(token.key());
             if (cached != null) {
-                if (MessageDigest.isEqual(cached.token().getBytes(StandardCharsets.UTF_8),
+                if (MessageDigest.isEqual(cached.tokenBytes(),
                         token.suffix().getBytes(StandardCharsets.UTF_8))) {
                     return Mono.just(cached.principal());
                 }
@@ -284,10 +309,11 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
                 if (value instanceof Map<?, ?> fields
                         && fields.get("token") instanceof String expected
                         && fields.get("principal") instanceof String principal) {
+                    byte[] expectedBytes = expected.getBytes(StandardCharsets.UTF_8);
                     if (trackingActive && invalidationEpoch.get(slot) == epochBefore) {
-                        sessionCache.put(token.key(), new CachedSession(expected, principal));
+                        sessionCache.put(token.key(), new CachedSession(expectedBytes, principal));
                     }
-                    if (MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8),
+                    if (MessageDigest.isEqual(expectedBytes,
                             token.suffix().getBytes(StandardCharsets.UTF_8))) {
                         sink.next(principal);
                     } else {
@@ -318,17 +344,32 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
                 .then();
     }
 
-    private void ensureTrackingStarted() {
-        if (trackingActive || disposed || trackingInitAttempted.get()) {
-            return;
+    private boolean tryAcquireTrackingSlot() {
+        if (trackingActive || disposed) {
+            return false;
         }
-        if (!trackingInitAttempted.compareAndSet(false, true)) {
+        var existing = trackingConnection;
+        if (existing != null && existing.isOpen()) {
+            return false;
+        }
+        long now = System.nanoTime();
+        long nextAllowed = nextTrackingAttemptNanos.get();
+        if (now < nextAllowed || !trackingConnecting.compareAndSet(false, true)) {
+            return false;
+        }
+        nextTrackingAttemptNanos.set(now + TRACKING_RETRY_NANOS);
+        return true;
+    }
+
+    private void ensureTrackingStarted() {
+        if (!tryAcquireTrackingSlot()) {
             return;
         }
         var operation = redis.getIfAvailable();
         if (operation == null
                 || !(operation.getConnectionFactory() instanceof LettuceConnectionFactory lettuce)
                 || !(lettuce.getNativeClient() instanceof RedisClient)) {
+            trackingConnecting.set(false);
             return;
         }
         Mono.fromRunnable(this::startTrackingSafely)
@@ -373,7 +414,10 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
             enableTracking(conn, trackingArgs);
         } catch (Exception ex) {
             trackingActive = false;
+            trackingConnection = null;
             log.debug("Failed to initialize Redis session tracking", ex);
+        } finally {
+            trackingConnecting.set(false);
         }
     }
 
@@ -472,7 +516,7 @@ public final class PrincipalFactory implements SmartInitializingSingleton, Dispo
 
     public record IssuedPrincipal(String token, Instant expiresAt) {}
 
-    private record CachedSession(String token, String principal) {}
+    private record CachedSession(byte[] tokenBytes, String principal) {}
     private record Session(String principal, String token) {}
     private record TokenParts(String key, String suffix) {}
 }

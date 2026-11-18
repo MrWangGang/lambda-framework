@@ -28,6 +28,7 @@ import org.springframework.http.codec.json.Jackson2JsonDecoder;
 import org.springframework.messaging.rsocket.RSocketStrategies;
 import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
+import org.springframework.web.util.pattern.PathPatternRouteMatcher;
 import reactor.core.publisher.Flux;
 
 import java.nio.charset.StandardCharsets;
@@ -61,6 +62,7 @@ public class RSocketStrategiesConfig implements BeanFactoryAware {
     public RSocketStrategies rSocketStrategies() {
         var mapper = JsonUtil.mapper();
         var builder = RSocketStrategies.builder()
+                .routeMatcher(new PathPatternRouteMatcher())
                 .decoder(new Jackson2JsonDecoder(mapper))
                 .encoder(new RSocketJsonEncoder(mapper))
                 // Spring's default StringEncoder sends raw text, even on a JSON RSocket connection.
